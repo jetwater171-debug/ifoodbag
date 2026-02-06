@@ -1569,17 +1569,17 @@ function resetFlow() {
 function resolveResumeUrl() {
     const stage = getStage();
 
-    if (stage === 'quiz') return 'quiz.html';
-    if (stage === 'personal') return 'dados.html';
-    if (stage === 'cep') return 'endereco.html';
-    if (stage === 'processing') return 'processando.html';
-    if (stage === 'success') return 'sucesso.html';
-    if (stage === 'checkout') return 'checkout.html';
-    if (stage === 'orderbump') return 'orderbump.html';
-    if (stage === 'pix') return 'pix.html';
-    if (stage === 'complete') return 'checkout.html';
-    if (loadPersonal() && !loadAddress()) return 'endereco.html';
-    if (loadPersonal() && loadAddress()) return 'checkout.html';
+    if (stage === 'quiz') return 'quiz';
+    if (stage === 'personal') return 'dados';
+    if (stage === 'cep') return 'endereco';
+    if (stage === 'processing') return 'processando';
+    if (stage === 'success') return 'sucesso';
+    if (stage === 'checkout') return 'checkout';
+    if (stage === 'orderbump') return 'orderbump';
+    if (stage === 'pix') return 'pix';
+    if (stage === 'complete') return 'checkout';
+    if (loadPersonal() && !loadAddress()) return 'endereco';
+    if (loadPersonal() && loadAddress()) return 'checkout';
 
     return null;
 }
@@ -1612,6 +1612,11 @@ function requireAddress() {
 }
 
 function redirect(url) {
-    window.location.href = url;
+    const clean = (url || '').replace(/\.html(?=$|\?)/, '');
+    if (clean === 'index') {
+        window.location.href = '/';
+        return;
+    }
+    window.location.href = clean || url;
 }
 
