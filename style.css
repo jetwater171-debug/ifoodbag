@@ -661,8 +661,46 @@ p {
 .processing-status {
     display: grid;
     place-items: center;
-    min-height: 56px;
+    min-height: 74px;
     margin: 10px 0 6px;
+}
+
+.processing-progress {
+    width: min(300px, 86vw);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+}
+
+.processing-progress-segments {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.processing-segment {
+    height: 8px;
+    border-radius: 999px;
+    overflow: hidden;
+    background: #efefef;
+}
+
+.processing-segment i {
+    display: block;
+    width: 0%;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #ea1d2c 0%, #ff4f5b 100%);
+    transition: width 140ms linear;
+}
+
+.processing-progress-label {
+    font-size: 0.78rem;
+    color: #8a8a8a;
+    font-weight: 600;
+    letter-spacing: 0.02em;
 }
 
 .processing-title {

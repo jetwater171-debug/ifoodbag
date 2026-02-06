@@ -406,9 +406,10 @@ function initProcessing() {
 
     const textEl = document.getElementById('processing-text');
     const videoEl = document.getElementById('vsl-video');
-    const spinnerEl = document.getElementById('processing-spinner');
+    const progressEl = document.getElementById('processing-progress');
+    const progressLabelEl = document.getElementById('processing-progress-label');
+    const progressSegmentEls = Array.from(document.querySelectorAll('.processing-segment i'));
     const verifiedEl = document.getElementById('processing-verified');
-    const frameEl = document.getElementById('vsl-frame');
     const loadingTexts = [
         'Verificando estoque da bag na sua região...',
         'Validando seus dados com segurança...',
@@ -418,8 +419,43 @@ function initProcessing() {
 
     let verificationTimer = null;
     let finishTimer = null;
+    let progressTimer = null;
     let timelineStarted = false;
     let finishTriggered = false;
+
+    const setProgress = (ratio) => {
+        const clamped = Math.max(0, Math.min(1, Number(ratio) || 0));
+        const total = progressSegmentEls.length || 1;
+
+        progressSegmentEls.forEach((segment, index) => {
+            const start = index / total;
+            const end = (index + 1) / total;
+            let pct = 0;
+            if (clamped >= end) pct = 1;
+            else if (clamped > start) pct = (clamped - start) / (end - start);
+            segment.style.width = `${Math.round(pct * 100)}%`;
+        });
+
+        if (progressLabelEl) {
+            progressLabelEl.textContent = `${Math.round(clamped * 100)}%`;
+        }
+    };
+
+    const startProgressTimer = (durationMs) => {
+        if (progressTimer) clearInterval(progressTimer);
+        const startedAt = Date.now();
+        progressTimer = setInterval(() => {
+            const elapsed = Date.now() - startedAt;
+            setProgress(Math.min(1, elapsed / durationMs));
+        }, 140);
+    };
+
+    const clearProgressTimer = () => {
+        if (progressTimer) {
+            clearInterval(progressTimer);
+            progressTimer = null;
+        }
+    };
 
     const updateText = (txt) => {
         if (!textEl) return;
@@ -430,7 +466,7 @@ function initProcessing() {
         }, 200);
     };
 
-    const startTimeline = (durationMs) => {
+    const startTimeline = (durationMs, autoFinish = true) => {
         if (timelineStarted) return;
         timelineStarted = true;
 
@@ -439,7 +475,10 @@ function initProcessing() {
             setTimeout(() => updateText(txt), index * stepInterval);
         });
 
-        verificationTimer = setTimeout(() => finishVerification(), durationMs);
+        if (autoFinish) {
+            startProgressTimer(durationMs);
+            verificationTimer = setTimeout(() => finishVerification(), durationMs);
+        }
     };
 
     const finishVerification = () => {
@@ -449,9 +488,11 @@ function initProcessing() {
         if (verificationTimer) {
             clearTimeout(verificationTimer);
         }
+        clearProgressTimer();
+        setProgress(1);
 
         finishTimer = setTimeout(() => {
-            if (spinnerEl) spinnerEl.classList.add('hidden');
+            if (progressEl) progressEl.classList.add('hidden');
             if (verifiedEl) {
                 verifiedEl.classList.remove('hidden');
                 verifiedEl.setAttribute('aria-hidden', 'false');
@@ -466,17 +507,27 @@ function initProcessing() {
     };
 
     if (videoEl) {
+        const syncVideoProgress = () => {
+            if (!Number.isFinite(videoEl.duration) || videoEl.duration <= 0) return;
+            setProgress(videoEl.currentTime / videoEl.duration);
+        };
+
         const safeStart = () => {
             const durationMs = Number.isFinite(videoEl.duration) && videoEl.duration > 0
                 ? videoEl.duration * 1000
                 : 30000;
-            startTimeline(durationMs);
+            startTimeline(durationMs, false);
+            syncVideoProgress();
         };
 
         videoEl.addEventListener('loadedmetadata', safeStart);
+        videoEl.addEventListener('timeupdate', syncVideoProgress);
         if (videoEl.readyState >= 1) safeStart();
 
-        videoEl.addEventListener('ended', finishVerification);
+        videoEl.addEventListener('ended', () => {
+            setProgress(1);
+            finishVerification();
+        });
 
         videoEl.muted = false;
         videoEl.volume = 1;
@@ -503,7 +554,7 @@ function initProcessing() {
 
         tryPlay();
     } else {
-        startTimeline(30000);
+        startTimeline(30000, true);
     }
 }
 

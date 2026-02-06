@@ -30,7 +30,17 @@
     <main class="container">
         <section class="step" aria-hidden="false">
             <div class="processing-status">
-                <div id="processing-spinner" class="spinner" aria-hidden="true"></div>
+                <div id="processing-progress" class="processing-progress" aria-hidden="true">
+                    <div class="processing-progress-segments" aria-hidden="true">
+                        <span class="processing-segment"><i></i></span>
+                        <span class="processing-segment"><i></i></span>
+                        <span class="processing-segment"><i></i></span>
+                        <span class="processing-segment"><i></i></span>
+                        <span class="processing-segment"><i></i></span>
+                        <span class="processing-segment"><i></i></span>
+                    </div>
+                    <span id="processing-progress-label" class="processing-progress-label">0%</span>
+                </div>
                 <div id="processing-verified" class="verified-icon hidden" aria-hidden="true">
                     <svg viewBox="0 0 24 24" role="img" focusable="false" aria-hidden="true">
                         <path
