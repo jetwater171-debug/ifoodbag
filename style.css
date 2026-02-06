@@ -177,17 +177,18 @@ p {
 
 /* Hero Image */
 .hero-image {
-    width: 100%;
+    width: 100vw;
     display: flex;
     justify-content: center;
-    margin-bottom: 0;
+    margin: 0 calc(50% - 50vw) 0;
 }
 
 .hero-image img {
-    max-height: clamp(180px, 48vw, 310px);
+    width: 100%;
+    max-width: 100%;
+    height: auto;
     object-fit: contain;
-    object-position: center top;
-    transform: translateY(-8px);
+    object-position: center;
 }
 
 /* Success Image */
