@@ -405,10 +405,10 @@ function initProcessing() {
     const verifiedEl = document.getElementById('processing-verified');
     const frameEl = document.getElementById('vsl-frame');
     const loadingTexts = [
-        'Verificando estoque regional...',
-        'Validando dados da solicitação...',
-        'Confirmando prioridade na fila...',
-        'Finalizando sua solicitação...'
+        'Verificando estoque da bag na sua região...',
+        'Validando seus dados com segurança...',
+        'Confirmando sua prioridade na fila...',
+        'Liberando o acesso ao resgate...'
     ];
 
     let verificationTimer = null;
