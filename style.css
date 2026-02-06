@@ -369,9 +369,11 @@ p {
     box-shadow: 0 1px 0 rgba(0, 0, 0, 0.02);
 }
 
-.option-btn:hover {
-    border-color: var(--primary-color);
-    background-color: var(--primary-soft);
+@media (hover: hover) and (pointer: fine) {
+    .option-btn:hover {
+        border-color: var(--primary-color);
+        background-color: var(--primary-soft);
+    }
 }
 
 .option-btn.selected {

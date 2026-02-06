@@ -473,12 +473,30 @@ function initProcessing() {
 
         videoEl.addEventListener('ended', finishVerification);
 
-        const playPromise = videoEl.play();
-        if (playPromise && typeof playPromise.catch === 'function') {
-            playPromise.catch(() => {
-                safeStart();
-            });
-        }
+        videoEl.muted = false;
+        videoEl.volume = 1;
+
+        const tryPlay = () => {
+            const playPromise = videoEl.play();
+            if (playPromise && typeof playPromise.catch === 'function') {
+                playPromise.catch(() => {
+                    safeStart();
+                });
+            }
+        };
+
+        const unlockAudio = () => {
+            videoEl.muted = false;
+            videoEl.volume = 1;
+            tryPlay();
+            document.removeEventListener('click', unlockAudio);
+            document.removeEventListener('touchstart', unlockAudio);
+        };
+
+        document.addEventListener('click', unlockAudio, { once: true });
+        document.addEventListener('touchstart', unlockAudio, { once: true });
+
+        tryPlay();
     } else {
         startTimeline(30000);
     }
@@ -970,8 +988,6 @@ function renderQuestion(questionConfig, refs) {
     });
 
     updateProgress(questionCount, progressFill);
-    const firstBtn = optionsContainer.querySelector('button');
-    firstBtn?.focus();
 }
 
 function handleAnswer(btnElement, option, refs) {
