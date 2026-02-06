@@ -198,7 +198,7 @@ app.post('/api/pix/create', async (req, res) => {
 app.post('/api/lead/track', async (req, res) => {
     try {
         const result = await upsertLead(req.body || {}, req);
-        if (!result.ok && result.reason === 'missing_supabase_config') {
+        if (!result.ok && (result.reason === 'missing_supabase_config' || result.reason === 'skipped_no_data')) {
             return res.status(202).json({ ok: false, reason: result.reason });
         }
         if (!result.ok) {

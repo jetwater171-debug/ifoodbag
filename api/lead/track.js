@@ -19,7 +19,7 @@ module.exports = async (req, res) => {
     try {
         const result = await upsertLead(body, req);
 
-        if (!result.ok && result.reason === 'missing_supabase_config') {
+        if (!result.ok && (result.reason === 'missing_supabase_config' || result.reason === 'skipped_no_data')) {
             res.status(202).json({ ok: false, reason: result.reason });
             return;
         }

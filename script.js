@@ -159,10 +159,8 @@ function cacheCommonDom() {
 
 function initHome() {
     const btnStart = document.getElementById('btn-start');
-    trackLead('landing_view', { stage: getStage() || 'home' });
 
     btnStart?.addEventListener('click', () => {
-        trackLead('quiz_start_click', { stage: 'home' });
         resetFlow();
         setStage('quiz');
         redirect('quiz.html');
@@ -181,7 +179,6 @@ function initQuiz() {
     const progressFill = document.getElementById('progress-fill');
 
     if (!questionText || !optionsContainer || !questionCount || !progressFill) return;
-    trackLead('quiz_view', { stage: 'quiz' });
 
     state.currentQuestionKey = 'start';
     state.currentStepIndex = 1;
@@ -198,7 +195,6 @@ function initQuiz() {
 
 function initPersonal() {
     setStage('personal');
-    trackLead('personal_view', { stage: 'personal' });
     const returnTo = getReturnTarget();
 
     const form = document.getElementById('personal-form');
@@ -287,7 +283,6 @@ function initPersonal() {
 function initCep() {
     if (!requirePersonal()) return;
     setStage('cep');
-    trackLead('cep_view', { stage: 'cep' });
     const returnTo = getReturnTarget();
 
     const cepInput = document.getElementById('cep-input');
@@ -408,7 +403,6 @@ function initProcessing() {
     if (!requireAddress()) return;
 
     setStage('processing');
-    trackLead('processing_view', { stage: 'processing' });
 
     const textEl = document.getElementById('processing-text');
     const videoEl = document.getElementById('vsl-video');
@@ -518,7 +512,6 @@ function initSuccess() {
     if (!requireAddress()) return;
 
     setStage('success');
-    trackLead('success_view', { stage: 'success' });
 
     const personal = loadPersonal();
     const leadName = document.getElementById('lead-name');
@@ -543,7 +536,6 @@ function initCheckout() {
     if (!requireAddress()) return;
 
     setStage('checkout');
-    trackLead('checkout_view', { stage: 'checkout' });
     const personal = loadPersonal();
     let address = loadAddress();
     let shipping = loadShipping();
@@ -979,7 +971,6 @@ function initOrderBump() {
     }
 
     setStage('orderbump');
-    trackLead('orderbump_view', { stage: 'orderbump' });
     const bumpPrice = 9.9;
 
     const btnAccept = document.getElementById('btn-bump-accept');
@@ -1021,7 +1012,6 @@ function initOrderBump() {
 }
 
 function initPix() {
-    trackLead('pix_view', { stage: 'pix' });
     const pix = loadPix();
     const pixQr = document.getElementById('pix-qr');
     const pixCode = document.getElementById('pix-code');
@@ -1153,7 +1143,6 @@ function handleAnswer(btnElement, option, refs) {
     setTimeout(() => {
         if (option.next === 'personal_step') {
             saveQuizComplete();
-            trackLead('quiz_completed', { stage: 'quiz' });
             setStage('personal');
             redirect('dados.html');
             return;
@@ -1619,7 +1608,6 @@ function resetFlow() {
     localStorage.removeItem(STORAGE_KEYS.addressExtra);
     localStorage.removeItem(STORAGE_KEYS.pix);
     localStorage.removeItem(STORAGE_KEYS.bump);
-    localStorage.removeItem(STORAGE_KEYS.leadSession);
     sessionStorage.removeItem(STORAGE_KEYS.stock);
     sessionStorage.removeItem(STORAGE_KEYS.returnTo);
 }
