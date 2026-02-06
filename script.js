@@ -104,7 +104,8 @@ const STORAGE_KEYS = {
     returnTo: 'ifoodbag.returnTo',
     shipping: 'ifoodbag.shipping',
     addressExtra: 'ifoodbag.addressExtra',
-    pix: 'ifoodbag.pix'
+    pix: 'ifoodbag.pix',
+    bump: 'ifoodbag.bump'
 };
 
 const state = {
@@ -146,6 +147,9 @@ document.addEventListener('DOMContentLoaded', () => {
             break;
         case 'checkout':
             initCheckout();
+            break;
+        case 'orderbump':
+            initOrderBump();
             break;
         case 'pix':
             initPix();
@@ -951,45 +955,56 @@ function initCheckout() {
             showToast('Selecione um frete para continuar.', 'error');
             return;
         }
+        setStage('orderbump');
+        redirect('orderbump.html');
+    });
+}
 
-        btnFinish.disabled = true;
-        const originalText = btnFinish.textContent;
-        btnFinish.textContent = 'Gerando PIX...';
+function initOrderBump() {
+    if (!requirePersonal()) return;
+    if (!requireAddress()) return;
 
-        const payload = {
-            amount: shipping.price,
-            shipping,
-            personal: loadPersonal(),
-            address: loadAddress(),
-            extra: loadAddressExtra()
-        };
+    const shipping = loadShipping();
+    if (!shipping) {
+        setStage('checkout');
+        redirect('checkout.html');
+        return;
+    }
 
-        fetch('/api/pix/create', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        })
-            .then(async (res) => {
-                const data = await res.json().catch(() => ({}));
-                if (!res.ok) {
-                    const message = data?.error || 'Não foi possível gerar o pagamento PIX.';
-                    throw new Error(message);
-                }
-                savePix({
-                    ...data,
-                    amount: shipping.price,
-                    shippingName: shipping.name,
-                    createdAt: Date.now()
-                });
-                setStage('pix');
-                redirect('pix.html');
-            })
+    setStage('orderbump');
+    const bumpPrice = 9.9;
+
+    const btnAccept = document.getElementById('btn-bump-accept');
+    const btnDecline = document.getElementById('btn-bump-decline');
+    const bumpTotal = document.getElementById('bump-total');
+    const bumpMonthly = document.getElementById('bump-monthly');
+    const bumpLoading = document.getElementById('bump-loading');
+
+    if (bumpTotal) bumpTotal.textContent = formatCurrency(shipping.price + bumpPrice);
+    if (bumpMonthly) bumpMonthly.textContent = formatCurrency(bumpPrice);
+
+    const proceedToPix = (selected) => {
+        if (btnAccept) btnAccept.disabled = true;
+        if (btnDecline) btnDecline.disabled = true;
+        if (bumpLoading) bumpLoading.classList.remove('hidden');
+
+        saveBump({
+            selected,
+            price: bumpPrice,
+            title: 'Seguro Bag'
+        });
+
+        createPixCharge(shipping, selected ? bumpPrice : 0)
             .catch((error) => {
                 showToast(error.message || 'Erro ao gerar o PIX. Tente novamente.', 'error');
-                btnFinish.disabled = false;
-                btnFinish.textContent = originalText || 'Finalizar Pedido';
+                if (btnAccept) btnAccept.disabled = false;
+                if (btnDecline) btnDecline.disabled = false;
+                if (bumpLoading) bumpLoading.classList.add('hidden');
             });
-    });
+    };
+
+    btnAccept?.addEventListener('click', () => proceedToPix(true));
+    btnDecline?.addEventListener('click', () => proceedToPix(false));
 }
 
 function initPix() {
@@ -1002,6 +1017,8 @@ function initPix() {
     const pixTimer = document.getElementById('pix-timer');
     const pixProgress = document.getElementById('pix-progress-bar');
     const pixOrderId = document.getElementById('pix-order-id');
+    const pixBumpRow = document.getElementById('pix-bump-row');
+    const pixBumpPrice = document.getElementById('pix-bump-price');
     const btnCopy = document.getElementById('btn-copy-pix');
     const btnCopyIcon = document.getElementById('btn-copy-pix-icon');
 
@@ -1012,6 +1029,10 @@ function initPix() {
     }
 
     if (pixAmount) pixAmount.textContent = formatCurrency(pix.amount || 0);
+    if (pixBumpRow && pixBumpPrice && pix.bumpPrice) {
+        pixBumpPrice.textContent = formatCurrency(pix.bumpPrice);
+        pixBumpRow.classList.remove('hidden');
+    }
     if (pixCode) pixCode.value = pix.paymentCode || '';
 
     if (pixQr && pix.paymentCodeBase64) {
@@ -1340,6 +1361,53 @@ function loadAddressExtra() {
     }
 }
 
+function saveBump(data) {
+    localStorage.setItem(STORAGE_KEYS.bump, JSON.stringify(data));
+}
+
+function loadBump() {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEYS.bump);
+        return raw ? JSON.parse(raw) : null;
+    } catch (error) {
+        return null;
+    }
+}
+
+async function createPixCharge(shipping, bumpPrice) {
+    const extraCharge = Number(bumpPrice || 0);
+    const amount = Number((shipping.price + extraCharge).toFixed(2));
+    const payload = {
+        amount,
+        shipping,
+        bump: extraCharge > 0 ? { title: 'Seguro Bag', price: extraCharge } : null,
+        personal: loadPersonal(),
+        address: loadAddress(),
+        extra: loadAddressExtra()
+    };
+
+    const res = await fetch('/api/pix/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+        const message = data?.error || 'Não foi possível gerar o pagamento PIX.';
+        throw new Error(message);
+    }
+    savePix({
+        ...data,
+        amount,
+        shippingName: shipping.name,
+        bumpName: extraCharge > 0 ? 'Seguro Bag' : '',
+        bumpPrice: extraCharge,
+        createdAt: Date.now()
+    });
+    setStage('pix');
+    redirect('pix.html');
+}
+
 function savePix(data) {
     localStorage.setItem(STORAGE_KEYS.pix, JSON.stringify(data));
 }
@@ -1493,6 +1561,7 @@ function resetFlow() {
     localStorage.removeItem(STORAGE_KEYS.shipping);
     localStorage.removeItem(STORAGE_KEYS.addressExtra);
     localStorage.removeItem(STORAGE_KEYS.pix);
+    localStorage.removeItem(STORAGE_KEYS.bump);
     sessionStorage.removeItem(STORAGE_KEYS.stock);
     sessionStorage.removeItem(STORAGE_KEYS.returnTo);
 }
@@ -1506,6 +1575,7 @@ function resolveResumeUrl() {
     if (stage === 'processing') return 'processando.html';
     if (stage === 'success') return 'sucesso.html';
     if (stage === 'checkout') return 'checkout.html';
+    if (stage === 'orderbump') return 'orderbump.html';
     if (stage === 'pix') return 'pix.html';
     if (stage === 'complete') return 'checkout.html';
     if (loadPersonal() && !loadAddress()) return 'endereco.html';

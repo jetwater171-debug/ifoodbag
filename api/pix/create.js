@@ -21,7 +21,7 @@ module.exports = async (req, res) => {
         }
 
         const rawBody = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {};
-        const { amount, personal = {}, address = {}, extra = {}, shipping = {} } = rawBody;
+        const { amount, personal = {}, address = {}, extra = {}, shipping = {}, bump } = rawBody;
         const value = Number(amount);
 
         if (!value || value <= 0) {
@@ -52,8 +52,30 @@ module.exports = async (req, res) => {
         const sellerId = await getSellerId();
         const postbackUrl = resolvePostbackUrl(req);
 
+        const shippingPrice = Number(shipping?.price || 0);
+        const bumpPrice = bump?.price ? Number(bump.price) : 0;
+
+        const items = [
+            {
+                title: 'Frete Bag do iFood',
+                quantity: 1,
+                unitPrice: Number(shippingPrice.toFixed(2)),
+                tangible: false
+            }
+        ];
+
+        if (bumpPrice > 0) {
+            items.push({
+                title: bump.title || 'Seguro Bag',
+                quantity: 1,
+                unitPrice: Number(bumpPrice.toFixed(2)),
+                tangible: false
+            });
+        }
+
+        const totalAmount = Number((shippingPrice + bumpPrice).toFixed(2));
         const payload = {
-            amount: Number(value.toFixed(2)),
+            amount: totalAmount,
             id_seller: sellerId,
             customer: {
                 name,
@@ -71,21 +93,16 @@ module.exports = async (req, res) => {
                     country: 'br'
                 }
             },
-            items: [
-                {
-                    title: 'Frete Bag do iFood',
-                    quantity: 1,
-                    unitPrice: Number(value.toFixed(2)),
-                    tangible: false
-                }
-            ],
+            items,
             postbackUrl,
             ip: extractIp(req),
             metadata: {
                 shippingId: shipping?.id || '',
                 shippingName: shipping?.name || '',
                 cep: zipCode,
-                reference: extra?.reference || ''
+                reference: extra?.reference || '',
+                bumpSelected: !!(bump && bump.price),
+                bumpPrice: bump?.price || 0
             },
             pix: {
                 expiresInDays: 2
@@ -111,7 +128,7 @@ module.exports = async (req, res) => {
             paymentCode: data.paymentCode || data.paymentcode,
             paymentCodeBase64: data.paymentCodeBase64 || data.paymentcodebase64,
             status: data.status_transaction || data.status || '',
-            amount: Number(value.toFixed(2))
+            amount: totalAmount
         });
     } catch (error) {
         return res.status(500).json({
