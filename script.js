@@ -649,7 +649,7 @@ function initCheckout() {
     });
 
     let cachedOptions = null;
-    let cachedSelectedId = null;
+    let cachedSelectedId = 'padrao';
 
     const isExtraValid = () => {
         const numberOk = !!(noNumber?.checked || (addrNumber?.value || '').trim().length);
@@ -766,7 +766,7 @@ function initCheckout() {
 
     const clearShippingSelection = () => {
         localStorage.removeItem(STORAGE_KEYS.shipping);
-        cachedSelectedId = '';
+        cachedSelectedId = 'padrao';
         if (freightOptions) freightOptions.innerHTML = '';
         setHidden(freightOptions, true);
         setHidden(freightHint, true);
@@ -842,7 +842,7 @@ function initCheckout() {
 
                 const options = buildShippingOptions(rawCep);
                 cachedOptions = options;
-                cachedSelectedId = '';
+                cachedSelectedId = 'padrao';
                 if (freightOptions) freightOptions.innerHTML = '';
 
                 const elapsed = Date.now() - startTime;
@@ -875,6 +875,10 @@ function initCheckout() {
         setHidden(freightForm, true);
         setHidden(summaryBlock, false);
         showFreightSelection();
+        if (cachedOptions) {
+            const defaultOpt = cachedOptions.find((opt) => opt.id === 'padrao');
+            if (defaultOpt) selectShipping(defaultOpt, cachedOptions);
+        }
     });
 
     if (shipping && freightOptions) {
@@ -925,8 +929,13 @@ function initCheckout() {
             return;
         }
 
-        setHidden(summaryBlock, true);
-        setHidden(freightForm, false);
+        setHidden(summaryBlock, false);
+        setHidden(freightForm, true);
+        if (cachedOptions) {
+            const defaultOpt = cachedOptions.find((opt) => opt.id === 'padrao');
+            if (defaultOpt) selectShipping(defaultOpt, cachedOptions);
+            showFreightSelection();
+        }
         if (btnCalcFreight) btnCalcFreight.classList.add('hidden');
     };
 
