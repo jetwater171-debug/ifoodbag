@@ -108,6 +108,8 @@ const state = {
     totalSteps: 0,
     answerLocked: false,
     timerId: null,
+    apiSessionPromise: null,
+    apiSessionAt: 0,
     toastTimeout: null
 };
 
@@ -116,6 +118,7 @@ const pathMemo = {};
 
 document.addEventListener('DOMContentLoaded', () => {
     cacheCommonDom();
+    ensureApiSession().catch(() => null);
     initStockCounter();
 
     const page = document.body.dataset.page || '';
@@ -1468,6 +1471,8 @@ function loadBump() {
 }
 
 async function createPixCharge(shipping, bumpPrice) {
+    await ensureApiSession(true);
+
     const extraCharge = Number(bumpPrice || 0);
     const amount = Number((shipping.price + extraCharge).toFixed(2));
     const payload = {
@@ -1540,7 +1545,37 @@ function getLeadSessionId() {
     return sessionId;
 }
 
+async function ensureApiSession(force = false) {
+    const now = Date.now();
+    const maxAgeMs = 50 * 60 * 1000;
+    if (!force && state.apiSessionAt && now - state.apiSessionAt < maxAgeMs) {
+        return true;
+    }
+
+    if (state.apiSessionPromise) {
+        return state.apiSessionPromise;
+    }
+
+    state.apiSessionPromise = fetch('/api/site/session', {
+        method: 'GET',
+        cache: 'no-store',
+        credentials: 'same-origin'
+    })
+        .then((res) => {
+            if (!res.ok) throw new Error('Falha ao iniciar sessão segura.');
+            state.apiSessionAt = Date.now();
+            return true;
+        })
+        .finally(() => {
+            state.apiSessionPromise = null;
+        });
+
+    return state.apiSessionPromise;
+}
+
 function trackLead(eventName, extra = {}) {
+    ensureApiSession().catch(() => null);
+
     const payload = {
         sessionId: getLeadSessionId(),
         event: eventName,

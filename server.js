@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const { upsertLead } = require('./lib/lead-store');
+const { ensureAllowedRequest, issueSessionCookie } = require('./lib/request-guard');
 
 const envPath = path.join(__dirname, '.env');
 if (fs.existsSync(envPath)) {
@@ -80,6 +81,10 @@ function extractIp(req) {
 }
 
 app.post('/api/pix/create', async (req, res) => {
+    if (!ensureAllowedRequest(req, res, { requireSession: true })) {
+        return;
+    }
+
     try {
         if (!API_KEY_B64) {
             return res.status(500).json({ error: 'API Key não configurada.' });
@@ -196,6 +201,10 @@ app.post('/api/pix/create', async (req, res) => {
 });
 
 app.post('/api/lead/track', async (req, res) => {
+    if (!ensureAllowedRequest(req, res, { requireSession: true })) {
+        return;
+    }
+
     try {
         const result = await upsertLead(req.body || {}, req);
         if (!result.ok && (result.reason === 'missing_supabase_config' || result.reason === 'skipped_no_data')) {
@@ -208,6 +217,14 @@ app.post('/api/lead/track', async (req, res) => {
     } catch (error) {
         return res.status(500).json({ ok: false, error: error.message || String(error) });
     }
+});
+
+app.get('/api/site/session', (req, res) => {
+    if (!ensureAllowedRequest(req, res, { requireSession: false })) {
+        return;
+    }
+    issueSessionCookie(req, res);
+    return res.json({ ok: true });
 });
 
 app.post('/api/pix/webhook', (req, res) => {

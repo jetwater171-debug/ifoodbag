@@ -9,12 +9,16 @@ const {
     resolvePostbackUrl
 } = require('../../lib/ativus');
 const { upsertLead } = require('../../lib/lead-store');
+const { ensureAllowedRequest } = require('../../lib/request-guard');
 
 module.exports = async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
 
     if (req.method !== 'POST') {
         res.status(405).json({ error: 'Method not allowed' });
+        return;
+    }
+    if (!ensureAllowedRequest(req, res, { requireSession: true })) {
         return;
     }
 
