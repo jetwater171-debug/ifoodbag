@@ -354,9 +354,17 @@ p {
     min-height: 110px;
 }
 
+.trust-icon-wrap {
+    width: 64px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
 .trust-icon-img {
-    width: 56px;
-    height: 34px;
+    width: 100%;
+    height: 100%;
     object-fit: contain;
     object-position: center;
     display: block;
@@ -373,9 +381,9 @@ p {
         padding: 10px 6px 12px;
         min-height: 92px;
     }
-    .trust-icon-img {
-        width: 46px;
-        height: 28px;
+    .trust-icon-wrap {
+        width: 52px;
+        height: 32px;
     }
     .trust-card span {
         font-size: 0.78rem;
@@ -1556,7 +1564,7 @@ body[data-page='processing'] .step {
 
 /* Admin */
 body[data-page='admin'] {
-    background: #f4f5f8;
+    background: #eef1f6;
 }
 
 .admin-shell {
@@ -1564,15 +1572,20 @@ body[data-page='admin'] {
     grid-template-columns: 260px 1fr;
     min-height: 100vh;
     min-height: 100dvh;
+    background: #eef1f6;
 }
 
 .admin-sidebar {
-    background: #121417;
+    background: linear-gradient(180deg, #0f1115 0%, #161a20 100%);
     color: #fff;
     padding: 24px 20px;
     display: flex;
     flex-direction: column;
     gap: 24px;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .admin-brand {
@@ -1611,10 +1624,18 @@ body[data-page='admin'] {
     text-align: left;
     font-weight: 600;
     transition: background 0.2s ease;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
 }
 
 .admin-nav-item:hover {
     background: rgba(255, 255, 255, 0.16);
+}
+
+.admin-nav-item.is-active {
+    background: #ea1d2c;
+    box-shadow: 0 8px 16px rgba(234, 29, 44, 0.35);
 }
 
 .admin-sidebar-foot {
@@ -1642,7 +1663,7 @@ body[data-page='admin'] {
 }
 
 .admin-topbar {
-    background: #fff;
+    background: linear-gradient(135deg, #ffffff 0%, #f7f7fb 100%);
     border-radius: 18px;
     padding: 20px 24px;
     display: flex;
@@ -1650,6 +1671,7 @@ body[data-page='admin'] {
     justify-content: space-between;
     gap: 16px;
     box-shadow: var(--shadow-soft);
+    border: 1px solid #eceff3;
 }
 
 .admin-topbar h1 {
@@ -1695,6 +1717,14 @@ body[data-page='admin'] {
     border: 1px solid #eceff3;
 }
 
+.admin-section--overview {
+    padding: 24px;
+}
+
+.admin-section--card {
+    height: 100%;
+}
+
 .admin-section-header {
     display: flex;
     align-items: center;
@@ -1717,6 +1747,12 @@ body[data-page='admin'] {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: 12px;
+}
+
+.admin-split {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 16px;
 }
 
 .admin-checkboxes {
@@ -1762,11 +1798,151 @@ body[data-page='admin'] {
     font-style: normal;
 }
 
+.admin-hero {
+    background: linear-gradient(135deg, #fff5f6 0%, #ffffff 70%);
+    border-radius: 18px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    border: 1px solid #ffd5d9;
+    box-shadow: 0 12px 22px rgba(234, 29, 44, 0.08);
+    margin-bottom: 16px;
+}
+
+.admin-hero h3 {
+    font-size: 1.2rem;
+    margin-bottom: 6px;
+}
+
+.admin-hero p {
+    margin-bottom: 10px;
+    color: #6a6a6a;
+}
+
+.admin-hero-tags {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.admin-tag {
+    background: #fff;
+    border: 1px solid #f0d5d8;
+    color: #a12b34;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+.admin-tag strong {
+    font-weight: 700;
+}
+
+.admin-hero-highlight {
+    background: #111;
+    color: #fff;
+    border-radius: 16px;
+    padding: 16px 18px;
+    min-width: 160px;
+    text-align: right;
+}
+
+.admin-hero-highlight strong {
+    font-size: 1.8rem;
+    display: block;
+    line-height: 1;
+}
+
+.admin-hero-highlight em {
+    font-style: normal;
+    font-size: 0.78rem;
+    opacity: 0.7;
+}
+
+.admin-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.admin-kpi {
+    background: #f8f9fc;
+    border-radius: 16px;
+    padding: 14px 16px;
+    border: 1px solid #eef1f5;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.admin-kpi strong {
+    font-size: 1.3rem;
+    color: #121212;
+}
+
+.admin-kpi em {
+    font-style: normal;
+    font-size: 0.78rem;
+    color: #7a7a7a;
+}
+
+.admin-kpi--accent {
+    background: #fff7f8;
+    border-color: #ffd7dc;
+}
+
+.admin-funnel {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.admin-funnel-row {
+    display: grid;
+    grid-template-columns: 140px 1fr 60px;
+    gap: 12px;
+    align-items: center;
+    font-size: 0.9rem;
+    color: #3a3a3a;
+}
+
+.admin-funnel-bar {
+    background: #f0f0f0;
+    border-radius: 999px;
+    height: 8px;
+    overflow: hidden;
+}
+
+.admin-funnel-bar i {
+    display: block;
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #ea1d2c 0%, #ff5460 100%);
+    transition: width 0.4s ease;
+}
+
+.admin-hint {
+    margin: -2px 0 12px;
+    color: #6f6f6f;
+    font-size: 0.9rem;
+}
+
 .admin-toolbar {
     display: flex;
     gap: 8px;
     align-items: center;
     margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+
+.admin-inline-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
     flex-wrap: wrap;
 }
 
@@ -1806,6 +1982,9 @@ body[data-page='admin'] {
     letter-spacing: 0.04em;
     text-transform: uppercase;
     color: #666;
+    position: sticky;
+    top: 0;
+    z-index: 1;
 }
 
 .admin-table tbody tr:hover {
@@ -1840,6 +2019,22 @@ body[data-page='admin'] {
     letter-spacing: 0.04em;
 }
 
+.admin-page-bar {
+    width: 100%;
+    height: 6px;
+    border-radius: 999px;
+    background: #eceff3;
+    overflow: hidden;
+}
+
+.admin-page-bar i {
+    display: block;
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #ea1d2c 0%, #ff5964 100%);
+    transition: width 0.35s ease;
+}
+
 @media (max-width: 960px) {
     .admin-shell {
         grid-template-columns: 1fr;
@@ -1849,10 +2044,24 @@ body[data-page='admin'] {
         align-items: center;
         justify-content: space-between;
         padding: 16px;
+        height: auto;
+        position: static;
     }
     .admin-nav {
         flex-direction: row;
         flex-wrap: wrap;
+    }
+    .admin-hero {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .admin-hero-highlight {
+        width: 100%;
+        text-align: left;
+    }
+    .admin-funnel-row {
+        grid-template-columns: 1fr;
+        gap: 6px;
     }
 }
 

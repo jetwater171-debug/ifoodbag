@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#111111" />
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#111111" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <title>iFood Entregadores - Leads</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css?v=3.1" />
+</head>
+<body data-page="admin" data-admin="leads">
+  <div class="admin-shell">
+    <aside class="admin-sidebar">
+      <div class="admin-brand">
+        <img src="assets/ifoodentregadores.webp" alt="iFood" />
+        <div>
+          <strong>Dashboard</strong>
+          <span>Entregadores</span>
+        </div>
+      </div>
+      <nav class="admin-nav">
+        <a class="admin-nav-item" data-admin="overview" href="/admin">Visao geral</a>
+        <a class="admin-nav-item" data-admin="tracking" href="/admin/tracking">Tracking</a>
+        <a class="admin-nav-item" data-admin="utmfy" href="/admin/utmfy">UTMfy</a>
+        <a class="admin-nav-item" data-admin="pages" href="/admin/pages">Paginas</a>
+        <a class="admin-nav-item" data-admin="leads" href="/admin/leads">Leads</a>
+      </nav>
+      <div class="admin-sidebar-foot">
+        <span class="admin-pill">Seguro</span>
+        <span class="admin-muted">Painel privado</span>
+      </div>
+    </aside>
+
+    <main class="admin-main">
+      <header class="admin-topbar">
+        <div>
+          <h1>Leads</h1>
+          <p>Busque rapidamente, acompanhe etapa e veja dados completos dos leads.</p>
+        </div>
+      </header>
+
+      <section id="admin-login" class="admin-login-card">
+        <h2>Acesso restrito</h2>
+        <p class="admin-muted">Digite sua senha para acessar o painel.</p>
+        <div class="input-group">
+          <input type="password" id="admin-password" class="floating-input" placeholder=" " autocomplete="current-password" />
+          <label for="admin-password" class="floating-label">Senha do admin</label>
+        </div>
+        <button id="admin-login-btn" class="btn-primary" type="button">Entrar</button>
+        <div id="admin-login-error" class="form-error hidden"></div>
+      </section>
+
+      <div id="admin-panel" class="admin-panel hidden">
+        <section id="admin-leads" class="admin-section">
+          <div class="admin-section-header">
+            <h2>Leads</h2>
+            <span id="leads-count" class="admin-chip">0</span>
+          </div>
+          <div class="admin-toolbar">
+            <input type="text" id="leads-search" placeholder="Buscar por nome, email, telefone ou CPF" />
+            <button id="leads-refresh" class="btn-secondary" type="button">Atualizar</button>
+          </div>
+          <div class="admin-table-wrap">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Nome</th>
+                  <th>Email</th>
+                  <th>Telefone</th>
+                  <th>Origem</th>
+                  <th>Etapa</th>
+                  <th>Status</th>
+                  <th>Frete</th>
+                  <th>Total</th>
+                  <th>Atualizado</th>
+                </tr>
+              </thead>
+              <tbody id="leads-body"></tbody>
+            </table>
+          </div>
+          <button id="leads-more" class="btn-secondary" type="button">Carregar mais</button>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+  <script src="script.js" defer></script>
+</body>
+</html>

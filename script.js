@@ -1287,8 +1287,22 @@ function initAdmin() {
     const metricCep = document.getElementById('metric-cep');
     const metricUpdated = document.getElementById('metric-updated');
     const metricBase = document.getElementById('metric-base');
+    const metricConvPix = document.getElementById('metric-conv-pix');
+    const metricConvFrete = document.getElementById('metric-conv-frete');
+    const metricConvCep = document.getElementById('metric-conv-cep');
+    const funnelPix = document.getElementById('funnel-pix');
+    const funnelFrete = document.getElementById('funnel-frete');
+    const funnelCep = document.getElementById('funnel-cep');
+    const funnelPixValue = document.getElementById('funnel-pix-value');
+    const funnelFreteValue = document.getElementById('funnel-frete-value');
+    const funnelCepValue = document.getElementById('funnel-cep-value');
     const navItems = document.querySelectorAll('.admin-nav-item');
     const pagesGrid = document.getElementById('pages-grid');
+    const adminPage = document.body.getAttribute('data-admin') || '';
+    const testPixelBtn = document.getElementById('admin-test-pixel');
+    const testPixelStatus = document.getElementById('admin-test-pixel-status');
+    const testUtmfyBtn = document.getElementById('admin-test-utmfy');
+    const testUtmfyStatus = document.getElementById('admin-test-utmfy-status');
 
     let offset = 0;
     const limit = 50;
@@ -1300,6 +1314,12 @@ function initAdmin() {
         cep: 0,
         lastUpdated: ''
     };
+    let currentSettings = null;
+
+    const hasPixelForm = !!(pixelEnabled || pixelId || pixelEventPage || pixelEventLead || pixelEventPurchase);
+    const hasUtmfyForm = !!(utmfyEnabled || utmfyEndpoint || utmfyApi);
+    const wantsLeads = !!(leadsBody || metricTotal || metricPix || metricFrete || metricCep);
+    const wantsPages = !!pagesGrid;
 
     const setLoginVisible = (visible) => {
         if (loginWrap) loginWrap.classList.toggle('hidden', !visible);
@@ -1324,14 +1344,21 @@ function initAdmin() {
         const res = await adminFetch('/api/admin/settings');
         if (!res.ok) return;
         const data = await res.json();
-        pixelEnabled.checked = !!data.pixel?.enabled;
-        pixelId.value = data.pixel?.id || '';
-        pixelEventPage.checked = data.pixel?.events?.page_view !== false;
-        pixelEventLead.checked = data.pixel?.events?.lead !== false;
-        pixelEventPurchase.checked = data.pixel?.events?.purchase !== false;
-        utmfyEnabled.checked = !!data.utmfy?.enabled;
-        utmfyEndpoint.value = data.utmfy?.endpoint || '';
-        utmfyApi.value = data.utmfy?.apiKey || '';
+        currentSettings = data || {};
+
+        if (hasPixelForm) {
+            if (pixelEnabled) pixelEnabled.checked = !!data.pixel?.enabled;
+            if (pixelId) pixelId.value = data.pixel?.id || '';
+            if (pixelEventPage) pixelEventPage.checked = data.pixel?.events?.page_view !== false;
+            if (pixelEventLead) pixelEventLead.checked = data.pixel?.events?.lead !== false;
+            if (pixelEventPurchase) pixelEventPurchase.checked = data.pixel?.events?.purchase !== false;
+        }
+
+        if (hasUtmfyForm) {
+            if (utmfyEnabled) utmfyEnabled.checked = !!data.utmfy?.enabled;
+            if (utmfyEndpoint) utmfyEndpoint.value = data.utmfy?.endpoint || '';
+            if (utmfyApi) utmfyApi.value = data.utmfy?.apiKey || '';
+        }
     };
 
     const saveSettings = async () => {
@@ -1340,21 +1367,31 @@ function initAdmin() {
         if (saveStatus) saveStatus.textContent = 'Salvando...';
 
         const payload = {
-            pixel: {
-                enabled: pixelEnabled.checked,
-                id: pixelId.value.trim(),
-                events: {
-                    page_view: pixelEventPage.checked,
-                    lead: pixelEventLead.checked,
-                    purchase: pixelEventPurchase.checked
-                }
-            },
-            utmfy: {
-                enabled: utmfyEnabled.checked,
-                endpoint: utmfyEndpoint.value.trim(),
-                apiKey: utmfyApi.value.trim()
-            }
+            ...(currentSettings || {})
         };
+
+        if (hasPixelForm) {
+            payload.pixel = {
+                ...(currentSettings?.pixel || {}),
+                enabled: !!pixelEnabled?.checked,
+                id: pixelId?.value?.trim() || '',
+                events: {
+                    ...(currentSettings?.pixel?.events || {}),
+                    page_view: pixelEventPage?.checked !== false,
+                    lead: pixelEventLead?.checked !== false,
+                    purchase: pixelEventPurchase?.checked !== false
+                }
+            };
+        }
+
+        if (hasUtmfyForm) {
+            payload.utmfy = {
+                ...(currentSettings?.utmfy || {}),
+                enabled: !!utmfyEnabled?.checked,
+                endpoint: utmfyEndpoint?.value?.trim() || '',
+                apiKey: utmfyApi?.value?.trim() || ''
+            };
+        }
 
         const res = await adminFetch('/api/admin/settings', {
             method: 'POST',
@@ -1368,6 +1405,33 @@ function initAdmin() {
             }, 2500);
         }
         saveBtn.disabled = false;
+    };
+
+    const runPixelTest = async () => {
+        if (testPixelStatus) testPixelStatus.textContent = 'Enviando evento...';
+        const pixel = await ensurePixelConfig(true);
+        if (!pixel?.enabled || !pixel.id) {
+            if (testPixelStatus) testPixelStatus.textContent = 'Pixel desativado ou sem ID.';
+            showToast('Pixel nao configurado.', 'error');
+            return;
+        }
+        loadFacebookPixel(pixel.id);
+        firePixelEvent('Lead', { source: 'admin_test' });
+        if (testPixelStatus) testPixelStatus.textContent = 'Evento Lead enviado.';
+        showToast('Evento teste enviado ao Pixel.', 'success');
+    };
+
+    const runUtmfyTest = async () => {
+        if (testUtmfyStatus) testUtmfyStatus.textContent = 'Enviando evento...';
+        const res = await adminFetch('/api/admin/utmfy-test', { method: 'POST' });
+        if (!res.ok) {
+            const detail = await res.json().catch(() => ({}));
+            if (testUtmfyStatus) testUtmfyStatus.textContent = detail?.error || 'Falha ao enviar.';
+            showToast('Falha ao enviar evento UTMfy.', 'error');
+            return;
+        }
+        if (testUtmfyStatus) testUtmfyStatus.textContent = 'Evento teste enviado.';
+        showToast('Evento teste enviado ao UTMfy.', 'success');
     };
 
     const renderLeads = (rows, append = false) => {
@@ -1420,6 +1484,21 @@ function initAdmin() {
                 : '-';
         }
         if (metricBase) metricBase.textContent = `Base: ${metrics.total}`;
+
+        const total = metrics.total || 0;
+        const pctPix = total ? Math.round((metrics.pix / total) * 100) : 0;
+        const pctFrete = total ? Math.round((metrics.frete / total) * 100) : 0;
+        const pctCep = total ? Math.round((metrics.cep / total) * 100) : 0;
+
+        if (metricConvPix) metricConvPix.textContent = `${pctPix}%`;
+        if (metricConvFrete) metricConvFrete.textContent = `${pctFrete}%`;
+        if (metricConvCep) metricConvCep.textContent = `${pctCep}%`;
+        if (funnelPix) funnelPix.style.width = `${pctPix}%`;
+        if (funnelFrete) funnelFrete.style.width = `${pctFrete}%`;
+        if (funnelCep) funnelCep.style.width = `${pctCep}%`;
+        if (funnelPixValue) funnelPixValue.textContent = `${pctPix}%`;
+        if (funnelFreteValue) funnelFreteValue.textContent = `${pctFrete}%`;
+        if (funnelCepValue) funnelCepValue.textContent = `${pctCep}%`;
     };
 
     const loadLeads = async ({ reset = false } = {}) => {
@@ -1450,13 +1529,16 @@ function initAdmin() {
         if (!res.ok) return;
         const data = await res.json();
         const rows = data.data || [];
+        const max = rows.reduce((acc, row) => Math.max(acc, Number(row.total) || 0), 0) || 1;
         pagesGrid.innerHTML = '';
         rows.forEach((row) => {
             const card = document.createElement('div');
             card.className = 'admin-page-card';
+            const pct = Math.round(((Number(row.total) || 0) / max) * 100);
             card.innerHTML = `
                 <strong>${row.total ?? 0}</strong>
                 <span>${row.page || '-'}</span>
+                <div class="admin-page-bar"><i style="width: ${pct}%"></i></div>
             `;
             pagesGrid.appendChild(card);
         });
@@ -1477,19 +1559,29 @@ function initAdmin() {
             return;
         }
         setLoginVisible(false);
-        await loadSettings();
-        await loadLeads({ reset: true });
+        if (hasPixelForm || hasUtmfyForm) await loadSettings();
+        if (wantsLeads) await loadLeads({ reset: true });
+        if (wantsPages) await loadPageCounts();
     });
 
     saveBtn?.addEventListener('click', saveSettings);
     leadsRefresh?.addEventListener('click', () => loadLeads({ reset: true }));
     leadsMore?.addEventListener('click', () => loadLeads({ reset: false }));
     leadsSearch?.addEventListener('change', () => loadLeads({ reset: true }));
+    testPixelBtn?.addEventListener('click', runPixelTest);
+    testUtmfyBtn?.addEventListener('click', runUtmfyTest);
 
     navItems.forEach((item) => {
-        item.addEventListener('click', () => {
+        const itemPage = item.getAttribute('data-admin');
+        if (itemPage && itemPage === adminPage) {
+            item.classList.add('is-active');
+        }
+        item.addEventListener('click', (event) => {
             const target = item.getAttribute('data-target');
             if (!target) return;
+            event.preventDefault();
+            navItems.forEach((btn) => btn.classList.remove('is-active'));
+            item.classList.add('is-active');
             const section = document.getElementById(target);
             if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
@@ -1498,9 +1590,9 @@ function initAdmin() {
     checkAuth().then((ok) => {
         if (ok) {
             setLoginVisible(false);
-            loadSettings();
-            loadLeads({ reset: true });
-            loadPageCounts();
+            if (hasPixelForm || hasUtmfyForm) loadSettings();
+            if (wantsLeads) loadLeads({ reset: true });
+            if (wantsPages) loadPageCounts();
         } else {
             setLoginVisible(true);
         }

@@ -38,6 +38,10 @@
     "rewrites": [
         { "source": "/", "destination": "/index.html" },
         { "source": "/admin", "destination": "/admin.html" },
+        { "source": "/admin/tracking", "destination": "/admin-tracking.html" },
+        { "source": "/admin/utmfy", "destination": "/admin-utmfy.html" },
+        { "source": "/admin/pages", "destination": "/admin-pages.html" },
+        { "source": "/admin/leads", "destination": "/admin-leads.html" },
         { "source": "/quiz", "destination": "/quiz.html" },
         { "source": "/dados", "destination": "/dados.html" },
         { "source": "/endereco", "destination": "/endereco.html" },

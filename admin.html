@@ -11,9 +11,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=3.0" />
+  <link rel="stylesheet" href="style.css?v=3.1" />
 </head>
-<body data-page="admin">
+<body data-page="admin" data-admin="overview">
   <div class="admin-shell">
     <aside class="admin-sidebar">
       <div class="admin-brand">
@@ -24,11 +24,11 @@
         </div>
       </div>
       <nav class="admin-nav">
-        <button class="admin-nav-item" data-target="admin-overview">Visao geral</button>
-        <button class="admin-nav-item" data-target="admin-tracking">Tracking</button>
-        <button class="admin-nav-item" data-target="admin-utmfy">UTMfy</button>
-        <button class="admin-nav-item" data-target="admin-pages">Paginas</button>
-        <button class="admin-nav-item" data-target="admin-leads">Leads</button>
+        <a class="admin-nav-item" data-admin="overview" href="/admin">Visao geral</a>
+        <a class="admin-nav-item" data-admin="tracking" href="/admin/tracking">Tracking</a>
+        <a class="admin-nav-item" data-admin="utmfy" href="/admin/utmfy">UTMfy</a>
+        <a class="admin-nav-item" data-admin="pages" href="/admin/pages">Paginas</a>
+        <a class="admin-nav-item" data-admin="leads" href="/admin/leads">Leads</a>
       </nav>
       <div class="admin-sidebar-foot">
         <span class="admin-pill">Seguro</span>
@@ -40,11 +40,7 @@
       <header class="admin-topbar">
         <div>
           <h1>Painel Administrativo</h1>
-          <p>Analise leads, configure pixels e monitore conversao em tempo real.</p>
-        </div>
-        <div class="admin-topbar-actions">
-          <button id="admin-save" class="btn-primary" type="button">Salvar configuracoes</button>
-          <span id="admin-save-status" class="admin-muted"></span>
+          <p>Visao geral de performance, funil e status da operacao em tempo real.</p>
         </div>
       </header>
 
@@ -60,119 +56,78 @@
       </section>
 
       <div id="admin-panel" class="admin-panel hidden">
-        <section id="admin-overview" class="admin-section">
+        <section id="admin-overview" class="admin-section admin-section--overview">
           <div class="admin-section-header">
             <h2>Visao geral</h2>
             <span id="metric-base" class="admin-chip">Base: 0</span>
           </div>
-          <div class="admin-metrics">
-            <div class="admin-metric">
-              <span>Leads</span>
+
+          <div class="admin-hero">
+            <div class="admin-hero-info">
+              <h3>Monitoramento ao vivo</h3>
+              <p>Compare o funil por etapa, ajuste pixels e otimize a conversao sem sair do painel.</p>
+              <div class="admin-hero-tags">
+                <span class="admin-tag">Ultima atividade: <strong id="metric-updated">-</strong></span>
+                <span class="admin-tag">Fonte: Supabase</span>
+              </div>
+            </div>
+            <div class="admin-hero-highlight">
+              <span>Leads ativos</span>
               <strong id="metric-total">0</strong>
               <em>Total carregado</em>
             </div>
-            <div class="admin-metric">
+          </div>
+
+          <div class="admin-kpi-grid">
+            <div class="admin-kpi">
               <span>PIX gerado</span>
               <strong id="metric-pix">0</strong>
               <em>Conversao final</em>
             </div>
-            <div class="admin-metric">
+            <div class="admin-kpi">
               <span>Frete selecionado</span>
               <strong id="metric-frete">0</strong>
               <em>Etapa checkout</em>
             </div>
-            <div class="admin-metric">
+            <div class="admin-kpi">
               <span>CEP confirmado</span>
               <strong id="metric-cep">0</strong>
               <em>Etapa endereco</em>
             </div>
-            <div class="admin-metric">
-              <span>Ultima atividade</span>
-              <strong id="metric-updated">-</strong>
-              <em>Atualizado</em>
+            <div class="admin-kpi admin-kpi--accent">
+              <span>Conversao PIX</span>
+              <strong id="metric-conv-pix">0%</strong>
+              <em>PIX / Leads</em>
+            </div>
+            <div class="admin-kpi admin-kpi--accent">
+              <span>Conversao frete</span>
+              <strong id="metric-conv-frete">0%</strong>
+              <em>Frete / Leads</em>
+            </div>
+            <div class="admin-kpi admin-kpi--accent">
+              <span>Conversao CEP</span>
+              <strong id="metric-conv-cep">0%</strong>
+              <em>CEP / Leads</em>
             </div>
           </div>
-        </section>
 
-        <section id="admin-tracking" class="admin-section">
-          <div class="admin-section-header">
-            <h2>Pixel do Facebook</h2>
-            <span class="admin-chip">Tracking</span>
-          </div>
-          <div class="admin-grid">
-            <label class="admin-switch">
-              <input type="checkbox" id="pixel-enabled" />
-              <span>Pixel ativo</span>
-            </label>
-            <div class="input-group">
-              <input type="text" id="pixel-id" class="floating-input" placeholder=" " />
-              <label for="pixel-id" class="floating-label">Pixel ID</label>
+          <div class="admin-funnel">
+            <div class="admin-funnel-row">
+              <span>CEP confirmado</span>
+              <div class="admin-funnel-bar"><i id="funnel-cep"></i></div>
+              <strong id="funnel-cep-value">0%</strong>
             </div>
-            <div class="admin-checkboxes">
-              <label><input type="checkbox" id="pixel-event-page" /> PageView</label>
-              <label><input type="checkbox" id="pixel-event-lead" /> Lead</label>
-              <label><input type="checkbox" id="pixel-event-purchase" /> Purchase</label>
+            <div class="admin-funnel-row">
+              <span>Frete selecionado</span>
+              <div class="admin-funnel-bar"><i id="funnel-frete"></i></div>
+              <strong id="funnel-frete-value">0%</strong>
+            </div>
+            <div class="admin-funnel-row">
+              <span>PIX gerado</span>
+              <div class="admin-funnel-bar"><i id="funnel-pix"></i></div>
+              <strong id="funnel-pix-value">0%</strong>
             </div>
           </div>
-        </section>
-
-        <section id="admin-utmfy" class="admin-section">
-          <div class="admin-section-header">
-            <h2>UTMfy</h2>
-            <span class="admin-chip">Webhooks</span>
-          </div>
-          <div class="admin-grid">
-            <label class="admin-switch">
-              <input type="checkbox" id="utmfy-enabled" />
-              <span>Enviar eventos</span>
-            </label>
-            <div class="input-group">
-              <input type="text" id="utmfy-endpoint" class="floating-input" placeholder=" " />
-              <label for="utmfy-endpoint" class="floating-label">Endpoint UTMfy</label>
-            </div>
-            <div class="input-group">
-              <input type="password" id="utmfy-api" class="floating-input" placeholder=" " />
-              <label for="utmfy-api" class="floating-label">Token (opcional)</label>
-            </div>
-          </div>
-        </section>
-
-        <section id="admin-pages" class="admin-section">
-          <div class="admin-section-header">
-            <h2>Paginas e fluxo</h2>
-            <span class="admin-chip">Pageviews</span>
-          </div>
-          <div class="admin-pages-grid" id="pages-grid"></div>
-        </section>
-
-        <section id="admin-leads" class="admin-section">
-          <div class="admin-section-header">
-            <h2>Leads</h2>
-            <span id="leads-count" class="admin-chip">0</span>
-          </div>
-          <div class="admin-toolbar">
-            <input type="text" id="leads-search" placeholder="Buscar por nome, email, telefone ou CPF" />
-            <button id="leads-refresh" class="btn-secondary" type="button">Atualizar</button>
-          </div>
-          <div class="admin-table-wrap">
-            <table class="admin-table">
-              <thead>
-                <tr>
-                  <th>Nome</th>
-                  <th>Email</th>
-                  <th>Telefone</th>
-                  <th>Origem</th>
-                  <th>Etapa</th>
-                  <th>Status</th>
-                  <th>Frete</th>
-                  <th>Total</th>
-                  <th>Atualizado</th>
-                </tr>
-              </thead>
-              <tbody id="leads-body"></tbody>
-            </table>
-          </div>
-          <button id="leads-more" class="btn-secondary" type="button">Carregar mais</button>
         </section>
       </div>
     </main>

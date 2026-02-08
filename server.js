@@ -42,6 +42,45 @@ app.get('/', (_req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
+app.get('/admin', (_req, res) => {
+    res.sendFile(path.join(__dirname, 'admin.html'));
+});
+
+app.get('/admin/tracking', (_req, res) => {
+    res.sendFile(path.join(__dirname, 'admin-tracking.html'));
+});
+
+app.get('/admin/utmfy', (_req, res) => {
+    res.sendFile(path.join(__dirname, 'admin-utmfy.html'));
+});
+
+app.get('/admin/pages', (_req, res) => {
+    res.sendFile(path.join(__dirname, 'admin-pages.html'));
+});
+
+app.get('/admin/leads', (_req, res) => {
+    res.sendFile(path.join(__dirname, 'admin-leads.html'));
+});
+
+app.post('/api/admin/utmfy-test', async (req, res) => {
+    if (!ensureAllowedRequest(req, res, { requireSession: false })) {
+        return;
+    }
+    if (!requireAdmin(req, res)) return;
+
+    const result = await sendUtmfy('admin_test', {
+        source: 'admin',
+        timestamp: new Date().toISOString()
+    });
+
+    if (!result.ok) {
+        res.status(400).json({ error: 'Falha ao enviar evento.', detail: result });
+        return;
+    }
+
+    res.status(200).json({ ok: true });
+});
+
 function sanitizeDigits(value) {
     return String(value || '').replace(/\D/g, '');
 }
