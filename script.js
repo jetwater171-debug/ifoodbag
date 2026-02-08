@@ -99,7 +99,9 @@ const STORAGE_KEYS = {
     addressExtra: 'ifoodbag.addressExtra',
     pix: 'ifoodbag.pix',
     bump: 'ifoodbag.bump',
-    leadSession: 'ifoodbag.leadSession'
+    leadSession: 'ifoodbag.leadSession',
+    utm: 'ifoodbag.utm',
+    pixelConfig: 'ifoodbag.pixelConfig'
 };
 
 const state = {
@@ -110,6 +112,8 @@ const state = {
     timerId: null,
     apiSessionPromise: null,
     apiSessionAt: 0,
+    pixelConfig: null,
+    pixelConfigAt: 0,
     toastTimeout: null
 };
 
@@ -118,7 +122,9 @@ const pathMemo = {};
 
 document.addEventListener('DOMContentLoaded', () => {
     cacheCommonDom();
+    captureUtmParams();
     ensureApiSession().catch(() => null);
+    initMarketing().catch(() => null);
     initStockCounter();
 
     const page = document.body.dataset.page || '';
@@ -149,6 +155,9 @@ document.addEventListener('DOMContentLoaded', () => {
             break;
         case 'pix':
             initPix();
+            break;
+        case 'admin':
+            initAdmin();
             break;
         default:
             break;
@@ -1244,6 +1253,183 @@ function initPix() {
     }
 }
 
+function initAdmin() {
+    const loginWrap = document.getElementById('admin-login');
+    const panelWrap = document.getElementById('admin-panel');
+    const loginBtn = document.getElementById('admin-login-btn');
+    const loginError = document.getElementById('admin-login-error');
+    const passwordInput = document.getElementById('admin-password');
+
+    const pixelEnabled = document.getElementById('pixel-enabled');
+    const pixelId = document.getElementById('pixel-id');
+    const pixelEventPage = document.getElementById('pixel-event-page');
+    const pixelEventLead = document.getElementById('pixel-event-lead');
+    const pixelEventPurchase = document.getElementById('pixel-event-purchase');
+
+    const utmfyEnabled = document.getElementById('utmfy-enabled');
+    const utmfyEndpoint = document.getElementById('utmfy-endpoint');
+    const utmfyApi = document.getElementById('utmfy-api');
+
+    const saveBtn = document.getElementById('admin-save');
+    const saveStatus = document.getElementById('admin-save-status');
+
+    const leadsBody = document.getElementById('leads-body');
+    const leadsCount = document.getElementById('leads-count');
+    const leadsSearch = document.getElementById('leads-search');
+    const leadsRefresh = document.getElementById('leads-refresh');
+    const leadsMore = document.getElementById('leads-more');
+
+    let offset = 0;
+    const limit = 50;
+    let loadingLeads = false;
+
+    const setLoginVisible = (visible) => {
+        if (loginWrap) loginWrap.classList.toggle('hidden', !visible);
+        if (panelWrap) panelWrap.classList.toggle('hidden', visible);
+    };
+
+    const adminFetch = async (url, options = {}) => {
+        const res = await fetch(url, {
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            ...options
+        });
+        return res;
+    };
+
+    const checkAuth = async () => {
+        const res = await adminFetch('/api/admin/me');
+        return res.ok;
+    };
+
+    const loadSettings = async () => {
+        const res = await adminFetch('/api/admin/settings');
+        if (!res.ok) return;
+        const data = await res.json();
+        pixelEnabled.checked = !!data.pixel?.enabled;
+        pixelId.value = data.pixel?.id || '';
+        pixelEventPage.checked = data.pixel?.events?.page_view !== false;
+        pixelEventLead.checked = data.pixel?.events?.lead !== false;
+        pixelEventPurchase.checked = data.pixel?.events?.purchase !== false;
+        utmfyEnabled.checked = !!data.utmfy?.enabled;
+        utmfyEndpoint.value = data.utmfy?.endpoint || '';
+        utmfyApi.value = data.utmfy?.apiKey || '';
+    };
+
+    const saveSettings = async () => {
+        if (!saveBtn) return;
+        saveBtn.disabled = true;
+        if (saveStatus) saveStatus.textContent = 'Salvando...';
+
+        const payload = {
+            pixel: {
+                enabled: pixelEnabled.checked,
+                id: pixelId.value.trim(),
+                events: {
+                    page_view: pixelEventPage.checked,
+                    lead: pixelEventLead.checked,
+                    purchase: pixelEventPurchase.checked
+                }
+            },
+            utmfy: {
+                enabled: utmfyEnabled.checked,
+                endpoint: utmfyEndpoint.value.trim(),
+                apiKey: utmfyApi.value.trim()
+            }
+        };
+
+        const res = await adminFetch('/api/admin/settings', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+
+        if (saveStatus) {
+            saveStatus.textContent = res.ok ? 'Configuracoes salvas.' : 'Falha ao salvar.';
+            setTimeout(() => {
+                if (saveStatus) saveStatus.textContent = '';
+            }, 2500);
+        }
+        saveBtn.disabled = false;
+    };
+
+    const renderLeads = (rows, append = false) => {
+        if (!leadsBody) return;
+        if (!append) leadsBody.innerHTML = '';
+
+        rows.forEach((row) => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${row.nome || '-'}</td>
+                <td>${row.email || '-'}</td>
+                <td>${row.telefone || '-'}</td>
+                <td>${row.etapa || '-'}</td>
+                <td>${row.status_funil || '-'}</td>
+                <td>${row.frete || '-'}</td>
+                <td>${row.valor_total ? formatCurrency(row.valor_total) : '-'}</td>
+                <td>${row.updated_at ? new Date(row.updated_at).toLocaleString('pt-BR') : '-'}</td>
+            `;
+            leadsBody.appendChild(tr);
+        });
+
+        if (leadsCount) leadsCount.textContent = String(offset + rows.length);
+    };
+
+    const loadLeads = async ({ reset = false } = {}) => {
+        if (loadingLeads) return;
+        loadingLeads = true;
+        if (reset) offset = 0;
+
+        const query = leadsSearch?.value.trim() || '';
+        const url = new URL('/api/admin/leads', window.location.origin);
+        url.searchParams.set('limit', String(limit));
+        url.searchParams.set('offset', String(offset));
+        if (query) url.searchParams.set('q', query);
+
+        const res = await adminFetch(url.toString());
+        if (res.ok) {
+            const data = await res.json();
+            const rows = data.data || [];
+            renderLeads(rows, !reset);
+            offset += rows.length;
+        }
+        loadingLeads = false;
+    };
+
+    loginBtn?.addEventListener('click', async () => {
+        if (loginError) loginError.classList.add('hidden');
+        const password = passwordInput?.value || '';
+        const res = await adminFetch('/api/admin/login', {
+            method: 'POST',
+            body: JSON.stringify({ password })
+        });
+        if (!res.ok) {
+            if (loginError) {
+                loginError.textContent = 'Senha invalida.';
+                loginError.classList.remove('hidden');
+            }
+            return;
+        }
+        setLoginVisible(false);
+        await loadSettings();
+        await loadLeads({ reset: true });
+    });
+
+    saveBtn?.addEventListener('click', saveSettings);
+    leadsRefresh?.addEventListener('click', () => loadLeads({ reset: true }));
+    leadsMore?.addEventListener('click', () => loadLeads({ reset: false }));
+    leadsSearch?.addEventListener('change', () => loadLeads({ reset: true }));
+
+    checkAuth().then((ok) => {
+        if (ok) {
+            setLoginVisible(false);
+            loadSettings();
+            loadLeads({ reset: true });
+        } else {
+            setLoginVisible(true);
+        }
+    });
+}
+
 function renderQuestion(questionConfig, refs) {
     const { questionText, optionsContainer, questionCount, progressFill } = refs;
 
@@ -1523,6 +1709,7 @@ async function createPixCharge(shipping, bumpPrice) {
         stage: 'pix',
         event: 'pix_create_requested',
         sourceUrl: window.location.href,
+        utm: getUtmData(),
         shipping,
         bump: extraCharge > 0 ? { title: 'Seguro Bag', price: extraCharge } : null,
         personal: loadPersonal(),
@@ -1615,6 +1802,104 @@ async function ensureApiSession(force = false) {
     return state.apiSessionPromise;
 }
 
+function captureUtmParams() {
+    const params = new URLSearchParams(window.location.search);
+    const current = getUtmData();
+    const updated = {
+        utm_source: params.get('utm_source') || current.utm_source,
+        utm_medium: params.get('utm_medium') || current.utm_medium,
+        utm_campaign: params.get('utm_campaign') || current.utm_campaign,
+        utm_term: params.get('utm_term') || current.utm_term,
+        utm_content: params.get('utm_content') || current.utm_content,
+        gclid: params.get('gclid') || current.gclid,
+        fbclid: params.get('fbclid') || current.fbclid,
+        ttclid: params.get('ttclid') || current.ttclid,
+        referrer: document.referrer || current.referrer,
+        landing_page: current.landing_page || window.location.pathname
+    };
+    localStorage.setItem(STORAGE_KEYS.utm, JSON.stringify(updated));
+}
+
+function getUtmData() {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEYS.utm);
+        return raw ? JSON.parse(raw) : {};
+    } catch (_error) {
+        return {};
+    }
+}
+
+async function ensurePixelConfig(force = false) {
+    const now = Date.now();
+    const maxAgeMs = 5 * 60 * 1000;
+    if (!force && state.pixelConfig && now - state.pixelConfigAt < maxAgeMs) {
+        return state.pixelConfig;
+    }
+    try {
+        const res = await fetch('/api/site/config', { cache: 'no-store' });
+        if (!res.ok) throw new Error('config');
+        const data = await res.json();
+        state.pixelConfig = data?.pixel || null;
+        state.pixelConfigAt = Date.now();
+        localStorage.setItem(STORAGE_KEYS.pixelConfig, JSON.stringify(state.pixelConfig));
+        return state.pixelConfig;
+    } catch (_error) {
+        try {
+            const cached = localStorage.getItem(STORAGE_KEYS.pixelConfig);
+            if (cached) return JSON.parse(cached);
+        } catch (_e) {}
+        return null;
+    }
+}
+
+function loadFacebookPixel(pixelId) {
+    if (!pixelId || window.fbq) return;
+    /* eslint-disable */
+    !function(f,b,e,v,n,t,s){
+        if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+        n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+        if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+        n.queue=[];t=b.createElement(e);t.async=!0;
+        t.src=v;s=b.getElementsByTagName(e)[0];
+        s.parentNode.insertBefore(t,s)
+    }(window, document,'script','https://connect.facebook.net/en_US/fbevents.js');
+    fbq('init', pixelId);
+    /* eslint-enable */
+}
+
+async function initMarketing() {
+    const pixel = await ensurePixelConfig();
+    if (pixel?.enabled && pixel.id) {
+        loadFacebookPixel(pixel.id);
+        if (pixel.events?.page_view !== false) {
+            firePixelEvent('PageView');
+        }
+    }
+}
+
+function firePixelEvent(eventName, data = {}) {
+    if (!window.fbq) return;
+    try {
+        window.fbq('track', eventName, data);
+    } catch (_error) {}
+}
+
+function maybeTrackPixel(eventName, payload = {}) {
+    const pixel = state.pixelConfig;
+    if (!pixel || !pixel.enabled || !pixel.id) return;
+
+    if (eventName === 'personal_submitted' && pixel.events?.lead !== false) {
+        firePixelEvent('Lead');
+    }
+
+    if (eventName === 'pix_created_front' && pixel.events?.purchase !== false) {
+        firePixelEvent('Purchase', {
+            value: Number(payload.amount || 0),
+            currency: 'BRL'
+        });
+    }
+}
+
 function trackLead(eventName, extra = {}) {
     ensureApiSession().catch(() => null);
 
@@ -1623,6 +1908,7 @@ function trackLead(eventName, extra = {}) {
         event: eventName,
         stage: extra.stage || getStage() || '',
         sourceUrl: window.location.href,
+        utm: getUtmData(),
         personal: extra.personal || loadPersonal() || {},
         address: extra.address || loadAddress() || {},
         extra: extra.extra || loadAddressExtra() || {},
@@ -1631,6 +1917,8 @@ function trackLead(eventName, extra = {}) {
         pix: extra.pix || loadPix() || {},
         amount: Number.isFinite(Number(extra.amount)) ? Number(extra.amount) : undefined
     };
+
+    maybeTrackPixel(eventName, payload);
 
     try {
         const body = JSON.stringify(payload);

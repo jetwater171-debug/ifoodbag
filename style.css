@@ -1554,6 +1554,139 @@ body[data-page='processing'] .step {
     font-size: 0.85rem;
 }
 
+/* Admin */
+body[data-page='admin'] .step {
+    padding: clamp(20px, 4vw, 32px);
+}
+
+.admin-card h1 {
+    margin-bottom: 8px;
+}
+
+.admin-muted {
+    color: #7a7a7a;
+    font-size: 0.92rem;
+}
+
+.admin-login {
+    margin-top: 16px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.admin-panel {
+    margin-top: 18px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.admin-section {
+    border: 1px solid #eee;
+    border-radius: var(--radius-md);
+    padding: 16px;
+    background: #fff;
+}
+
+.admin-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.admin-chip {
+    background: #fff0f2;
+    color: #c91322;
+    border: 1px solid #ffd0d5;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.admin-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+}
+
+.admin-checkboxes {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 0.92rem;
+    color: #333;
+}
+
+.admin-switch {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    color: #2a2a2a;
+}
+
+.admin-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.admin-toolbar {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+
+.admin-toolbar input {
+    flex: 1;
+    min-width: 200px;
+    border-radius: var(--radius-md);
+    border: 1px solid #ddd;
+    padding: 10px 12px;
+    font-size: 0.95rem;
+}
+
+.admin-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+    border: 1px solid #eee;
+    border-radius: var(--radius-md);
+}
+
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.admin-table th,
+.admin-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #f2f2f2;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.admin-table th {
+    background: #fafafa;
+    font-size: 0.78rem;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: #666;
+}
+
+.admin-table tbody tr:hover {
+    background: #fff5f6;
+}
+
 @media (max-width: 360px) {
     .brand-name {
         font-size: 0.98rem;

@@ -37,6 +37,7 @@
     ],
     "rewrites": [
         { "source": "/", "destination": "/index.html" },
+        { "source": "/admin", "destination": "/admin.html" },
         { "source": "/quiz", "destination": "/quiz.html" },
         { "source": "/dados", "destination": "/dados.html" },
         { "source": "/endereco", "destination": "/endereco.html" },

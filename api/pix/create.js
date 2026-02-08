@@ -10,6 +10,7 @@ const {
 } = require('../../lib/ativus');
 const { upsertLead } = require('../../lib/lead-store');
 const { ensureAllowedRequest } = require('../../lib/request-guard');
+const { sendUtmfy } = require('../../lib/utmfy');
 
 module.exports = async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
@@ -165,6 +166,15 @@ module.exports = async (req, res) => {
             pixTxid: data.idTransaction || data.idtransaction || '',
             pixAmount: totalAmount
         }, req).catch(() => null);
+
+        sendUtmfy('pix_created', {
+            amount: totalAmount,
+            sessionId: rawBody.sessionId || '',
+            personal,
+            shipping,
+            bump,
+            utm: rawBody.utm || {}
+        }).catch(() => null);
 
         return res.status(200).json({
             idTransaction: data.idTransaction || data.idtransaction,

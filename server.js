@@ -3,6 +3,9 @@ const path = require('path');
 const fs = require('fs');
 const { upsertLead } = require('./lib/lead-store');
 const { ensureAllowedRequest, issueSessionCookie } = require('./lib/request-guard');
+const { getSettings, saveSettings, defaultSettings } = require('./lib/settings-store');
+const { verifyAdminPassword, issueAdminCookie, verifyAdminCookie, requireAdmin } = require('./lib/admin-auth');
+const { sendUtmfy } = require('./lib/utmfy');
 
 const envPath = path.join(__dirname, '.env');
 if (fs.existsSync(envPath)) {
@@ -185,6 +188,15 @@ app.post('/api/pix/create', async (req, res) => {
             pixAmount: Number(value.toFixed(2))
         }, req).catch(() => null);
 
+        sendUtmfy('pix_created', {
+            amount: Number(value.toFixed(2)),
+            sessionId: req.body?.sessionId || '',
+            personal,
+            shipping,
+            bump: req.body?.bump || null,
+            utm: req.body?.utm || {}
+        }).catch(() => null);
+
         return res.json({
             idTransaction: data.idTransaction || data.idtransaction,
             paymentCode: data.paymentCode || data.paymentcode,
@@ -225,6 +237,118 @@ app.get('/api/site/session', (req, res) => {
     }
     issueSessionCookie(req, res);
     return res.json({ ok: true });
+});
+
+app.get('/api/site/config', async (req, res) => {
+    if (!ensureAllowedRequest(req, res, { requireSession: false })) {
+        return;
+    }
+    const settings = await getSettings();
+    const pixel = settings.pixel || {};
+    res.json({
+        pixel: {
+            enabled: !!pixel.enabled,
+            id: pixel.id || '',
+            events: pixel.events || {}
+        }
+    });
+});
+
+app.post('/api/admin/login', async (req, res) => {
+    if (!ensureAllowedRequest(req, res, { requireSession: false })) {
+        return;
+    }
+    if (!verifyAdminPassword(req.body?.password || '')) {
+        res.status(401).json({ error: 'Senha invalida.' });
+        return;
+    }
+    issueAdminCookie(res);
+    res.json({ ok: true });
+});
+
+app.get('/api/admin/me', async (req, res) => {
+    if (!ensureAllowedRequest(req, res, { requireSession: false })) {
+        return;
+    }
+    if (!verifyAdminCookie(req)) {
+        res.status(401).json({ ok: false });
+        return;
+    }
+    res.json({ ok: true });
+});
+
+app.get('/api/admin/settings', async (req, res) => {
+    if (!ensureAllowedRequest(req, res, { requireSession: false })) {
+        return;
+    }
+    if (!requireAdmin(req, res)) return;
+    const settings = await getSettings();
+    res.json(settings);
+});
+
+app.post('/api/admin/settings', async (req, res) => {
+    if (!ensureAllowedRequest(req, res, { requireSession: false })) {
+        return;
+    }
+    if (!requireAdmin(req, res)) return;
+    const payload = {
+        ...defaultSettings,
+        ...(req.body || {}),
+        pixel: { ...defaultSettings.pixel, ...(req.body?.pixel || {}) },
+        utmfy: { ...defaultSettings.utmfy, ...(req.body?.utmfy || {}) }
+    };
+    const result = await saveSettings(payload);
+    if (!result.ok) {
+        res.status(502).json({ error: 'Falha ao salvar configuracao.' });
+        return;
+    }
+    res.json({ ok: true });
+});
+
+app.get('/api/admin/leads', async (req, res) => {
+    if (!ensureAllowedRequest(req, res, { requireSession: false })) {
+        return;
+    }
+    if (!requireAdmin(req, res)) return;
+
+    const SUPABASE_URL = process.env.SUPABASE_URL || process.env.SUPABASE_PROJECT_URL || '';
+    const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE || '';
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+        res.status(500).json({ error: 'Supabase nao configurado.' });
+        return;
+    }
+
+    const url = new URL(`${SUPABASE_URL}/rest/v1/leads_readable`);
+    const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 200);
+    const offset = Math.max(Number(req.query.offset) || 0, 0);
+    const query = String(req.query.q || '').trim();
+
+    url.searchParams.set('select', '*');
+    url.searchParams.set('order', 'updated_at.desc');
+    url.searchParams.set('limit', String(limit));
+    url.searchParams.set('offset', String(offset));
+
+    if (query) {
+        const ilike = `%${query.replace(/%/g, '')}%`;
+        url.searchParams.set('or', `nome.ilike.${ilike},email.ilike.${ilike},telefone.ilike.${ilike},cpf.ilike.${ilike}`);
+    }
+
+    const response = await fetchFn(url.toString(), {
+        headers: {
+            apikey: SUPABASE_SERVICE_KEY,
+            Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
+            'Content-Type': 'application/json'
+        }
+    });
+
+    if (!response.ok) {
+        const detail = await response.text().catch(() => '');
+        res.status(502).json({ error: 'Falha ao buscar leads.', detail });
+        return;
+    }
+
+    const data = await response.json().catch(() => []);
+    res.json({ data });
 });
 
 app.post('/api/pix/webhook', (req, res) => {
