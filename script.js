@@ -313,6 +313,22 @@ function initCep() {
         resetCepResults(errorBox, addressResult, freightBox, btnBuscar, loadingRow);
     });
 
+    const fetchCepData = async (rawCep, retry = 1) => {
+        let attempt = 0;
+        while (attempt <= retry) {
+            try {
+                const response = await fetch(`https://brasilapi.com.br/api/cep/v1/${rawCep}`, { cache: 'no-store' });
+                if (!response.ok) throw new Error('CEP nao encontrado');
+                return await response.json();
+            } catch (error) {
+                if (attempt >= retry) throw error;
+                await new Promise((resolve) => setTimeout(resolve, 450 * (attempt + 1)));
+                attempt += 1;
+            }
+        }
+        throw new Error('CEP nao encontrado');
+    };
+
     btnBuscar?.addEventListener('click', async () => {
         if (!cepInput) return;
         clearInlineError(errorBox);
@@ -331,10 +347,7 @@ function initCep() {
         setHidden(loadingRow, false);
 
         try {
-            const response = await fetch(`https://brasilapi.com.br/api/cep/v1/${rawCep}`);
-            if (!response.ok) throw new Error('CEP não encontrado');
-
-            const data = await response.json();
+            const data = await fetchCepData(rawCep, 1);
             const street = (data.street || '').trim();
             const neighborhood = (data.neighborhood || '').trim();
             const streetLine = [street, neighborhood].filter(Boolean).join(', ') || 'Rua não informada';
@@ -376,7 +389,7 @@ function initCep() {
 
             setTimeout(() => {
                 setHidden(loadingRow, true);
-                showInlineError(errorBox, 'CEP não encontrado. Tente novamente.');
+                showInlineError(errorBox, 'CEP nao encontrado ou servico indisponivel. Verifique e tente novamente.');
                 btnBuscar.innerText = 'Verificar disponibilidade';
                 btnBuscar.disabled = false;
             }, remaining);
@@ -413,6 +426,8 @@ function initProcessing() {
     const progressLabelEl = document.getElementById('processing-progress-label');
     const progressSegmentEls = Array.from(document.querySelectorAll('.processing-segment i'));
     const verifiedEl = document.getElementById('processing-verified');
+    const overlayEl = document.getElementById('vsl-audio-overlay');
+    const overlayBtn = document.getElementById('vsl-audio-btn');
     const loadingTexts = [
         'Verificando estoque da bag na sua região...',
         'Validando seus dados com segurança...',
@@ -467,6 +482,18 @@ function initProcessing() {
             clearInterval(autoplayGuardTimer);
             autoplayGuardTimer = null;
         }
+    };
+
+    const showOverlay = () => {
+        if (!overlayEl) return;
+        overlayEl.classList.remove('hidden');
+        overlayEl.setAttribute('aria-hidden', 'false');
+    };
+
+    const hideOverlay = () => {
+        if (!overlayEl) return;
+        overlayEl.classList.add('hidden');
+        overlayEl.setAttribute('aria-hidden', 'true');
     };
 
     const updateText = (txt) => {
@@ -552,6 +579,7 @@ function initProcessing() {
         videoEl.playsInline = true;
         videoEl.setAttribute('playsinline', '');
         videoEl.setAttribute('webkit-playsinline', '');
+        videoEl.preload = 'auto';
         applyPreferredAudio();
 
         const tryPlay = () => {
@@ -559,6 +587,7 @@ function initProcessing() {
             const playPromise = videoEl.play();
             if (playPromise && typeof playPromise.catch === 'function') {
                 playPromise.catch(() => {
+                    showOverlay();
                     safeStart();
                 });
             }
@@ -573,8 +602,10 @@ function initProcessing() {
                 }
                 applyPreferredAudio();
                 if (videoEl.paused) {
+                    showOverlay();
                     tryPlay();
                 } else {
+                    hideOverlay();
                     clearAutoplayGuard();
                 }
             }, 350);
@@ -591,6 +622,17 @@ function initProcessing() {
         document.addEventListener('click', unlockAudio, { once: true });
         document.addEventListener('touchstart', unlockAudio, { once: true });
         document.addEventListener('pointerdown', unlockAudio, { once: true });
+
+        videoEl.addEventListener('play', hideOverlay);
+        videoEl.addEventListener('playing', hideOverlay);
+        videoEl.addEventListener('pause', () => {
+            if (!finishTriggered) showOverlay();
+        });
+
+        overlayBtn?.addEventListener('click', () => {
+            applyPreferredAudio();
+            tryPlay();
+        });
 
         startAutoplayGuard();
         tryPlay();
@@ -1495,7 +1537,7 @@ async function createPixCharge(shipping, bumpPrice) {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-        const message = data?.error || 'Não foi possível gerar o pagamento PIX.';
+        const message = data?.error || 'Falha ao gerar o PIX. Tente novamente em instantes.';
         trackLead('pix_create_failed', {
             stage: 'orderbump',
             shipping,

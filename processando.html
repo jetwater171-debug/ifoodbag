@@ -56,9 +56,16 @@
 
             <div class="video-card">
                 <div id="vsl-frame" class="vsl-frame">
-                    <video id="vsl-video" class="vsl-video" playsinline webkit-playsinline preload="auto" autoplay controls>
+                    <video id="vsl-video" class="vsl-video" playsinline webkit-playsinline preload="metadata" poster="assets/vsl-poster.webp" autoplay controls>
                         <source src="assets/vsl.mp4" type="video/mp4">
                     </video>
+                    <div id="vsl-audio-overlay" class="vsl-overlay hidden" aria-hidden="true">
+                        <div class="vsl-overlay-content">
+                            <strong>Toque para ouvir</strong>
+                            <span>Ative o audio para continuar a verificacao</span>
+                        </div>
+                        <button id="vsl-audio-btn" class="vsl-overlay-btn" type="button">Ativar audio</button>
+                    </div>
                 </div>
                 <p class="small-text">Assista ao recado enquanto validamos sua solicitação.</p>
             </div>

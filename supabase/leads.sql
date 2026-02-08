@@ -33,7 +33,8 @@ create index if not exists idx_leads_updated_at on public.leads (updated_at desc
 create index if not exists idx_leads_last_event on public.leads (last_event);
 create index if not exists idx_leads_cpf on public.leads (cpf);
 
-create or replace view public.leads_readable as
+drop view if exists public.leads_readable;
+create view public.leads_readable as
 select
   session_id,
   coalesce(name, '-') as nome,
@@ -50,6 +51,13 @@ select
   bump_price as valor_seguro,
   coalesce(pix_txid, '-') as pix_txid,
   pix_amount as valor_total,
+  case
+    when pix_txid is not null then 'pix_gerado'
+    when shipping_id is not null then 'frete_selecionado'
+    when cep is not null then 'cep_confirmado'
+    when email is not null or phone is not null then 'dados_pessoais'
+    else 'inicio'
+  end as status_funil,
   updated_at,
   created_at
 from public.leads

@@ -24,21 +24,21 @@ module.exports = async (req, res) => {
 
     try {
         if (!API_KEY_B64) {
-            return res.status(500).json({ error: 'API key not configured.' });
+            return res.status(500).json({ error: 'API Key nao configurada.' });
         }
 
         let rawBody = {};
         try {
             rawBody = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {};
         } catch (error) {
-            return res.status(400).json({ error: 'Invalid JSON body.' });
+            return res.status(400).json({ error: 'JSON invalido no corpo da requisicao.' });
         }
 
         const { amount, personal = {}, address = {}, extra = {}, shipping = {}, bump } = rawBody;
         const value = Number(amount);
 
         if (!value || value <= 0) {
-            return res.status(400).json({ error: 'Invalid shipping amount.' });
+            return res.status(400).json({ error: 'Valor do frete invalido.' });
         }
 
         const name = String(personal.name || '').trim();
@@ -47,7 +47,7 @@ module.exports = async (req, res) => {
         const phone = sanitizeDigits(personal.phoneDigits || personal.phone || '');
 
         if (!name || !cpf || !email || !phone) {
-            return res.status(400).json({ error: 'Personal data is incomplete.' });
+            return res.status(400).json({ error: 'Dados pessoais incompletos.' });
         }
 
         const street = String(address.street || '').trim() || String(address.streetLine || '').split(',')[0]?.trim() || '';
@@ -122,15 +122,37 @@ module.exports = async (req, res) => {
             }
         };
 
-        const { response, data } = await fetchJson(`${BASE_URL}/v1/gateway/api/`, {
-            method: 'POST',
-            headers: authHeaders,
-            body: JSON.stringify(payload)
-        });
+        const requestPix = async (attempt) => {
+            const { response, data } = await fetchJson(`${BASE_URL}/v1/gateway/api/`, {
+                method: 'POST',
+                headers: authHeaders,
+                body: JSON.stringify(payload)
+            });
+            if (response.ok) return { response, data };
+
+            const retryableStatus = [408, 429, 500, 502, 503, 504];
+            if (attempt < 1 && retryableStatus.includes(response.status)) {
+                console.warn('[pix] retrying request', { status: response.status, attempt: attempt + 1 });
+                await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
+                return requestPix(attempt + 1);
+            }
+
+            return { response, data };
+        };
+
+        let response;
+        let data;
+        try {
+            ({ response, data } = await requestPix(0));
+        } catch (error) {
+            console.error('[pix] request failed', { message: error.message || String(error) });
+            return res.status(504).json({ error: 'Falha ao gerar o PIX. Tente novamente.' });
+        }
 
         if (!response.ok) {
+            console.error('[pix] request error', { status: response.status, detail: data?.message || '' });
             return res.status(response.status).json({
-                error: 'Failed to generate PIX.',
+                error: 'Falha ao gerar o PIX.',
                 detail: data
             });
         }
@@ -152,8 +174,9 @@ module.exports = async (req, res) => {
             amount: totalAmount
         });
     } catch (error) {
+        console.error('[pix] unexpected error', { message: error.message || String(error) });
         return res.status(500).json({
-            error: 'Error generating PIX.',
+            error: 'Erro ao gerar o PIX.',
             detail: error.message || String(error)
         });
     }
