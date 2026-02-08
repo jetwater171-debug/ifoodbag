@@ -1468,9 +1468,13 @@ function initAdmin() {
 
         metrics.total += rows.length;
         rows.forEach((row) => {
-            if (row.status_funil === 'pix_gerado') metrics.pix += 1;
-            if (row.status_funil === 'frete_selecionado') metrics.frete += 1;
-            if (row.status_funil === 'cep_confirmado') metrics.cep += 1;
+            const cep = String(row.cep || '').trim();
+            const frete = String(row.frete || '').trim();
+            const pixTxid = String(row.pix_txid || '').trim();
+
+            if (pixTxid && pixTxid !== '-') metrics.pix += 1;
+            if (frete && frete !== '-') metrics.frete += 1;
+            if (cep && cep !== '-') metrics.cep += 1;
             if (!metrics.lastUpdated && row.updated_at) metrics.lastUpdated = row.updated_at;
         });
 
