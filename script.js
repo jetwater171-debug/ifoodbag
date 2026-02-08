@@ -1278,10 +1278,24 @@ function initAdmin() {
     const leadsSearch = document.getElementById('leads-search');
     const leadsRefresh = document.getElementById('leads-refresh');
     const leadsMore = document.getElementById('leads-more');
+    const metricTotal = document.getElementById('metric-total');
+    const metricPix = document.getElementById('metric-pix');
+    const metricFrete = document.getElementById('metric-frete');
+    const metricCep = document.getElementById('metric-cep');
+    const metricUpdated = document.getElementById('metric-updated');
+    const metricBase = document.getElementById('metric-base');
+    const navItems = document.querySelectorAll('.admin-nav-item');
 
     let offset = 0;
     const limit = 50;
     let loadingLeads = false;
+    const metrics = {
+        total: 0,
+        pix: 0,
+        frete: 0,
+        cep: 0,
+        lastUpdated: ''
+    };
 
     const setLoginVisible = (visible) => {
         if (loginWrap) loginWrap.classList.toggle('hidden', !visible);
@@ -1362,6 +1376,7 @@ function initAdmin() {
                 <td>${row.nome || '-'}</td>
                 <td>${row.email || '-'}</td>
                 <td>${row.telefone || '-'}</td>
+                <td>${row.utm_source || '-'}</td>
                 <td>${row.etapa || '-'}</td>
                 <td>${row.status_funil || '-'}</td>
                 <td>${row.frete || '-'}</td>
@@ -1372,6 +1387,35 @@ function initAdmin() {
         });
 
         if (leadsCount) leadsCount.textContent = String(offset + rows.length);
+    };
+
+    const updateMetrics = (rows, reset = false) => {
+        if (reset) {
+            metrics.total = 0;
+            metrics.pix = 0;
+            metrics.frete = 0;
+            metrics.cep = 0;
+            metrics.lastUpdated = '';
+        }
+
+        metrics.total += rows.length;
+        rows.forEach((row) => {
+            if (row.status_funil === 'pix_gerado') metrics.pix += 1;
+            if (row.status_funil === 'frete_selecionado') metrics.frete += 1;
+            if (row.status_funil === 'cep_confirmado') metrics.cep += 1;
+            if (!metrics.lastUpdated && row.updated_at) metrics.lastUpdated = row.updated_at;
+        });
+
+        if (metricTotal) metricTotal.textContent = String(metrics.total);
+        if (metricPix) metricPix.textContent = String(metrics.pix);
+        if (metricFrete) metricFrete.textContent = String(metrics.frete);
+        if (metricCep) metricCep.textContent = String(metrics.cep);
+        if (metricUpdated) {
+            metricUpdated.textContent = metrics.lastUpdated
+                ? new Date(metrics.lastUpdated).toLocaleString('pt-BR')
+                : '-';
+        }
+        if (metricBase) metricBase.textContent = `Base: ${metrics.total}`;
     };
 
     const loadLeads = async ({ reset = false } = {}) => {
@@ -1390,6 +1434,7 @@ function initAdmin() {
             const data = await res.json();
             const rows = data.data || [];
             renderLeads(rows, !reset);
+            updateMetrics(rows, reset);
             offset += rows.length;
         }
         loadingLeads = false;
@@ -1418,6 +1463,15 @@ function initAdmin() {
     leadsRefresh?.addEventListener('click', () => loadLeads({ reset: true }));
     leadsMore?.addEventListener('click', () => loadLeads({ reset: false }));
     leadsSearch?.addEventListener('change', () => loadLeads({ reset: true }));
+
+    navItems.forEach((item) => {
+        item.addEventListener('click', () => {
+            const target = item.getAttribute('data-target');
+            if (!target) return;
+            const section = document.getElementById(target);
+            if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    });
 
     checkAuth().then((ok) => {
         if (ok) {

