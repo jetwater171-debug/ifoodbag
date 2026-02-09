@@ -955,12 +955,14 @@ Deno.serve(async (req) => {
   if (route === 'site/config' && method === 'GET') {
     const settings = await getSettings();
     const pixel = settings.pixel || {};
+    const features = settings.features || {};
     return jsonResponse({
       pixel: {
         enabled: !!pixel.enabled,
         id: pixel.id || '',
         events: pixel.events || {}
-      }
+      },
+      features
     }, 200, corsHeaders(origin));
   }
 
@@ -1207,7 +1209,7 @@ Deno.serve(async (req) => {
     if (body.__invalid_json) return jsonResponse({ error: 'JSON invalido.' }, 400, corsHeaders(origin));
     const password = String(body.password || '').trim();
     if (!password || password !== getAdminPassword()) return jsonResponse({ error: 'Senha invalida.' }, 401, corsHeaders(origin));
-    const { cookie } = await issueAdminCookie();
+    const { cookie } = await issueAdminCookie(req);
     return jsonResponse({ ok: true }, 200, { ...corsHeaders(origin), 'Set-Cookie': cookie });
   }
 

@@ -3,91 +3,90 @@
         id: 'start',
         text: 'Voc\u00ea j\u00e1 realiza entregas pelo iFood?',
         options: [
-            { text: 'Sim, j\u00e1 sou parceiro', icon: '&#9679;', next: 'tempo_atividade' },
-            { text: 'Ainda n\u00e3o, quero come\u00e7ar', icon: '&#9679;', next: 'possu_veiculo' }
+            { text: 'Sim, j\u00e1 sou parceiro', icon: '\uD83D\uDEF5', next: 'tempo_atividade' },
+            { text: 'Ainda n\u00e3o, quero come\u00e7ar', icon: '\uD83D\uDE80', next: 'possu_veiculo' }
         ]
     },
     tempo_atividade: {
         id: 'tempo_atividade',
         text: 'H\u00e1 quanto tempo voc\u00ea est\u00e1 nas entregas?',
         options: [
-            { text: 'Estou come\u00e7ando agora', icon: '&#9679;', next: 'disponibilidade' },
-            { text: 'Menos de 1 ano', icon: '&#9679;', next: 'disponibilidade' },
-            { text: 'Mais de 1 ano', icon: '&#9679;', next: 'disponibilidade' }
+            { text: 'Estou come\u00e7ando agora', icon: '\uD83C\uDF31', next: 'disponibilidade' },
+            { text: 'Menos de 1 ano', icon: '\u2B50', next: 'disponibilidade' },
+            { text: 'Mais de 1 ano', icon: '\uD83C\uDFC6', next: 'disponibilidade' }
         ]
     },
     possu_veiculo: {
         id: 'possu_veiculo',
         text: 'Voc\u00ea j\u00e1 tem ve\u00edculo para entregas?',
         options: [
-            { text: 'Sim, j\u00e1 tenho', icon: '&#9679;', next: 'tipo_veiculo' },
-            { text: 'Estou providenciando', icon: '&#9679;', next: 'tipo_veiculo' }
+            { text: 'Sim, j\u00e1 tenho', icon: '\u2705', next: 'tipo_veiculo' },
+            { text: 'Estou providenciando', icon: '\uD83D\uDEE0\uFE0F', next: 'tipo_veiculo' }
         ]
     },
     tipo_veiculo: {
         id: 'tipo_veiculo',
         text: 'Qual ser\u00e1 seu principal meio de entrega?',
         options: [
-            { text: 'Moto', icon: '&#9679;', next: 'cnh_status' },
-            { text: 'Bicicleta', icon: '&#9679;', next: 'disponibilidade' }
+            { text: 'Moto', icon: '\uD83C\uDFCD\uFE0F', next: 'cnh_status' },
+            { text: 'Bicicleta', icon: '\uD83D\uDEB2', next: 'disponibilidade' }
         ]
     },
     cnh_status: {
         id: 'cnh_status',
         text: 'Qual \u00e9 a situa\u00e7\u00e3o da sua CNH?',
         options: [
-            { text: 'EAR (Atividade remunerada)', icon: '&#9679;', next: 'disponibilidade' },
-            { text: 'CNH comum (sem EAR)', icon: '&#9679;', next: 'disponibilidade' },
-            { text: 'Provis\u00f3ria', icon: '&#9679;', next: 'disponibilidade' }
+            { text: 'EAR (Atividade remunerada)', icon: '\u2705', next: 'disponibilidade' },
+            { text: 'CNH comum (sem EAR)', icon: '\u26A0\uFE0F', next: 'disponibilidade' },
+            { text: 'Provis\u00f3ria', icon: '\uD83D\uDD30', next: 'disponibilidade' }
         ]
     },
     disponibilidade: {
         id: 'disponibilidade',
         text: 'Quantas horas por dia voc\u00ea pretende ficar online?',
         options: [
-            { text: 'At\u00e9 4 horas', icon: '&#9679;', next: 'objetivo_renda' },
-            { text: '4 a 8 horas', icon: '&#9679;', next: 'objetivo_renda' },
-            { text: 'Mais de 8 horas', icon: '&#9679;', next: 'objetivo_renda' }
+            { text: 'At\u00e9 4 horas', icon: '\u23F1\uFE0F', next: 'objetivo_renda' },
+            { text: '4 a 8 horas', icon: '\uD83D\uDCBC', next: 'objetivo_renda' },
+            { text: 'Mais de 8 horas', icon: '\uD83D\uDE80', next: 'objetivo_renda' }
         ]
     },
     objetivo_renda: {
         id: 'objetivo_renda',
         text: 'Qual \u00e9 seu objetivo com as entregas?',
         options: [
-            { text: 'Renda extra', icon: '&#9679;', next: 'regiao_preferencia' },
-            { text: 'Renda principal', icon: '&#9679;', next: 'regiao_preferencia' },
-            { text: 'Quero crescer r\u00e1pido', icon: '&#9679;', next: 'regiao_preferencia' }
+            { text: 'Renda extra', icon: '\uD83D\uDCA1', next: 'regiao_preferencia' },
+            { text: 'Renda principal', icon: '\uD83D\uDCC8', next: 'regiao_preferencia' },
+            { text: 'Quero crescer r\u00e1pido', icon: '\uD83D\uDD25', next: 'regiao_preferencia' }
         ]
     },
     regiao_preferencia: {
         id: 'regiao_preferencia',
         text: 'Onde voc\u00ea prefere atuar?',
         options: [
-            { text: 'Centro e arredores', icon: '&#9679;', next: 'equipamento' },
-            { text: 'Bairros residenciais', icon: '&#9679;', next: 'equipamento' },
-            { text: 'Pr\u00f3ximo a shoppings', icon: '&#9679;', next: 'equipamento' }
+            { text: 'Centro e arredores', icon: '\uD83C\uDFD9\uFE0F', next: 'equipamento' },
+            { text: 'Bairros residenciais', icon: '\uD83C\uDFE1', next: 'equipamento' },
+            { text: 'Pr\u00f3ximo a shoppings', icon: '\uD83D\uDECD\uFE0F', next: 'equipamento' }
         ]
     },
     equipamento: {
         id: 'equipamento',
         text: 'Voc\u00ea j\u00e1 tem bag t\u00e9rmica em boas condi\u00e7\u00f5es?',
         options: [
-            { text: 'Sim, mas preciso trocar', icon: '&#9679;', next: 'horario_pico' },
-            { text: 'N\u00e3o tenho, preciso da primeira', icon: '&#9679;', next: 'horario_pico' },
-            { text: 'Tenho e quero uma reserva', icon: '&#9679;', next: 'horario_pico' }
+            { text: 'Sim, mas preciso trocar', icon: '\u267B\uFE0F', next: 'horario_pico' },
+            { text: 'N\u00e3o tenho, preciso da primeira', icon: '\uD83C\uDF92', next: 'horario_pico' },
+            { text: 'Tenho e quero uma reserva', icon: '\u2705', next: 'horario_pico' }
         ]
     },
     horario_pico: {
         id: 'horario_pico',
         text: 'Voc\u00ea consegue rodar em hor\u00e1rios de pico (almo\u00e7o/jantar)?',
         options: [
-            { text: 'Sim, com certeza', icon: '&#9679;', next: 'personal_step' },
-            { text: 'Consigo \u00e0s vezes', icon: '&#9679;', next: 'personal_step' },
-            { text: 'Prefiro hor\u00e1rios alternativos', icon: '&#9679;', next: 'personal_step' }
+            { text: 'Sim, com certeza', icon: '\uD83D\uDD25', next: 'personal_step' },
+            { text: 'Consigo \u00e0s vezes', icon: '\uD83D\uDCC5', next: 'personal_step' },
+            { text: 'Prefiro hor\u00e1rios alternativos', icon: '\uD83C\uDF19', next: 'personal_step' }
         ]
     }
 };
-
 const STORAGE_KEYS = {
     personal: 'ifoodbag.personal',
     address: 'ifoodbag.address',
@@ -1817,14 +1816,27 @@ function initAdmin() {
         const data = await res.json();
         const rows = data.data || [];
         const max = rows.reduce((acc, row) => Math.max(acc, Number(row.total) || 0), 0) || 1;
+        const pageMeta = {
+            home: { label: 'index.html', desc: 'Pagina inicial (entrada do funil)' },
+            quiz: { label: 'quiz.html', desc: 'Perguntas de qualificacao' },
+            personal: { label: 'dados.html', desc: 'Coleta de dados pessoais' },
+            cep: { label: 'endereco.html', desc: 'Consulta e confirmacao de CEP' },
+            processing: { label: 'processando.html', desc: 'Video + verificacao de elegibilidade' },
+            success: { label: 'sucesso.html', desc: 'Aprovado e chamada para resgate' },
+            checkout: { label: 'checkout.html', desc: 'Endereco e selecao de frete' },
+            orderbump: { label: 'orderbump.html', desc: 'Oferta do Seguro Bag' },
+            pix: { label: 'pix.html', desc: 'Pagamento via PIX' }
+        };
         pagesGrid.innerHTML = '';
         rows.forEach((row) => {
             const card = document.createElement('div');
             card.className = 'admin-page-card';
             const pct = Math.round(((Number(row.total) || 0) / max) * 100);
+            const meta = pageMeta[row.page] || { label: row.page || '-', desc: '' };
             card.innerHTML = `
                 <strong>${row.total ?? 0}</strong>
-                <span>${row.page || '-'}</span>
+                <span>${meta.label || '-'}</span>
+                ${meta.desc ? `<em>${meta.desc}</em>` : ''}
                 <div class="admin-page-bar"><i style="width: ${pct}%"></i></div>
             `;
             pagesGrid.appendChild(card);
@@ -1832,17 +1844,6 @@ function initAdmin() {
 
         if (pagesInsights) {
             const order = ['home', 'quiz', 'personal', 'cep', 'processing', 'success', 'checkout', 'orderbump', 'pix'];
-            const pageMeta = {
-                home: { label: 'index.html', desc: 'Pagina inicial (entrada do funil)' },
-                quiz: { label: 'quiz.html', desc: 'Perguntas de qualificacao' },
-                personal: { label: 'dados.html', desc: 'Coleta de dados pessoais' },
-                cep: { label: 'endereco.html', desc: 'Consulta e confirmacao de CEP' },
-                processing: { label: 'processando.html', desc: 'Video + verificacao de elegibilidade' },
-                success: { label: 'sucesso.html', desc: 'Aprovado e chamada para resgate' },
-                checkout: { label: 'checkout.html', desc: 'Endereco e selecao de frete' },
-                orderbump: { label: 'orderbump.html', desc: 'Oferta do Seguro Bag' },
-                pix: { label: 'pix.html', desc: 'Pagamento via PIX' }
-            };
             const map = new Map(rows.map((r) => [r.page, Number(r.total) || 0]));
             pagesInsights.innerHTML = '';
             let prevEffective = null;
