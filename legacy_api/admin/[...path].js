@@ -449,12 +449,13 @@ async function pixReconcile(req, res) {
                     );
                     const gatewayFee = Number(data?.taxa_deposito || 0) + Number(data?.taxa_adquirente || 0);
                     const userCommission = Number(data?.deposito_liquido || data?.valor_liquido || 0);
+                    const eventName = isPaid ? 'pix_confirmed' : isRefunded ? 'pix_refunded' : isRefused ? 'pix_refused' : 'pix_pending';
                     enqueueDispatch({
                         channel: 'utmfy',
-                        eventName: 'pix_status',
+                        eventName,
                         dedupeKey: `utmfy:status:${txid}:${utmifyStatus}`,
                         payload: {
-                            event: 'pix_status',
+                            event: eventName,
                             orderId: leadData?.session_id || '',
                             txid,
                             status: utmifyStatus,
@@ -503,12 +504,14 @@ async function pixReconcile(req, res) {
                         }
                     }).then(() => processDispatchQueue(8)).catch(() => null);
 
-                    enqueueDispatch({
-                        channel: 'pushcut',
-                        kind: 'pix_confirmed',
-                        dedupeKey: `pushcut:pix_confirmed:${txid}`,
-                        payload: { txid, status, amount }
-                    }).then(() => processDispatchQueue(8)).catch(() => null);
+                    if (isPaid) {
+                        enqueueDispatch({
+                            channel: 'pushcut',
+                            kind: 'pix_confirmed',
+                            dedupeKey: `pushcut:pix_confirmed:${txid}`,
+                            payload: { txid, status, amount }
+                        }).then(() => processDispatchQueue(8)).catch(() => null);
+                    }
 
                     if (isPaid) {
                         const forwarded = req?.headers?.['x-forwarded-for'];

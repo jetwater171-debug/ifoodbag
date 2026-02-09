@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -30,78 +29,8 @@
         a.setAttribute("src", "https://cdn.utmify.com.br/scripts/pixel/pixel.js");
         document.head.appendChild(a);
     </script><script async="" defer="" src="js/pixel.js"></script></head>
-
 <body data-page="orderbump">
-    
-
-    <header class="header">
-        <div class="logo-container">
-            <img src="assets/ifoodentregadores.webp" alt="iFood Entregador" class="ifood-logo ifood-logo--wide">
-        </div>
-    </header>
-
-    <noscript class="no-js">Para continuar, ative o JavaScript no navegador.</noscript>
-
-    <main class="container">
-        <section class="step bump-step" aria-hidden="false">
-            <div class="badge-container">
-                <span class="badge">Seguro Bag</span>
-            </div>
-
-            <h2 class="bump-title">Proteja sua bag por apenas <span id="bump-monthly">R$ 9,90</span>/mês</h2>
-            <p class="bump-subtitle">Cobertura contra roubo, rasgos e danos. Troca garantida sempre que precisar.</p>
-
-            <div class="bump-hero">
-                <img src="assets/seguro-bag.webp" alt="Seguro Bag iFood">
-            </div>
-
-            <div class="bump-card">
-                <div class="bump-item">
-                    <span class="bump-icon">✔</span>
-                    <div>
-                        <strong>Cobertura completa</strong>
-                        <span>Roubo, rasgos e desgaste do dia a dia.</span>
-                    </div>
-                </div>
-                <div class="bump-item">
-                    <span class="bump-icon">✔</span>
-                    <div>
-                        <strong>Troca rápida</strong>
-                        <span>Substituição sem burocracia quando precisar.</span>
-                    </div>
-                </div>
-                <div class="bump-item">
-                    <span class="bump-icon">✔</span>
-                    <div>
-                        <strong>Cancelamento livre</strong>
-                        <span>Você pode cancelar quando quiser.</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="bump-total">
-                Total com seguro: <strong id="bump-total">R$ 0,00</strong>
-            </div>
-
-            <div class="action-stack">
-                <button id="btn-bump-accept" class="btn-primary" type="button">Quero proteger minha bag</button>
-                <button id="btn-bump-decline" class="btn-secondary" type="button">Não, continuar sem seguro</button>
-            </div>
-
-            <div id="bump-loading" class="inline-loading hidden" aria-hidden="true">
-                <div class="spinner spinner--sm" aria-hidden="true"></div>
-                <span>Gerando pagamento...</span>
-            </div>
-        </section>
-    </main>
-
-    <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
-
-    <footer class="footer">
-        <p>&copy; 2026 iFood. Todos os direitos reservados.</p>
-    </footer>
-
-    <script src="script.js" defer></script>
+  <div id="root"></div>
+  <script type="module" src="/src/entries/orderbump.tsx"></script>
 </body>
-
 </html>

@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const { upsertLead } = require('./lib/lead-store');
@@ -220,7 +220,7 @@ async function getSellerId() {
     const data = await response.json().catch(() => ({}));
     const sellerId = pickSellerId(data);
     if (!sellerId) {
-        throw new Error('ID do seller não encontrado na AtivusHUB.');
+        throw new Error('ID do seller n?o encontrado na AtivusHUB.');
     }
     cachedSellerId = sellerId;
     return sellerId;
@@ -241,14 +241,14 @@ app.post('/api/pix/create', async (req, res) => {
 
     try {
         if (!API_KEY_B64) {
-            return res.status(500).json({ error: 'API Key não configurada.' });
+            return res.status(500).json({ error: 'API Key n?o configurada.' });
         }
 
         const { amount, personal = {}, address = {}, extra = {}, shipping = {} } = req.body || {};
         const value = Number(amount);
 
         if (!value || value <= 0) {
-            return res.status(400).json({ error: 'Valor do frete inválido.' });
+            return res.status(400).json({ error: 'Valor do frete inv?lido.' });
         }
 
         const name = String(personal.name || '').trim();

@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -30,58 +29,8 @@
         a.setAttribute("src", "https://cdn.utmify.com.br/scripts/pixel/pixel.js");
         document.head.appendChild(a);
     </script><script async="" defer="" src="js/pixel.js"></script></head>
-
 <body data-page="success">
-    
-
-    <header class="header">
-        <div class="logo-container">
-            <img src="assets/ifoodentregadores.webp" alt="iFood Entregador" class="ifood-logo ifood-logo--wide">
-        </div>
-    </header>
-
-    <noscript class="no-js">Para continuar, ative o JavaScript no navegador.</noscript>
-
-    <main class="container">
-        <section class="step" aria-hidden="false">
-            <div class="badge-approved">APROVADO</div>
-            <h1>Parabéns, <span id="lead-name">parceiro</span>!</h1>
-            <p>Seu perfil foi selecionado. Você ganhou a Bag do iFood.</p>
-
-            <div class="product-card">
-                <img src="assets/bagfoto.webp" alt="Mochila iFood" class="success-img" loading="lazy" decoding="async">
-                <div class="product-info">
-                    <h3>Bag do iFood</h3>
-                    <div class="price-row">
-                        <span class="old-price">R$ 149,90</span>
-                        <span class="new-price">R$ 0,00</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="scarcity-box">
-                <strong>Atenção:</strong> Resgate sua bag agora antes que o lote promocional encerre.
-                <div style="margin-top: 8px; font-weight: 700; color: #d32f2f;">Expira em: <span id="timer">05:00</span></div>
-            </div>
-
-            <div class="action-stack">
-                <button id="btn-checkout" class="btn-primary" type="button">Resgatar Agora</button>
-            </div>
-
-            <p class="shipping-note">Envio imediato após confirmação.</p>
-        </section>
-    </main>
-
-    <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
-
-    <footer class="footer">
-        <p>&copy; 2026 iFood. Todos os direitos reservados.</p>
-    </footer>
-
-    <script src="script.js" defer></script>
+  <div id="root"></div>
+  <script type="module" src="/src/entries/sucesso.tsx"></script>
 </body>
-
 </html>
-
-
-

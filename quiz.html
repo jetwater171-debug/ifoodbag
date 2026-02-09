@@ -1,6 +1,5 @@
-<!DOCTYPE html>
+ï»¿<!DOCTYPE html>
 <html lang="pt-BR">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -8,8 +7,8 @@
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#EA1D2C">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <title>iFood Entregador - Questionário</title>
-    <meta name="description" content="Responda o questionário para verificar sua elegibilidade.">
+    <title>iFood Entregador - Questionario</title>
+    <meta name="description" content="Responda o questionario para verificar sua elegibilidade.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700&display=swap" rel="stylesheet">
@@ -30,44 +29,12 @@
         a.setAttribute("src", "https://cdn.utmify.com.br/scripts/pixel/pixel.js");
         document.head.appendChild(a);
     </script><script async="" defer="" src="js/pixel.js"></script></head>
-
 <body data-page="quiz">
-    
-
-    <header class="header">
-        <div class="logo-container">
-            <img src="assets/ifoodentregadores.webp" alt="iFood Entregador" class="ifood-logo ifood-logo--wide">
-        </div>
-    </header>
-
-    <noscript class="no-js">Para continuar, ative o JavaScript no navegador.</noscript>
-
-    <main class="container">
-        <section class="step" aria-hidden="false">
-            <div class="step-header">
-                <span id="question-count" class="step-count">PERGUNTA 1 DE 9</span>
-                <div class="progress-bar">
-                    <div id="progress-fill" class="progress" style="width: 0%"></div>
-                </div>
-            </div>
-
-            <h2 id="question-text">Pergunta aqui</h2>
-            <div id="options-container" class="options"></div>
-
-
-        </section>
-    </main>
-
-    <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
-
-    <footer class="footer">
-        <p>&copy; 2026 iFood. Todos os direitos reservados.</p>
-    </footer>
-
-    <script src="script.js" defer></script>
+  <div id="root"></div>
+  <script type="module" src="/src/entries/quiz.tsx"></script>
 </body>
-
 </html>
+
 
 
 

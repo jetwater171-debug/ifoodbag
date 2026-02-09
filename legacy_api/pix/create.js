@@ -180,35 +180,37 @@ module.exports = async (req, res) => {
         }, req).catch(() => null);
 
         const txid = data.idTransaction || data.idtransaction || '';
-        enqueueDispatch({
-            channel: 'utmfy',
-            eventName: 'pix_created',
-            dedupeKey: txid ? `utmfy:pix_created:${txid}` : null,
-            payload: {
-                orderId,
-                amount: totalAmount,
-                sessionId: rawBody.sessionId || '',
-                personal,
-                shipping,
-                bump,
-                utm: rawBody.utm || {},
-                txid,
-                createdAt: Date.now(),
-                status: 'waiting_payment'
-            }
-        }).then(() => processDispatchQueue(8)).catch(() => null);
-
-        enqueueDispatch({
-            channel: 'pushcut',
-            kind: 'pix_created',
-            dedupeKey: txid ? `pushcut:pix_created:${txid}` : null,
-            payload: {
-                txid,
-                amount: totalAmount,
-                shippingName: shipping?.name || '',
-                cep: zipCode
-            }
-        }).then(() => processDispatchQueue(8)).catch(() => null);
+        await Promise.all([
+            enqueueDispatch({
+                channel: 'utmfy',
+                eventName: 'pix_created',
+                dedupeKey: txid ? `utmfy:pix_created:${txid}` : null,
+                payload: {
+                    orderId,
+                    amount: totalAmount,
+                    sessionId: rawBody.sessionId || '',
+                    personal,
+                    shipping,
+                    bump,
+                    utm: rawBody.utm || {},
+                    txid,
+                    createdAt: Date.now(),
+                    status: 'waiting_payment'
+                }
+            }).catch(() => null),
+            enqueueDispatch({
+                channel: 'pushcut',
+                kind: 'pix_created',
+                dedupeKey: txid ? `pushcut:pix_created:${txid}` : null,
+                payload: {
+                    txid,
+                    amount: totalAmount,
+                    shippingName: shipping?.name || '',
+                    cep: zipCode
+                }
+            }).catch(() => null)
+        ]);
+        await processDispatchQueue(8).catch(() => null);
 
         return res.status(200).json({
             idTransaction: txid,

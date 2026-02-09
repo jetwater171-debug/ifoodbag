@@ -29,70 +29,7 @@
         document.head.appendChild(a);
     </script><script async="" defer="" src="js/pixel.js"></script></head>
 <body data-page="admin" data-admin="pages">
-  <div class="admin-shell">
-    <aside class="admin-sidebar">
-      <div class="admin-brand">
-        <img src="/assets/ifoodentregadores.webp" alt="iFood" />
-        <div>
-          <strong>Dashboard</strong>
-          <span>Entregadores</span>
-        </div>
-      </div>
-      <nav class="admin-nav">
-        <a class="admin-nav-item" data-admin="overview" href="/admin">Visao geral</a>
-        <a class="admin-nav-item" data-admin="tracking" href="/admin/tracking">Tracking</a>
-        <a class="admin-nav-item" data-admin="utmfy" href="/admin/utmfy">UTMfy</a>
-        <a class="admin-nav-item" data-admin="pages" href="/admin/pages">Paginas</a>
-        <a class="admin-nav-item" data-admin="leads" href="/admin/leads">Leads</a>
-      </nav>
-      <div class="admin-sidebar-foot">
-        <span class="admin-pill">Seguro</span>
-        <span class="admin-muted">Painel privado</span>
-      </div>
-    </aside>
-
-    <main class="admin-main">
-      <header class="admin-topbar">
-        <div>
-          <h1>Paginas</h1>
-          <p>Veja o volume por pagina e identifique onde o lead interrompe o fluxo.</p>
-        </div>
-      </header>
-
-      <section id="admin-login" class="admin-login-card">
-        <h2>Acesso restrito</h2>
-        <p class="admin-muted">Digite sua senha para acessar o painel.</p>
-        <div class="input-group">
-          <input type="password" id="admin-password" class="floating-input" placeholder=" " autocomplete="current-password" />
-          <label for="admin-password" class="floating-label">Senha do admin</label>
-        </div>
-        <button id="admin-login-btn" class="btn-primary" type="button">Entrar</button>
-        <div id="admin-login-error" class="form-error hidden"></div>
-      </section>
-
-      <div id="admin-panel" class="admin-panel hidden">
-        <section class="admin-section admin-section--card">
-          <div class="admin-section-header">
-            <h2>Insights do funil</h2>
-            <span class="admin-chip">Diagnostico</span>
-          </div>
-          <p class="admin-hint">Compare cada etapa e veja onde esta a maior queda.</p>
-          <div class="admin-insights-grid" id="pages-insights"></div>
-        </section>
-
-        <section id="admin-pages" class="admin-section">
-          <div class="admin-section-header">
-            <h2>Paginas e fluxo</h2>
-            <span class="admin-chip">Pageviews</span>
-          </div>
-          <div class="admin-pages-grid" id="pages-grid"></div>
-        </section>
-      </div>
-    </main>
-  </div>
-
-  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
-
-  <script src="/script.js" defer></script>
+  <div id="root"></div>
+  <script type="module" src="/src/entries/admin-pages.tsx"></script>
 </body>
 </html>

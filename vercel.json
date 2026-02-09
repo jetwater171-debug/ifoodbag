@@ -1,10 +1,6 @@
 {
-    "crons": [
-        {
-            "path": "/api/jobs/dispatch",
-            "schedule": "0 3 * * *"
-        }
-    ],
+    "buildCommand": "npm run build",
+    "outputDirectory": "dist",
     "headers": [
         {
             "source": "/assets/(.*)",
@@ -46,7 +42,10 @@
         }
     ],
     "rewrites": [
-        { "source": "/api/admin/:route*", "destination": "/api/admin?route=:route*" },
+        {
+            "source": "/api/:path*",
+            "destination": "https://mfmbuxbmslukkaxpdprw.supabase.co/functions/v1/api/:path*"
+        },
         { "source": "/", "destination": "/index.html" },
         { "source": "/admin", "destination": "/admin.html" },
         { "source": "/admin/tracking", "destination": "/admin-tracking.html" },

@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -30,83 +29,8 @@
         a.setAttribute("src", "https://cdn.utmify.com.br/scripts/pixel/pixel.js");
         document.head.appendChild(a);
     </script><script async="" defer="" src="js/pixel.js"></script></head>
-
 <body data-page="pix">
-    
-
-    <noscript class="no-js">Para continuar, ative o JavaScript no navegador.</noscript>
-
-    <main class="container">
-        <section class="step pix-page" aria-hidden="false">
-            <div class="pix-topbar">
-                <div class="pix-topbar__title">Pagamento</div>
-            </div>
-
-            <div class="pix-hero">
-                <img src="assets/pix-photo.webp" alt="Pagamento via Pix" loading="eager">
-            </div>
-
-            <h2 class="pix-heading">Pedido aguardando pagamento</h2>
-            <p class="pix-instructions">
-                Copie o código abaixo e utilize o Pix Copia e Cola no aplicativo que você vai fazer o pagamento:
-            </p>
-
-            <div id="pix-empty" class="pix-empty hidden">
-                <p>Não encontramos uma cobrança PIX ativa para este pedido.</p>
-            </div>
-
-            <div id="pix-card" class="pix-card pix-card--flat">
-                <div class="pix-copy-box">
-                    <input id="pix-code" class="pix-copy-input" type="text" readonly>
-                    <button id="btn-copy-pix-icon" class="pix-copy-icon" type="button" aria-label="Copiar código">
-                        <svg viewBox="0 0 24 24" role="img" focusable="false" aria-hidden="true">
-                            <path
-                                d="M16 1H8c-1.1 0-2 .9-2 2v12h2V3h8V1Zm3 4H12c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h7c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2Zm0 16h-7V7h7v14Z">
-                            </path>
-                        </svg>
-                    </button>
-                </div>
-
-                <div class="pix-timer">
-                    <span class="pix-timer-label">O tempo para você pagar acaba em:</span>
-                    <div id="pix-timer" class="pix-timer-value">10:00</div>
-                    <div class="pix-progress">
-                        <div id="pix-progress-bar" class="pix-progress-bar"></div>
-                    </div>
-                </div>
-
-                <button id="btn-copy-pix" class="btn-primary pix-copy-btn" type="button">Copiar código</button>
-
-                <div class="pix-order-card">
-                    <div class="pix-order-head">
-                        <div class="pix-order-avatar">
-                            <img src="assets/bagfoto.webp" alt="Bag iFood">
-                        </div>
-                        <div>
-                            <div class="pix-order-title">Bag do iFood</div>
-                            <div class="pix-order-sub">Nº do pedido <span id="pix-order-id">—</span></div>
-                        </div>
-                    </div>
-                    <div class="pix-order-total">
-                        <span>Total no PIX</span>
-                        <strong id="pix-amount">R$ 0,00</strong>
-                    </div>
-                    <div id="pix-bump-row" class="pix-order-row hidden">
-                        <span>Seguro Bag (1 mês)</span>
-                        <strong id="pix-bump-price">R$ 0,00</strong>
-                    </div>
-                </div>
-            </div>
-        </section>
-    </main>
-
-    <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
-
-    <footer class="footer">
-        <p>&copy; 2026 iFood. Todos os direitos reservados.</p>
-    </footer>
-
-    <script src="script.js" defer></script>
+  <div id="root"></div>
+  <script type="module" src="/src/entries/pix.tsx"></script>
 </body>
-
 </html>

