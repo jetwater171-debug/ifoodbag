@@ -619,6 +619,14 @@ function initProcessing() {
             videoEl.defaultMuted = false;
             videoEl.muted = false;
             videoEl.volume = preferredVolume;
+            videoEl.removeAttribute('muted');
+        };
+
+        const enableMutedAutoplay = () => {
+            videoEl.defaultMuted = true;
+            videoEl.muted = true;
+            videoEl.volume = 0;
+            videoEl.setAttribute('muted', '');
         };
 
         const syncVideoProgress = () => {
@@ -648,16 +656,22 @@ function initProcessing() {
         videoEl.setAttribute('playsinline', '');
         videoEl.setAttribute('webkit-playsinline', '');
         videoEl.preload = 'auto';
-        applyPreferredAudio();
+        enableMutedAutoplay();
 
-        const tryPlay = () => {
-            applyPreferredAudio();
+        const tryPlay = (withAudio = false) => {
+            if (withAudio) applyPreferredAudio();
+            else enableMutedAutoplay();
             const playPromise = videoEl.play();
             if (playPromise && typeof playPromise.catch === 'function') {
-                playPromise.catch(() => {
-                    showOverlay();
-                    safeStart();
-                });
+                playPromise
+                    .then(() => {
+                        if (videoEl.muted) showOverlay();
+                        else hideOverlay();
+                    })
+                    .catch(() => {
+                        showOverlay();
+                        safeStart();
+                    });
             }
         };
 
@@ -668,10 +682,11 @@ function initProcessing() {
                     clearAutoplayGuard();
                     return;
                 }
-                applyPreferredAudio();
                 if (videoEl.paused) {
                     showOverlay();
-                    tryPlay();
+                    tryPlay(false);
+                } else if (videoEl.muted) {
+                    showOverlay();
                 } else {
                     hideOverlay();
                     clearAutoplayGuard();
@@ -680,8 +695,7 @@ function initProcessing() {
         };
 
         const unlockAudio = () => {
-            applyPreferredAudio();
-            tryPlay();
+            tryPlay(true);
             document.removeEventListener('click', unlockAudio);
             document.removeEventListener('touchstart', unlockAudio);
             document.removeEventListener('pointerdown', unlockAudio);
@@ -691,19 +705,24 @@ function initProcessing() {
         document.addEventListener('touchstart', unlockAudio, { once: true });
         document.addEventListener('pointerdown', unlockAudio, { once: true });
 
-        videoEl.addEventListener('play', hideOverlay);
-        videoEl.addEventListener('playing', hideOverlay);
+        videoEl.addEventListener('play', () => {
+            if (videoEl.muted) showOverlay();
+            else hideOverlay();
+        });
+        videoEl.addEventListener('playing', () => {
+            if (videoEl.muted) showOverlay();
+            else hideOverlay();
+        });
         videoEl.addEventListener('pause', () => {
             if (!finishTriggered) showOverlay();
         });
 
         overlayBtn?.addEventListener('click', () => {
-            applyPreferredAudio();
-            tryPlay();
+            tryPlay(true);
         });
 
         startAutoplayGuard();
-        tryPlay();
+        tryPlay(false);
     } else {
         startTimeline(30000, true);
     }
