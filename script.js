@@ -1583,8 +1583,10 @@ function initAdmin() {
                 if (!map.has(page)) return;
                 const current = map.get(page);
                 const prev = index > 0 ? (map.get(order[index - 1]) || 0) : current;
-                const conv = prev ? Math.round((current / prev) * 100) : 0;
-                const drop = prev ? Math.max(0, 100 - conv) : 0;
+                const carried = Math.min(current, prev);
+                const conv = prev ? Math.round((carried / prev) * 100) : 0;
+                const drop = prev ? Math.max(0, prev - carried) : 0;
+                const direct = Math.max(0, current - prev);
                 const meta = pageMeta[page] || { label: page, desc: 'Etapa do funil' };
                 const card = document.createElement('div');
                 card.className = 'admin-insight-card';
@@ -1592,7 +1594,8 @@ function initAdmin() {
                     <span class="admin-insight-pill">${meta.label}</span>
                     <strong>${conv}%</strong>
                     <span>Conversao vs etapa anterior</span>
-                    <span>Queda: ${drop}%</span>
+                    <span>Queda: ${prev ? Math.round((drop / prev) * 100) : 0}%</span>
+                    ${direct ? `<span>Entrada direta: ${direct}</span>` : ''}
                     <span>${meta.desc}</span>
                 `;
                 pagesInsights.appendChild(card);
