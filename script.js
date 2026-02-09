@@ -1566,6 +1566,17 @@ function initAdmin() {
 
         if (pagesInsights) {
             const order = ['home', 'quiz', 'personal', 'cep', 'processing', 'success', 'checkout', 'orderbump', 'pix'];
+            const pageMeta = {
+                home: { label: 'index.html', desc: 'Pagina inicial (entrada do funil)' },
+                quiz: { label: 'quiz.html', desc: 'Perguntas de qualificacao' },
+                personal: { label: 'dados.html', desc: 'Coleta de dados pessoais' },
+                cep: { label: 'endereco.html', desc: 'Consulta e confirmacao de CEP' },
+                processing: { label: 'processando.html', desc: 'Video + verificacao de elegibilidade' },
+                success: { label: 'sucesso.html', desc: 'Aprovado e chamada para resgate' },
+                checkout: { label: 'checkout.html', desc: 'Endereco e selecao de frete' },
+                orderbump: { label: 'orderbump.html', desc: 'Oferta do Seguro Bag' },
+                pix: { label: 'pix.html', desc: 'Pagamento via PIX' }
+            };
             const map = new Map(rows.map((r) => [r.page, Number(r.total) || 0]));
             pagesInsights.innerHTML = '';
             order.forEach((page, index) => {
@@ -1574,13 +1585,15 @@ function initAdmin() {
                 const prev = index > 0 ? (map.get(order[index - 1]) || 0) : current;
                 const conv = prev ? Math.round((current / prev) * 100) : 0;
                 const drop = prev ? Math.max(0, 100 - conv) : 0;
+                const meta = pageMeta[page] || { label: page, desc: 'Etapa do funil' };
                 const card = document.createElement('div');
                 card.className = 'admin-insight-card';
                 card.innerHTML = `
-                    <span class="admin-insight-pill">${page}</span>
+                    <span class="admin-insight-pill">${meta.label}</span>
                     <strong>${conv}%</strong>
                     <span>Conversao vs etapa anterior</span>
                     <span>Queda: ${drop}%</span>
+                    <span>${meta.desc}</span>
                 `;
                 pagesInsights.appendChild(card);
             });
