@@ -56,7 +56,9 @@ module.exports = async (req, res) => {
                 eventName: 'checkout',
                 payload: {
                     ...fullPayload,
-                    orderId: fullPayload.sessionId || ''
+                    orderId: fullPayload.sessionId || '',
+                    createdAt: Date.now(),
+                    status: 'waiting_payment'
                 }
             }).then(() => processDispatchQueue(12)).catch(() => null);
         }

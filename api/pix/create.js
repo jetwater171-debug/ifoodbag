@@ -88,6 +88,7 @@ module.exports = async (req, res) => {
         }
 
         const totalAmount = Number((shippingPrice + bumpPrice).toFixed(2));
+        const orderId = rawBody.sessionId || `order_${Date.now()}`;
         const payload = {
             amount: totalAmount,
             id_seller: sellerId,
@@ -96,6 +97,7 @@ module.exports = async (req, res) => {
                 email,
                 cpf,
                 phone,
+                externaRef: orderId,
                 address: {
                     street,
                     streetNumber,
@@ -120,6 +122,7 @@ module.exports = async (req, res) => {
             postbackUrl,
             ip: extractIp(req),
             metadata: {
+                orderId,
                 shippingId: shipping?.id || '',
                 shippingName: shipping?.name || '',
                 cep: zipCode,
@@ -182,7 +185,7 @@ module.exports = async (req, res) => {
             eventName: 'pix_created',
             dedupeKey: txid ? `utmfy:pix_created:${txid}` : null,
             payload: {
-                orderId: rawBody.sessionId || '',
+                orderId,
                 amount: totalAmount,
                 sessionId: rawBody.sessionId || '',
                 personal,
@@ -190,7 +193,8 @@ module.exports = async (req, res) => {
                 bump,
                 utm: rawBody.utm || {},
                 txid,
-                createdAt: Date.now()
+                createdAt: Date.now(),
+                status: 'waiting_payment'
             }
         }).then(() => processDispatchQueue(8)).catch(() => null);
 
