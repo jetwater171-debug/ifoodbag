@@ -1312,11 +1312,10 @@ function initAdmin() {
     const pixelEnabled = document.getElementById('pixel-enabled');
     const pixelId = document.getElementById('pixel-id');
     const pixelEventPage = document.getElementById('pixel-event-page');
+    const pixelEventQuiz = document.getElementById('pixel-event-quiz');
     const pixelEventLead = document.getElementById('pixel-event-lead');
-    const pixelEventPurchase = document.getElementById('pixel-event-purchase');
     const pixelEventCheckout = document.getElementById('pixel-event-checkout');
-    const pixelEventPaymentInfo = document.getElementById('pixel-event-paymentinfo');
-    const pixelEventAddToCart = document.getElementById('pixel-event-addtocart');
+    const pixelEventPurchase = document.getElementById('pixel-event-purchase');
     const pixelCapiEnabled = document.getElementById('pixel-capi-enabled');
     const pixelCapiToken = document.getElementById('pixel-capi-token');
     const pixelCapiTestCode = document.getElementById('pixel-capi-test-code');
@@ -1378,8 +1377,7 @@ function initAdmin() {
     let currentSettings = null;
 
     const hasPixelForm = !!(
-        pixelEnabled || pixelId || pixelEventPage || pixelEventLead || pixelEventPurchase ||
-        pixelEventCheckout || pixelEventPaymentInfo || pixelEventAddToCart ||
+        pixelEnabled || pixelId || pixelEventPage || pixelEventQuiz || pixelEventLead || pixelEventCheckout || pixelEventPurchase ||
         pixelCapiEnabled || pixelCapiToken || pixelCapiTestCode
     );
     const hasUtmfyForm = !!(utmfyEnabled || utmfyEndpoint || utmfyApi || pushcutEnabled || pushcutPixCreated || pushcutPixConfirmed);
@@ -1416,11 +1414,10 @@ function initAdmin() {
             if (pixelEnabled) pixelEnabled.checked = !!data.pixel?.enabled;
             if (pixelId) pixelId.value = data.pixel?.id || '';
             if (pixelEventPage) pixelEventPage.checked = data.pixel?.events?.page_view !== false;
+            if (pixelEventQuiz) pixelEventQuiz.checked = data.pixel?.events?.quiz_view !== false;
             if (pixelEventLead) pixelEventLead.checked = data.pixel?.events?.lead !== false;
-            if (pixelEventPurchase) pixelEventPurchase.checked = data.pixel?.events?.purchase !== false;
             if (pixelEventCheckout) pixelEventCheckout.checked = data.pixel?.events?.checkout !== false;
-            if (pixelEventPaymentInfo) pixelEventPaymentInfo.checked = data.pixel?.events?.add_payment_info !== false;
-            if (pixelEventAddToCart) pixelEventAddToCart.checked = data.pixel?.events?.add_to_cart !== false;
+            if (pixelEventPurchase) pixelEventPurchase.checked = data.pixel?.events?.purchase !== false;
             if (pixelCapiEnabled) pixelCapiEnabled.checked = !!data.pixel?.capi?.enabled;
             if (pixelCapiToken) pixelCapiToken.value = data.pixel?.capi?.accessToken || '';
             if (pixelCapiTestCode) pixelCapiTestCode.value = data.pixel?.capi?.testEventCode || '';
@@ -1457,11 +1454,10 @@ function initAdmin() {
                 events: {
                     ...(currentSettings?.pixel?.events || {}),
                     page_view: pixelEventPage?.checked !== false,
+                    quiz_view: pixelEventQuiz?.checked !== false,
                     lead: pixelEventLead?.checked !== false,
                     purchase: pixelEventPurchase?.checked !== false,
-                    checkout: pixelEventCheckout?.checked !== false,
-                    add_payment_info: pixelEventPaymentInfo?.checked !== false,
-                    add_to_cart: pixelEventAddToCart?.checked !== false
+                    checkout: pixelEventCheckout?.checked !== false
                 },
                 capi: {
                     ...(currentSettings?.pixel?.capi || {}),
@@ -2300,70 +2296,23 @@ function firePixelEvent(eventName, data = {}) {
     } catch (_error) {}
 }
 
-function normalizePixelName(name) {
-    return String(name || '')
-        .replace(/[^a-zA-Z0-9_]/g, '_')
-        .replace(/_+/g, '_')
-        .replace(/^_+|_+$/g, '');
-}
-
-function firePixelCustom(eventName, data = {}) {
-    if (!window.fbq) return;
-    const safe = normalizePixelName(eventName);
-    if (!safe) return;
-    try {
-        window.fbq('trackCustom', safe, data);
-    } catch (_error) {}
-}
-
 function maybeTrackPixel(eventName, payload = {}) {
     const pixel = state.pixelConfig;
     if (!pixel || !pixel.enabled || !pixel.id) return;
 
-    const amount = Number(payload.amount || payload.pix?.amount || payload.pixAmount || 0);
-    const shipping = payload.shipping || {};
-
-    if (eventName === 'personal_submitted' && pixel.events?.lead !== false) {
-        firePixelEvent('Lead');
-        firePixelEvent('CompleteRegistration');
-    }
-
-    if (eventName === 'checkout_view') {
-        if (pixel.events?.checkout !== false) {
-            firePixelEvent('InitiateCheckout', { currency: 'BRL' });
-        }
-    }
-
-    if (eventName === 'frete_selected') {
-        if (pixel.events?.add_payment_info !== false) {
-            firePixelEvent('AddPaymentInfo', {
-                value: Number(shipping.price || 0),
-                currency: 'BRL'
-            });
-        }
-    }
-
-    if (eventName === 'orderbump_accepted') {
-        if (pixel.events?.add_to_cart !== false) {
-            firePixelEvent('AddToCart', {
-                value: Number(payload.bump?.price || payload.bumpPrice || 0),
-                currency: 'BRL'
-            });
-        }
-    }
-
-    if (eventName === 'pix_created_front' && pixel.events?.purchase !== false) {
-        firePixelEvent('Purchase', {
-            value: Number(amount || 0),
-            currency: 'BRL'
+    if (eventName === 'quiz_view' && pixel.events?.quiz_view !== false) {
+        firePixelEvent('ViewContent', {
+            content_name: 'quiz_ifood'
         });
     }
 
-    firePixelCustom(eventName, {
-        value: Number(amount || 0),
-        currency: 'BRL',
-        stage: payload.stage || ''
-    });
+    if (eventName === 'personal_submitted' && pixel.events?.lead !== false) {
+        firePixelEvent('Lead');
+    }
+
+    if (eventName === 'checkout_view' && pixel.events?.checkout !== false) {
+        firePixelEvent('InitiateCheckout', { currency: 'BRL' });
+    }
 }
 
 function trackLead(eventName, extra = {}) {
