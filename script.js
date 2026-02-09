@@ -1702,6 +1702,7 @@ function initAdmin() {
                 card.className = 'admin-insight-card';
                 card.innerHTML = `
                     <span class="admin-insight-pill">${meta.label}</span>
+                    <span class="admin-insight-count">Cliques: ${current}</span>
                     <strong>${conv}%</strong>
                     <span>Conversao vs etapa anterior</span>
                     <span>Queda: ${prev ? Math.round((drop / prev) * 100) : 0}%</span>

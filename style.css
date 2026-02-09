@@ -2102,6 +2102,12 @@ body[data-page='admin'][data-admin='leads'] .admin-topbar {
     color: #6a6a6a;
 }
 
+.admin-insight-count {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #2c2c2c;
+}
+
 .admin-insight-pill {
     align-self: flex-start;
     background: #f3f4f8;
