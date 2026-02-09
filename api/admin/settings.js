@@ -37,6 +37,10 @@ module.exports = async (req, res) => {
             utmfy: {
                 ...defaultSettings.utmfy,
                 ...(body.utmfy || {})
+            },
+            features: {
+                ...defaultSettings.features,
+                ...(body.features || {})
             }
         };
 

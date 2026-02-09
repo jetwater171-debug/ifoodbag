@@ -114,6 +114,8 @@ const state = {
     apiSessionAt: 0,
     pixelConfig: null,
     pixelConfigAt: 0,
+    siteConfig: null,
+    siteConfigAt: 0,
     toastTimeout: null
 };
 
@@ -1112,8 +1114,25 @@ function initCheckout() {
             return;
         }
         trackLead('checkout_submit', { stage: 'checkout', shipping });
-        setStage('orderbump');
-        redirect('orderbump.html');
+        btnFinish.disabled = true;
+        isOrderBumpEnabled()
+            .then((enabled) => {
+                if (enabled) {
+                    setStage('orderbump');
+                    redirect('orderbump.html');
+                    return;
+                }
+                trackLead('orderbump_skipped', { stage: 'checkout', shipping });
+                showToast('Gerando pagamento...', 'success');
+                createPixCharge(shipping, 0).catch((error) => {
+                    showToast(error.message || 'Erro ao gerar o PIX.', 'error');
+                    btnFinish.disabled = false;
+                });
+            })
+            .catch(() => {
+                setStage('orderbump');
+                redirect('orderbump.html');
+            });
     });
 }
 
@@ -1131,6 +1150,17 @@ function initOrderBump() {
     setStage('orderbump');
     trackLead('orderbump_view', { stage: 'orderbump', shipping });
     const bumpPrice = 9.9;
+
+    isOrderBumpEnabled().then((enabled) => {
+        if (!enabled) {
+            trackLead('orderbump_skipped', { stage: 'orderbump', shipping });
+            createPixCharge(shipping, 0).catch((error) => {
+                showToast(error.message || 'Erro ao gerar o PIX.', 'error');
+                setStage('checkout');
+                redirect('checkout.html');
+            });
+        }
+    }).catch(() => null);
 
     const btnAccept = document.getElementById('btn-bump-accept');
     const btnDecline = document.getElementById('btn-bump-decline');
@@ -1324,6 +1354,7 @@ function initAdmin() {
     const testUtmfyStatus = document.getElementById('admin-test-utmfy-status');
     const saleUtmfyBtn = document.getElementById('admin-sale-utmfy');
     const saleUtmfyStatus = document.getElementById('admin-sale-utmfy-status');
+    const featureOrderbump = document.getElementById('feature-orderbump');
 
     let offset = 0;
     const limit = 50;
@@ -1339,6 +1370,7 @@ function initAdmin() {
 
     const hasPixelForm = !!(pixelEnabled || pixelId || pixelEventPage || pixelEventLead || pixelEventPurchase);
     const hasUtmfyForm = !!(utmfyEnabled || utmfyEndpoint || utmfyApi);
+    const hasFeatureForm = !!featureOrderbump;
     const wantsLeads = !!(leadsBody || metricTotal || metricPix || metricFrete || metricCep);
     const wantsPages = !!pagesGrid;
 
@@ -1380,6 +1412,10 @@ function initAdmin() {
             if (utmfyEndpoint) utmfyEndpoint.value = data.utmfy?.endpoint || '';
             if (utmfyApi) utmfyApi.value = data.utmfy?.apiKey || '';
         }
+
+        if (hasFeatureForm) {
+            featureOrderbump.checked = data.features?.orderbump !== false;
+        }
     };
 
     const saveSettings = async () => {
@@ -1411,6 +1447,13 @@ function initAdmin() {
                 enabled: !!utmfyEnabled?.checked,
                 endpoint: utmfyEndpoint?.value?.trim() || '',
                 apiKey: utmfyApi?.value?.trim() || ''
+            };
+        }
+
+        if (hasFeatureForm) {
+            payload.features = {
+                ...(currentSettings?.features || {}),
+                orderbump: featureOrderbump?.checked !== false
             };
         }
 
@@ -2146,27 +2189,43 @@ function getUtmData() {
     }
 }
 
-async function ensurePixelConfig(force = false) {
+async function ensureSiteConfig(force = false) {
     const now = Date.now();
     const maxAgeMs = 5 * 60 * 1000;
-    if (!force && state.pixelConfig && now - state.pixelConfigAt < maxAgeMs) {
-        return state.pixelConfig;
+    if (!force && state.siteConfig && now - state.siteConfigAt < maxAgeMs) {
+        return state.siteConfig;
     }
     try {
         const res = await fetch('/api/site/config', { cache: 'no-store' });
         if (!res.ok) throw new Error('config');
         const data = await res.json();
+        state.siteConfig = data || {};
+        state.siteConfigAt = Date.now();
         state.pixelConfig = data?.pixel || null;
         state.pixelConfigAt = Date.now();
         localStorage.setItem(STORAGE_KEYS.pixelConfig, JSON.stringify(state.pixelConfig));
-        return state.pixelConfig;
+        return state.siteConfig;
     } catch (_error) {
         try {
             const cached = localStorage.getItem(STORAGE_KEYS.pixelConfig);
-            if (cached) return JSON.parse(cached);
+            if (cached) {
+                state.pixelConfig = JSON.parse(cached);
+                return { pixel: state.pixelConfig };
+            }
         } catch (_e) {}
         return null;
     }
+}
+
+async function ensurePixelConfig(force = false) {
+    const site = await ensureSiteConfig(force);
+    return site?.pixel || state.pixelConfig || null;
+}
+
+async function isOrderBumpEnabled() {
+    const site = await ensureSiteConfig(false);
+    const enabled = site?.features?.orderbump;
+    return enabled !== false;
 }
 
 function loadFacebookPixel(pixelId) {

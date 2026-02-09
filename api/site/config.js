@@ -14,12 +14,14 @@ module.exports = async (req, res) => {
 
     const settings = await getSettings();
     const pixel = settings.pixel || {};
+    const features = settings.features || {};
 
     res.status(200).json({
         pixel: {
             enabled: !!pixel.enabled,
             id: pixel.id || '',
             events: pixel.events || {}
-        }
+        },
+        features
     });
 };

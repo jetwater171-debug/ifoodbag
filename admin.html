@@ -42,6 +42,10 @@
           <h1>Painel Administrativo</h1>
           <p>Visao geral de performance, funil e status da operacao em tempo real.</p>
         </div>
+        <div class="admin-topbar-actions">
+          <button id="admin-save" class="btn-primary" type="button">Salvar configuracoes</button>
+          <span id="admin-save-status" class="admin-muted"></span>
+        </div>
       </header>
 
       <section id="admin-login" class="admin-login-card">
@@ -127,6 +131,20 @@
               <div class="admin-funnel-bar"><i id="funnel-pix"></i></div>
               <strong id="funnel-pix-value">0%</strong>
             </div>
+          </div>
+        </section>
+
+        <section class="admin-section admin-section--card">
+          <div class="admin-section-header">
+            <h2>Controle do funil</h2>
+            <span class="admin-chip">Ativacoes</span>
+          </div>
+          <p class="admin-hint">Ative ou desative etapas para ajustar o fluxo de conversao.</p>
+          <div class="admin-grid">
+            <label class="admin-switch">
+              <input type="checkbox" id="feature-orderbump" />
+              <span>Ativar Order Bump (Seguro Bag)</span>
+            </label>
           </div>
         </section>
       </div>
