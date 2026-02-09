@@ -1297,6 +1297,8 @@ function initAdmin() {
     const leadsSearch = document.getElementById('leads-search');
     const leadsRefresh = document.getElementById('leads-refresh');
     const leadsMore = document.getElementById('leads-more');
+    const leadsReconcile = document.getElementById('leads-reconcile');
+    const leadsReconcileStatus = document.getElementById('leads-reconcile-status');
     const metricTotal = document.getElementById('metric-total');
     const metricPix = document.getElementById('metric-pix');
     const metricFrete = document.getElementById('metric-frete');
@@ -1585,6 +1587,29 @@ function initAdmin() {
         loadingLeads = false;
     };
 
+    const reconcilePix = async () => {
+        if (!leadsReconcile) return;
+        leadsReconcile.disabled = true;
+        if (leadsReconcileStatus) leadsReconcileStatus.textContent = 'Verificando pagamentos...';
+        const res = await adminFetch('/api/admin/pix-reconcile', { method: 'POST' });
+        if (!res.ok) {
+            const detail = await res.json().catch(() => ({}));
+            if (leadsReconcileStatus) {
+                leadsReconcileStatus.textContent = detail?.error || 'Falha ao reconciliar.';
+            }
+            showToast('Falha ao reconciliar PIX.', 'error');
+            leadsReconcile.disabled = false;
+            return;
+        }
+        const data = await res.json().catch(() => ({}));
+        if (leadsReconcileStatus) {
+            leadsReconcileStatus.textContent = `Checados ${data.checked || 0}, confirmados ${data.confirmed || 0}.`;
+        }
+        showToast('Reconciliacao finalizada.', 'success');
+        leadsReconcile.disabled = false;
+        loadLeads({ reset: true });
+    };
+
     const loadPageCounts = async () => {
         if (!pagesGrid) return;
         const res = await adminFetch('/api/admin/pages');
@@ -1670,6 +1695,7 @@ function initAdmin() {
     leadsRefresh?.addEventListener('click', () => loadLeads({ reset: true }));
     leadsMore?.addEventListener('click', () => loadLeads({ reset: false }));
     leadsSearch?.addEventListener('change', () => loadLeads({ reset: true }));
+    leadsReconcile?.addEventListener('click', reconcilePix);
     testPixelBtn?.addEventListener('click', runPixelTest);
     testUtmfyBtn?.addEventListener('click', runUtmfyTest);
     saleUtmfyBtn?.addEventListener('click', runUtmfySale);
