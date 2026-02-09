@@ -310,8 +310,9 @@ module.exports = async (req, res) => {
     }
 
     let route = '';
-    if (req.query && typeof req.query.path !== 'undefined') {
-        const pathParts = Array.isArray(req.query.path) ? req.query.path : [req.query.path].filter(Boolean);
+    if (req.query && (typeof req.query.path !== 'undefined' || typeof req.query.route !== 'undefined')) {
+        const rawPath = typeof req.query.path !== 'undefined' ? req.query.path : req.query.route;
+        const pathParts = Array.isArray(rawPath) ? rawPath : [rawPath].filter(Boolean);
         route = pathParts.join('/');
     }
     if (!route && req.url) {
@@ -327,6 +328,9 @@ module.exports = async (req, res) => {
         }
     }
     route = String(route || '').replace(/^\/+|\/+$/g, '');
+    if (!route && req.method === 'POST' && req.body && typeof req.body === 'object' && 'password' in req.body) {
+        route = 'login';
+    }
 
     switch (route) {
         case 'login':

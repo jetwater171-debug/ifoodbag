@@ -36,6 +36,7 @@
         }
     ],
     "rewrites": [
+        { "source": "/api/admin/:route*", "destination": "/api/admin?route=:route*" },
         { "source": "/", "destination": "/index.html" },
         { "source": "/admin", "destination": "/admin.html" },
         { "source": "/admin/tracking", "destination": "/admin-tracking.html" },
