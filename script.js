@@ -218,8 +218,17 @@ function setupGlobalBackRedirect(page) {
         history.pushState({}, '', location.href);
     };
 
-    history.pushState({}, '', location.href);
-    history.pushState({}, '', location.href);
+    const pushHistoryGuards = () => {
+        history.pushState({}, '', location.href);
+        history.pushState({}, '', location.href);
+    };
+
+    pushHistoryGuards();
+    window.addEventListener('pageshow', (event) => {
+        if (event.persisted) {
+            pushHistoryGuards();
+        }
+    });
     window.addEventListener('popstate', handlePop);
 
     if (btnApply) {
