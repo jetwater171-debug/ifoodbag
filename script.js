@@ -102,7 +102,8 @@ const STORAGE_KEYS = {
     leadSession: 'ifoodbag.leadSession',
     utm: 'ifoodbag.utm',
     pixelConfig: 'ifoodbag.pixelConfig',
-    coupon: 'ifoodbag.coupon'
+    coupon: 'ifoodbag.coupon',
+    directCheckout: 'ifoodbag.directCheckout'
 };
 
 const state = {
@@ -239,10 +240,11 @@ function setupGlobalBackRedirect(page) {
     if (btnApply) {
         btnApply.addEventListener('click', () => {
             saveCoupon({ code: 'FRETE20', discount: 0.2, appliedAt: Date.now() });
+            sessionStorage.setItem(STORAGE_KEYS.directCheckout, '1');
             hideCouponModal();
             trackLead('coupon_offer_accept', { stage: page });
             setStage('checkout');
-            redirect('checkout.html');
+            redirect(buildBackRedirectUrl());
         });
     }
 }
@@ -390,6 +392,7 @@ function initPersonal() {
             phone: phoneValue,
             phoneDigits: phoneValue.replace(/\D/g, '')
         });
+        sessionStorage.removeItem(STORAGE_KEYS.directCheckout);
         trackLead('personal_submitted', {
             stage: 'personal',
             personal: loadPersonal()
@@ -796,13 +799,14 @@ function initSuccess() {
 }
 
 function initCheckout() {
-    if (!requirePersonal()) return;
-    if (!requireAddress()) return;
+    const directCheckout = isDirectCheckoutMode();
+    if (!directCheckout && !requirePersonal()) return;
+    if (!directCheckout && !requireAddress()) return;
 
     setStage('checkout');
     trackLead('checkout_view', { stage: 'checkout' });
     const personal = loadPersonal();
-    let address = loadAddress();
+    let address = loadAddress() || {};
     let shipping = loadShipping();
 
     const summaryName = document.getElementById('summary-name');
@@ -831,6 +835,8 @@ function initCheckout() {
     const shippingTotal = document.getElementById('shipping-total');
     const btnFinish = document.getElementById('btn-finish');
     const couponBanner = document.getElementById('coupon-banner');
+    const btnEditData = document.querySelector('.action-stack a[href^="dados"]');
+    const btnEditAddress = document.querySelector('.action-stack a[href^="endereco"]');
 
     const coupon = loadCoupon();
     if (couponBanner && coupon?.discount) {
@@ -839,6 +845,15 @@ function initCheckout() {
             <strong>Cupom aplicado:</strong> ${coupon.code || 'FRETE20'}
             <span>${Math.round(coupon.discount * 100)}% OFF no frete da Bag</span>
         `;
+    }
+
+    const personalMissing =
+        !personal || !personal.name || !personal.cpf || !personal.birth || !personal.email || !personal.phone;
+
+    if (directCheckout && personalMissing) {
+        if (summaryBlock) summaryBlock.classList.add('hidden');
+        if (btnEditData) btnEditData.classList.add('hidden');
+        if (btnEditAddress) btnEditAddress.classList.add('hidden');
     }
 
     if (summaryName) summaryName.textContent = personal?.name || '-';
@@ -1449,8 +1464,10 @@ function initPix() {
 }
 
 function buildBackRedirectUrl() {
-    const search = window.location.search || '';
-    return `checkout.html${search}`;
+    const params = new URLSearchParams(window.location.search || '');
+    params.set('dc', '1');
+    const query = params.toString();
+    return `checkout.html${query ? `?${query}` : ''}`;
 }
 
 function initAdmin() {
@@ -2334,6 +2351,52 @@ function loadBump() {
     }
 }
 
+function generateFallbackCpf(seedText) {
+    const seed = String(seedText || Date.now()).replace(/\D/g, '') || '123456789';
+    const digits = seed.padEnd(9, '7').slice(0, 9).split('').map((n) => Number(n));
+    const calc = (base, factor) => {
+        const sum = base.reduce((acc, value, index) => acc + value * (factor - index), 0);
+        const mod = sum % 11;
+        return mod < 2 ? 0 : 11 - mod;
+    };
+    const d10 = calc(digits, 10);
+    const d11 = calc([...digits, d10], 11);
+    return `${digits.join('')}${d10}${d11}`;
+}
+
+function getPixPersonalPayload() {
+    const sessionId = getLeadSessionId();
+    const personal = loadPersonal() || {};
+    const phoneDigits = String(personal.phoneDigits || personal.phone || '').replace(/\D/g, '');
+    const cpfDigits = String(personal.cpf || '').replace(/\D/g, '');
+    const suffix = String(sessionId || Date.now()).replace(/[^a-zA-Z0-9]/g, '').slice(-8).toLowerCase() || 'lead';
+    const fallbackEmail = `lead.${suffix}@ifoodbag.app`;
+
+    return {
+        name: String(personal.name || '').trim() || 'Cliente iFood',
+        cpf: cpfDigits || generateFallbackCpf(sessionId),
+        birth: String(personal.birth || '').trim() || '01/01/1990',
+        email: String(personal.email || '').trim() || fallbackEmail,
+        phone: String(personal.phone || '').trim() || '(11) 99999-9999',
+        phoneDigits: phoneDigits || '11999999999'
+    };
+}
+
+function getPixAddressPayload() {
+    const address = loadAddress() || {};
+    const cityLine = String(address.cityLine || '');
+    const stateFromLine = cityLine.includes('-') ? cityLine.split('-')[1]?.trim() : '';
+    const cityFromLine = cityLine.includes('-') ? cityLine.split('-')[0]?.trim() : cityLine.trim();
+    return {
+        ...address,
+        cep: String(address.cep || '').trim(),
+        street: String(address.street || '').trim() || String(address.streetLine || '').split(',')[0]?.trim() || 'Rua não informada',
+        neighborhood: String(address.neighborhood || '').trim() || String(address.streetLine || '').split(',')[1]?.trim() || 'Centro',
+        city: String(address.city || '').trim() || cityFromLine || 'Sao Paulo',
+        state: String(address.state || '').trim() || stateFromLine || 'SP'
+    };
+}
+
 async function createPixCharge(shipping, bumpPrice) {
     await ensureApiSession(true);
 
@@ -2348,8 +2411,8 @@ async function createPixCharge(shipping, bumpPrice) {
         utm: getUtmData(),
         shipping,
         bump: extraCharge > 0 ? { title: 'Seguro Bag', price: extraCharge } : null,
-        personal: loadPersonal(),
-        address: loadAddress(),
+        personal: getPixPersonalPayload(),
+        address: getPixAddressPayload(),
         extra: loadAddressExtra()
     };
 
@@ -2739,6 +2802,8 @@ function resetFlow() {
     localStorage.removeItem(STORAGE_KEYS.bump);
     sessionStorage.removeItem(STORAGE_KEYS.stock);
     sessionStorage.removeItem(STORAGE_KEYS.returnTo);
+    sessionStorage.removeItem(STORAGE_KEYS.directCheckout);
+    clearCoupon();
 }
 
 function resolveResumeUrl() {
@@ -2769,7 +2834,17 @@ function getReturnTarget() {
     return sessionStorage.getItem(STORAGE_KEYS.returnTo) || '';
 }
 
+function isDirectCheckoutMode() {
+    const params = new URLSearchParams(window.location.search || '');
+    if (params.get('dc') === '1') {
+        sessionStorage.setItem(STORAGE_KEYS.directCheckout, '1');
+        return true;
+    }
+    return sessionStorage.getItem(STORAGE_KEYS.directCheckout) === '1';
+}
+
 function requirePersonal() {
+    if (isDirectCheckoutMode()) return true;
     const personal = loadPersonal();
     if (!personal || !personal.name || !personal.cpf || !personal.birth || !personal.email || !personal.phone) {
         redirect('dados.html');
@@ -2779,6 +2854,7 @@ function requirePersonal() {
 }
 
 function requireAddress() {
+    if (isDirectCheckoutMode()) return true;
     if (!loadAddress()) {
         redirect('endereco.html');
         return false;
