@@ -174,22 +174,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function setupGlobalBackRedirect(page) {
     if (!page || page === 'admin') return;
-    if (page === 'pix') return;
     if (window.__ifoodBackRedirectInit) return;
     window.__ifoodBackRedirectInit = true;
 
-    const targetUrl = buildBackRedirectUrl(page);
     let shownOffer = false;
     let orderBumpBackHandled = false;
     const guardToken = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const stateBase = { ifb: true, token: guardToken };
+    const offer = getBackRedirectOffer(page);
+    let lastGuardAt = 0;
 
     const modalEls = ensureCouponModalElements();
     const modal = modalEls.modal;
     const btnApply = modalEls.btnApply;
+    const couponTitle = modalEls.couponTitle;
     const couponMessage = modalEls.couponMessage;
-    if (couponMessage) {
-        couponMessage.textContent = 'Você ganhou R$ 5,00 de desconto no frete da Bag.';
+    const couponBadge = modalEls.couponBadge;
+    const couponSubtitle = modalEls.couponSubtitle;
+    if (couponBadge) {
+        couponBadge.textContent = offer.badge;
     }
+    if (couponTitle) {
+        couponTitle.textContent = offer.title;
+    }
+    if (couponMessage) {
+        couponMessage.textContent = offer.message;
+    }
+    if (couponSubtitle) {
+        couponSubtitle.textContent = offer.subtitle;
+    }
+    if (btnApply) {
+        btnApply.textContent = offer.cta;
+    }
+
+    const resolveTargetUrl = () => buildBackRedirectUrl(page);
 
     const showCouponModal = () => {
         modal.classList.remove('hidden');
@@ -197,7 +215,7 @@ function setupGlobalBackRedirect(page) {
         modal.classList.remove('coupon-anim-in');
         void modal.offsetWidth;
         modal.classList.add('coupon-anim-in');
-        trackLead('coupon_offer_shown', { stage: page });
+        trackLead(offer.shownEvent, { stage: page });
     };
 
     const hideCouponModal = () => {
@@ -206,13 +224,27 @@ function setupGlobalBackRedirect(page) {
         modal.setAttribute('aria-hidden', 'true');
     };
 
+    const ensureGuardEntry = (force = false) => {
+        const now = Date.now();
+        if (!force && (now - lastGuardAt) < 350) return;
+        const state = history.state || {};
+        if (state.ifb && state.token === guardToken && state.step === 1) return;
+        try {
+            history.replaceState({ ...stateBase, step: 0 }, '', location.href);
+            history.pushState({ ...stateBase, step: 1 }, '', location.href);
+            lastGuardAt = now;
+        } catch (error) {
+            return;
+        }
+    };
+
     const handlePop = () => {
         if (page === 'orderbump') {
             if (orderBumpBackHandled) return;
             orderBumpBackHandled = true;
             const shipping = loadShipping();
             if (!shipping) {
-                window.location.href = targetUrl;
+                redirect(resolveTargetUrl());
                 return;
             }
             trackLead('orderbump_back_skip', { stage: 'orderbump', shipping });
@@ -223,35 +255,24 @@ function setupGlobalBackRedirect(page) {
                 skippedByBack: true
             });
             createPixCharge(shipping, 0).catch(() => {
-                window.location.href = targetUrl;
+                redirect(resolveTargetUrl());
             });
             return;
         }
 
         if (shownOffer) {
-            window.location.href = targetUrl;
+            redirect(resolveTargetUrl());
             return;
         }
         shownOffer = true;
         showCouponModal();
-        history.pushState({}, '', location.href);
+        ensureGuardEntry(true);
     };
 
-    const pushHistoryGuards = () => {
-        const stateBase = { ifb: true, token: guardToken };
-        history.replaceState({ ...stateBase, step: 0 }, '', location.href);
-        history.pushState({ ...stateBase, step: 1 }, '', location.href);
-        history.pushState({ ...stateBase, step: 2 }, '', location.href);
-    };
-
-    pushHistoryGuards();
     const reinforceGuards = () => {
-        try {
-            pushHistoryGuards();
-        } catch (error) {
-            return;
-        }
+        ensureGuardEntry();
     };
+    ensureGuardEntry(true);
     setTimeout(reinforceGuards, 250);
     setTimeout(reinforceGuards, 1000);
     window.addEventListener('pointerdown', reinforceGuards, { passive: true, once: true });
@@ -263,7 +284,7 @@ function setupGlobalBackRedirect(page) {
     });
     window.addEventListener('pageshow', (event) => {
         if (event.persisted) {
-            pushHistoryGuards();
+            reinforceGuards();
         }
     });
     window.addEventListener('load', () => {
@@ -272,14 +293,64 @@ function setupGlobalBackRedirect(page) {
     window.addEventListener('popstate', handlePop);
 
     if (btnApply) {
-        btnApply.addEventListener('click', () => {
-            saveCoupon({ code: 'FRETE5', amountOff: 5, appliedAt: Date.now() });
-            sessionStorage.setItem(STORAGE_KEYS.directCheckout, '1');
+        btnApply.addEventListener('click', async () => {
+            let copiedPix = false;
+            if (page === 'pix') {
+                copiedPix = await copyPixCodeFromField();
+            } else {
+                saveCoupon({ code: 'FRETE5', amountOff: 5, appliedAt: Date.now() });
+                sessionStorage.setItem(STORAGE_KEYS.directCheckout, '1');
+            }
             hideCouponModal();
-            trackLead('coupon_offer_accept', { stage: page });
+            trackLead(offer.acceptEvent, { stage: page, copiedPix });
+            if (page === 'pix') return;
             setStage('checkout');
-            redirect(buildBackRedirectUrl());
+            redirect(resolveTargetUrl());
         });
+    }
+}
+
+function getBackRedirectOffer(page) {
+    if (page === 'pix') {
+        return {
+            badge: 'Pagamento pendente',
+            title: 'Pagamento pendente no PIX',
+            message: 'Copie o código PIX agora para confirmar seu pedido sem perder prioridade.',
+            subtitle: 'Seu pedido continua reservado por poucos minutos',
+            cta: 'Copiar PIX e continuar',
+            shownEvent: 'pix_exit_offer_shown',
+            acceptEvent: 'pix_exit_offer_accept'
+        };
+    }
+    return {
+        badge: 'Cupom exclusivo',
+        title: 'Desconto liberado no frete',
+        message: 'Você ganhou R$ 5,00 de desconto no frete da Bag.',
+        subtitle: 'Oferta válida agora nesta sessão',
+        cta: 'Usar cupom e pagar mais barato',
+        shownEvent: 'coupon_offer_shown',
+        acceptEvent: 'coupon_offer_accept'
+    };
+}
+
+async function copyPixCodeFromField() {
+    const pixCode = document.getElementById('pix-code');
+    const value = String(pixCode?.value || '').trim();
+    if (!value) return false;
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        try {
+            await navigator.clipboard.writeText(value);
+            return true;
+        } catch (error) {
+            // Fallback below
+        }
+    }
+    try {
+        pixCode?.select?.();
+        document.execCommand('copy');
+        return true;
+    } catch (error) {
+        return false;
     }
 }
 
@@ -293,10 +364,10 @@ function ensureCouponModalElements() {
                     <div class="coupon-hero">
                         <img src="/assets/bagfoto.webp" alt="Bag iFood com desconto">
                     </div>
-                    <span class="modal-badge">Cupom exclusivo</span>
+                    <span id="coupon-badge" class="modal-badge">Cupom exclusivo</span>
                     <h3 id="coupon-title">Desconto liberado no frete</h3>
                     <p id="coupon-message">Você ganhou R$ 5,00 de desconto no frete da Bag.</p>
-                    <span class="coupon-subtitle">Oferta válida agora nesta sessão</span>
+                    <span id="coupon-subtitle" class="coupon-subtitle">Oferta válida agora nesta sessão</span>
                     <button id="btn-coupon-apply" class="btn-primary" type="button">Usar cupom e pagar mais barato</button>
                 </div>
             </div>
@@ -308,7 +379,10 @@ function ensureCouponModalElements() {
     return {
         modal,
         btnApply: document.getElementById('btn-coupon-apply'),
-        couponMessage: document.getElementById('coupon-message')
+        couponBadge: document.getElementById('coupon-badge'),
+        couponTitle: document.getElementById('coupon-title'),
+        couponMessage: document.getElementById('coupon-message'),
+        couponSubtitle: document.getElementById('coupon-subtitle')
     };
 }
 
@@ -1545,7 +1619,7 @@ function initPix() {
 
 }
 
-function buildBackRedirectUrl() {
+function buildBackRedirectUrl(pageOverride) {
     const params = new URLSearchParams(window.location.search || '');
     const directCheckoutUrl = () => {
         params.set('dc', '1');
@@ -1553,7 +1627,7 @@ function buildBackRedirectUrl() {
         return `checkout.html${query ? `?${query}` : ''}`;
     };
 
-    const page = document.body?.dataset?.page || '';
+    const page = pageOverride || document.body?.dataset?.page || '';
     const shipping = loadShipping();
     const pix = loadPix();
 
@@ -1572,7 +1646,11 @@ function buildBackRedirectUrl() {
             if (pix) return 'pix.html';
             if (shipping) return 'orderbump.html';
             return directCheckoutUrl();
+        case 'pix':
+            return directCheckoutUrl();
         default:
+            if (pix) return 'pix.html';
+            if (shipping) return 'orderbump.html';
             return directCheckoutUrl();
     }
 }
