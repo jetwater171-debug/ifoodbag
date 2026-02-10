@@ -25,16 +25,18 @@ const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.en
 const pick = (...values) => values.find((value) => value !== undefined && value !== null && value !== '');
 const clamp = (value, min, max) => Math.min(Math.max(Number(value) || 0, min), max);
 
-async function listLeadTxidsForReconcile({ maxTx = 2000, pageSize = 500 } = {}) {
+async function listLeadTxidsForReconcile({ maxTx = 50000, pageSize = 500, includeConfirmed = true } = {}) {
     const txids = [];
     let offset = 0;
+    let scannedRows = 0;
 
     while (txids.length < maxTx) {
         const url = new URL(`${SUPABASE_URL}/rest/v1/leads`);
         const limit = Math.min(pageSize, maxTx - txids.length);
-        url.searchParams.set('select', 'pix_txid,last_event,updated_at');
-        url.searchParams.set('pix_txid', 'not.is.null');
-        url.searchParams.set('or', '(last_event.is.null,last_event.neq.pix_confirmed)');
+        url.searchParams.set('select', 'pix_txid,payload,last_event,updated_at');
+        if (!includeConfirmed) {
+            url.searchParams.set('or', '(last_event.is.null,last_event.neq.pix_confirmed)');
+        }
         url.searchParams.set('order', 'updated_at.desc');
         url.searchParams.set('limit', String(limit));
         url.searchParams.set('offset', String(offset));
@@ -56,10 +58,19 @@ async function listLeadTxidsForReconcile({ maxTx = 2000, pageSize = 500 } = {}) 
         if (!Array.isArray(rows) || rows.length === 0) {
             break;
         }
+        scannedRows += rows.length;
 
         rows.forEach((row) => {
-            const txid = String(row?.pix_txid || '').trim();
-            if (txid) txids.push(txid);
+            const fallbackTxid = String(
+                row?.payload?.pixTxid ||
+                row?.payload?.pix?.idTransaction ||
+                row?.payload?.pix?.idtransaction ||
+                row?.payload?.idTransaction ||
+                row?.payload?.idtransaction ||
+                ''
+            ).trim();
+            const txid = String(row?.pix_txid || fallbackTxid || '').trim();
+            if (txid && txid !== '-') txids.push(txid);
         });
 
         if (rows.length < limit) {
@@ -70,7 +81,8 @@ async function listLeadTxidsForReconcile({ maxTx = 2000, pageSize = 500 } = {}) 
 
     return {
         ok: true,
-        txids: Array.from(new Set(txids))
+        txids: Array.from(new Set(txids)),
+        scannedRows
     };
 }
 
@@ -460,10 +472,11 @@ async function pixReconcile(req, res) {
         return;
     }
 
-    const maxTx = clamp(req.query?.maxTx || 2000, 1, 20000);
+    const maxTx = clamp(req.query?.maxTx || 50000, 1, 200000);
     const concurrency = clamp(req.query?.concurrency || 6, 1, 12);
     const pageSize = clamp(req.query?.pageSize || 500, 50, 1000);
-    const txidList = await listLeadTxidsForReconcile({ maxTx, pageSize });
+    const includeConfirmed = String(req.query?.includeConfirmed || '1') !== '0';
+    const txidList = await listLeadTxidsForReconcile({ maxTx, pageSize, includeConfirmed });
     if (!txidList.ok) {
         res.status(502).json({
             error: 'Falha ao buscar txids no banco.',
@@ -657,6 +670,7 @@ async function pixReconcile(req, res) {
     res.status(200).json({
         ok: true,
         source: 'ativushub',
+        scannedRows: Number(txidList.scannedRows || 0),
         candidates: uniqueTxids.length,
         checked,
         confirmed,
@@ -666,6 +680,7 @@ async function pixReconcile(req, res) {
         warning: blockedByAtivus > 0
             ? 'A consulta de status na Ativus foi bloqueada (403). Habilite este endpoint no suporte Ativus para reconciliacao retroativa.'
             : null,
+        includeConfirmed,
         updated,
         failedDetails
     });

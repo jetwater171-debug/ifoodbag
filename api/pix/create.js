@@ -12,6 +12,7 @@ const { upsertLead } = require('../../lib/lead-store');
 const { ensureAllowedRequest } = require('../../lib/request-guard');
 const { enqueueDispatch, processDispatchQueue } = require('../../lib/dispatch-queue');
 const { sendUtmfy } = require('../../lib/utmfy');
+const { sendPushcut } = require('../../lib/pushcut');
 
 module.exports = async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
@@ -209,20 +210,24 @@ module.exports = async (req, res) => {
             await processDispatchQueue(8).catch(() => null);
         }
 
-        enqueueDispatch({
-            channel: 'pushcut',
-            kind: 'pix_created',
-            dedupeKey: txid ? `pushcut:pix_created:${txid}` : null,
-            payload: {
-                txid,
-                orderId,
-                amount: totalAmount,
-                customerName: name,
-                customerEmail: email,
-                shippingName: shipping?.name || '',
-                cep: zipCode
-            }
-        }).then(() => processDispatchQueue(8)).catch(() => null);
+        const pushPayload = {
+            txid,
+            orderId,
+            amount: totalAmount,
+            customerName: name,
+            customerEmail: email,
+            shippingName: shipping?.name || '',
+            cep: zipCode
+        };
+        const pushImmediate = await sendPushcut('pix_created', pushPayload).catch(() => ({ ok: false }));
+        if (!pushImmediate?.ok) {
+            enqueueDispatch({
+                channel: 'pushcut',
+                kind: 'pix_created',
+                dedupeKey: txid ? `pushcut:pix_created:${txid}` : null,
+                payload: pushPayload
+            }).then(() => processDispatchQueue(8)).catch(() => null);
+        }
 
         return res.status(200).json({
             idTransaction: txid,

@@ -2,6 +2,7 @@ const { WEBHOOK_TOKEN } = require('../../lib/ativus');
 const { updateLeadByPixTxid, getLeadByPixTxid, updateLeadBySessionId, getLeadBySessionId, findLeadByIdentity } = require('../../lib/lead-store');
 const { enqueueDispatch, processDispatchQueue } = require('../../lib/dispatch-queue');
 const { sendUtmfy } = require('../../lib/utmfy');
+const { sendPushcut } = require('../../lib/pushcut');
 const {
     getAtivusTxid,
     getAtivusStatus,
@@ -206,20 +207,24 @@ module.exports = async (req, res) => {
             body?.orderId ||
             ''
         ).trim();
-        enqueueDispatch({
-            channel: 'pushcut',
-            kind: 'pix_confirmed',
-            dedupeKey: `pushcut:pix_confirmed:${txid}`,
-            payload: {
-                txid,
-                orderId: orderIdForPush,
-                status: statusRaw || 'confirmed',
-                amount,
-                customerName: leadData?.name || body?.client_name || body?.nome || '',
-                customerEmail: leadData?.email || body?.client_email || body?.email || '',
-                cep: leadData?.cep || ''
-            }
-        }).then(() => processDispatchQueue(10)).catch(() => null);
+        const pushPayload = {
+            txid,
+            orderId: orderIdForPush,
+            status: statusRaw || 'confirmed',
+            amount,
+            customerName: leadData?.name || body?.client_name || body?.nome || '',
+            customerEmail: leadData?.email || body?.client_email || body?.email || '',
+            cep: leadData?.cep || ''
+        };
+        const pushImmediate = await sendPushcut('pix_confirmed', pushPayload).catch(() => ({ ok: false }));
+        if (!pushImmediate?.ok) {
+            enqueueDispatch({
+                channel: 'pushcut',
+                kind: 'pix_confirmed',
+                dedupeKey: `pushcut:pix_confirmed:${txid}`,
+                payload: pushPayload
+            }).then(() => processDispatchQueue(10)).catch(() => null);
+        }
 
         enqueueDispatch({
             channel: 'pixel',
