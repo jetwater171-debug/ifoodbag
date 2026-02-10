@@ -2603,14 +2603,25 @@ function initAdmin() {
             const tr = document.createElement('tr');
             const ev = String(row.evento || '').toLowerCase().trim();
             const isPaid = row.is_paid === true || ev === 'pix_confirmed' || ev === 'pagamento_confirmado' || ev === 'paid';
+            const rawStatus = String(row.status_funil || row.evento || '').toLowerCase().trim();
+            const isPixGenerated = (
+                rawStatus === 'pix_gerado' ||
+                rawStatus === 'pix_created' ||
+                rawStatus === 'pix_pending' ||
+                rawStatus === 'waiting_payment' ||
+                rawStatus === 'aguardando_pagamento'
+            );
             const statusLabel = isPaid ? 'pagamento_confirmado' : (row.status_funil || row.evento || '-');
+            const statusClass = isPaid
+                ? 'status-pill--paid'
+                : (isPixGenerated ? 'status-pill--pix-created' : 'status-pill--neutral');
             tr.innerHTML = `
                 <td>${row.nome || '-'}</td>
                 <td>${row.email || '-'}</td>
                 <td>${row.telefone || '-'}</td>
                 <td>${row.utm_source || '-'}</td>
                 <td>${row.etapa || '-'}</td>
-                <td><span class="status-pill ${isPaid ? 'status-pill--paid' : 'status-pill--neutral'}">${statusLabel}</span></td>
+                <td><span class="status-pill ${statusClass}">${statusLabel}</span></td>
                 <td>${row.frete || '-'}</td>
                 <td>${row.valor_total ? formatCurrency(row.valor_total) : '-'}</td>
                 <td>${formatDateTime(row.event_time || row.updated_at)}</td>

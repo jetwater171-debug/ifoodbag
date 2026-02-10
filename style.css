@@ -2429,6 +2429,12 @@ body[data-page='admin'][data-admin='leads'] .admin-topbar {
     border: 1px solid rgba(45, 180, 87, 0.3);
 }
 
+.status-pill--pix-created {
+    background: rgba(255, 152, 0, 0.18);
+    color: #b95b00;
+    border: 1px solid rgba(255, 152, 0, 0.36);
+}
+
 .status-pill--neutral {
     background: #f1f2f6;
     color: #5a5a5a;
