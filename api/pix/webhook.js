@@ -16,17 +16,38 @@ module.exports = async (req, res) => {
         res.status(405).json({ status: 'method_not_allowed' });
         return;
     }
-    const token = req.query?.token;
-    if (token !== WEBHOOK_TOKEN) {
-        res.status(401).json({ status: 'unauthorized' });
-        return;
-    }
 
     let body = {};
     try {
         body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {};
     } catch (_error) {
         body = {};
+    }
+
+    const looksLikeAtivusWebhook = (payload) => {
+        const hasTx = !!String(
+            payload?.idtransaction ||
+            payload?.idTransaction ||
+            payload?.id_transaction ||
+            payload?.externalreference ||
+            payload?.external_reference ||
+            payload?.txid ||
+            ''
+        ).trim();
+        const hasStatus = !!String(payload?.status || payload?.situacao || payload?.status_transaction || '').trim();
+        const hasActor =
+            !!String(payload?.client_name || payload?.client_document || payload?.client_email || '').trim() ||
+            !!String(payload?.beneficiaryname || payload?.beneficiarydocument || payload?.pixkey || '').trim();
+        return hasTx && hasStatus && hasActor;
+    };
+
+    const token = String(req.query?.token || '').trim();
+    const headerToken = String(req.headers?.['x-webhook-token'] || '').trim();
+    const fallbackAllowed = String(process.env.ATIVUSHUB_WEBHOOK_ALLOW_FALLBACK || 'true').toLowerCase() === 'true';
+    const tokenOk = (token && token === WEBHOOK_TOKEN) || (headerToken && headerToken === WEBHOOK_TOKEN);
+    if (!tokenOk && !(fallbackAllowed && looksLikeAtivusWebhook(body))) {
+        res.status(401).json({ status: 'unauthorized' });
+        return;
     }
 
     const txid = getAtivusTxid(body);

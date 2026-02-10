@@ -469,6 +469,7 @@ async function pixReconcile(req, res) {
     let failed = 0;
     let updated = 0;
     let failedDetails = [];
+    let blockedByAtivus = 0;
 
     const runOne = async (txid) => {
         checked += 1;
@@ -479,6 +480,7 @@ async function pixReconcile(req, res) {
             );
             if (!response.ok) {
                 failed += 1;
+                if (response.status === 403) blockedByAtivus += 1;
                 if (failedDetails.length < 8) {
                     failedDetails.push({
                         txid,
@@ -642,6 +644,10 @@ async function pixReconcile(req, res) {
         confirmed,
         pending,
         failed,
+        blockedByAtivus,
+        warning: blockedByAtivus > 0
+            ? 'A consulta de status na Ativus foi bloqueada (403). Habilite este endpoint no suporte Ativus para reconciliacao retroativa.'
+            : null,
         updated,
         failedDetails
     });

@@ -2021,8 +2021,11 @@ function initAdmin() {
         }
         const data = await res.json().catch(() => ({}));
         if (leadsReconcileStatus) {
-            leadsReconcileStatus.textContent = `Checados ${data.checked || 0}, confirmados ${data.confirmed || 0}, atualizados ${data.updated || 0}.`;
+            const blocked = Number(data.blockedByAtivus || 0);
+            const warning = blocked ? ` Bloqueados Ativus: ${blocked}.` : '';
+            leadsReconcileStatus.textContent = `Checados ${data.checked || 0}, confirmados ${data.confirmed || 0}, atualizados ${data.updated || 0}.${warning}`;
         }
+        if (data.warning) showToast(data.warning, 'error');
         showToast('Reconciliacao finalizada.', 'success');
         leadsReconcile.disabled = false;
         loadLeads({ reset: true });
