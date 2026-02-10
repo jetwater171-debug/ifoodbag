@@ -8,11 +8,10 @@ const {
 const { enqueueDispatch, processDispatchQueue } = require('../../lib/dispatch-queue');
 const { sendUtmfy } = require('../../lib/utmfy');
 const { sendPushcut } = require('../../lib/pushcut');
-const { getSettings } = require('../../lib/settings-store');
 const {
-    buildPaymentsConfig,
     normalizeGatewayId
 } = require('../../lib/payment-gateway-config');
+const { getPaymentsConfig } = require('../../lib/payments-config-store');
 const {
     getAtivusTxid,
     getAtivusStatus,
@@ -320,8 +319,7 @@ module.exports = async (req, res) => {
         body = {};
     }
 
-    const settings = await getSettings().catch(() => ({}));
-    const payments = buildPaymentsConfig(settings?.payments || {});
+    const payments = await getPaymentsConfig();
     const gateway = resolveWebhookGateway(req.query || {}, body, payments);
     const gatewayConfig = payments?.gateways?.[gateway] || {};
 

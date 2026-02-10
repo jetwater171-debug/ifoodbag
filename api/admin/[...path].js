@@ -1,6 +1,7 @@
 const { ensureAllowedRequest } = require('../../lib/request-guard');
 const { verifyAdminPassword, issueAdminCookie, verifyAdminCookie, requireAdmin } = require('../../lib/admin-auth');
 const { getSettings, saveSettings, defaultSettings } = require('../../lib/settings-store');
+const { invalidatePaymentsConfigCache } = require('../../lib/payments-config-store');
 const {
     buildPaymentsConfig,
     mergePaymentSettings,
@@ -41,6 +42,7 @@ const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.en
 
 const pick = (...values) => values.find((value) => value !== undefined && value !== null && value !== '');
 const clamp = (value, min, max) => Math.min(Math.max(Number(value) || 0, min), max);
+const SECRET_MASK = '__SECRET_SET__';
 
 function asObject(input) {
     if (!input) return {};
@@ -115,6 +117,44 @@ function normalizeAmountPossiblyCents(value) {
         return Number((amount / 100).toFixed(2));
     }
     return Number(amount.toFixed(2));
+}
+
+function pickSecretInput(inputValue, existingValue) {
+    const raw = inputValue === undefined || inputValue === null ? '' : String(inputValue);
+    if (raw === SECRET_MASK) return String(existingValue || '');
+    return raw;
+}
+
+function maskSecret(value) {
+    const text = String(value || '').trim();
+    return text ? SECRET_MASK : '';
+}
+
+function sanitizeSettingsForAdmin(settingsData = {}) {
+    const source = settingsData && typeof settingsData === 'object' ? settingsData : {};
+    const payload = JSON.parse(JSON.stringify(source));
+    payload.pixel = payload.pixel || {};
+    payload.pixel.capi = payload.pixel.capi || {};
+    payload.utmfy = payload.utmfy || {};
+    payload.payments = payload.payments || {};
+    payload.payments.gateways = payload.payments.gateways || {};
+    payload.payments.gateways.ativushub = payload.payments.gateways.ativushub || {};
+    payload.payments.gateways.ghostspay = payload.payments.gateways.ghostspay || {};
+
+    payload.pixel.capi.accessToken = maskSecret(payload.pixel.capi.accessToken);
+    payload.utmfy.apiKey = maskSecret(payload.utmfy.apiKey);
+
+    payload.payments.gateways.ativushub.apiKey = maskSecret(
+        payload.payments.gateways.ativushub.apiKey || payload.payments.gateways.ativushub.apiKeyBase64
+    );
+    payload.payments.gateways.ativushub.apiKeyBase64 = '';
+    payload.payments.gateways.ativushub.webhookToken = maskSecret(payload.payments.gateways.ativushub.webhookToken);
+
+    payload.payments.gateways.ghostspay.secretKey = maskSecret(payload.payments.gateways.ghostspay.secretKey);
+    payload.payments.gateways.ghostspay.basicAuthBase64 = '';
+    payload.payments.gateways.ghostspay.webhookToken = maskSecret(payload.payments.gateways.ghostspay.webhookToken);
+
+    return payload;
 }
 
 function isLeadPaid(row, payload) {
@@ -194,6 +234,13 @@ function resolveLeadGateway(row, payload) {
 
 function gatewayLabel(gateway) {
     return gateway === 'ghostspay' ? 'GhostsPay' : 'AtivusHUB';
+}
+
+function gatewayConversionPercent(stats = {}) {
+    const pix = Number(stats?.pix || 0);
+    const paid = Number(stats?.paid || 0);
+    if (!pix) return 0;
+    return Math.round((paid / pix) * 100);
 }
 
 function mapLeadReadable(row) {
@@ -481,6 +528,20 @@ async function getLeads(req, res) {
         done = rows.length < take;
     }
 
+    summary.gatewayStats = summary.gatewayStats || {};
+    summary.gatewayStats.ativushub = {
+        gateway: 'ativushub',
+        label: gatewayLabel('ativushub'),
+        ...(summary.gatewayStats.ativushub || { leads: 0, pix: 0, paid: 0, refunded: 0, refused: 0, pending: 0 })
+    };
+    summary.gatewayStats.ghostspay = {
+        gateway: 'ghostspay',
+        label: gatewayLabel('ghostspay'),
+        ...(summary.gatewayStats.ghostspay || { leads: 0, pix: 0, paid: 0, refunded: 0, refused: 0, pending: 0 })
+    };
+    summary.gatewayStats.ativushub.conversion = gatewayConversionPercent(summary.gatewayStats.ativushub);
+    summary.gatewayStats.ghostspay.conversion = gatewayConversionPercent(summary.gatewayStats.ghostspay);
+
     res.status(200).json({ data, summary });
 }
 
@@ -665,7 +726,7 @@ async function settings(req, res) {
     if (req.method === 'GET') {
         if (!requireAdmin(req, res)) return;
         const settingsData = await getSettings();
-        res.status(200).json(settingsData);
+        res.status(200).json(sanitizeSettingsForAdmin(settingsData));
         return;
     }
 
@@ -680,27 +741,67 @@ async function settings(req, res) {
             return;
         }
 
+        const currentSaved = await getSettings().catch(() => ({}));
+        const currentPayments = buildPaymentsConfig(currentSaved?.payments || {});
+        const bodyPayments = body?.payments && typeof body.payments === 'object' ? body.payments : {};
+        const bodyGateways = bodyPayments.gateways && typeof bodyPayments.gateways === 'object'
+            ? bodyPayments.gateways
+            : {};
+        const bodyAtivus = bodyGateways.ativushub && typeof bodyGateways.ativushub === 'object'
+            ? bodyGateways.ativushub
+            : {};
+        const bodyGhost = bodyGateways.ghostspay && typeof bodyGateways.ghostspay === 'object'
+            ? bodyGateways.ghostspay
+            : {};
+        const mergedPaymentsInput = {
+            ...(bodyPayments || {}),
+            gateways: {
+                ...(bodyGateways || {}),
+                ativushub: {
+                    ...bodyAtivus,
+                    apiKey: pickSecretInput(bodyAtivus.apiKey, currentPayments?.gateways?.ativushub?.apiKey || currentPayments?.gateways?.ativushub?.apiKeyBase64 || ''),
+                    apiKeyBase64: pickSecretInput(bodyAtivus.apiKeyBase64, currentPayments?.gateways?.ativushub?.apiKeyBase64 || ''),
+                    webhookToken: pickSecretInput(bodyAtivus.webhookToken, currentPayments?.gateways?.ativushub?.webhookToken || '')
+                },
+                ghostspay: {
+                    ...bodyGhost,
+                    secretKey: pickSecretInput(bodyGhost.secretKey, currentPayments?.gateways?.ghostspay?.secretKey || ''),
+                    basicAuthBase64: pickSecretInput(bodyGhost.basicAuthBase64, currentPayments?.gateways?.ghostspay?.basicAuthBase64 || ''),
+                    webhookToken: pickSecretInput(bodyGhost.webhookToken, currentPayments?.gateways?.ghostspay?.webhookToken || '')
+                }
+            }
+        };
+
+        const bodyPixel = body.pixel && typeof body.pixel === 'object' ? body.pixel : {};
+        const bodyPixelCapi = bodyPixel.capi && typeof bodyPixel.capi === 'object' ? bodyPixel.capi : {};
+        const currentPixel = currentSaved?.pixel || {};
+        const currentPixelCapi = currentPixel.capi || {};
+        const currentUtmfy = currentSaved?.utmfy || {};
+        const bodyUtmfy = body.utmfy && typeof body.utmfy === 'object' ? body.utmfy : {};
+
         const payload = {
             ...defaultSettings,
             ...body,
             pixel: {
                 ...defaultSettings.pixel,
-                ...(body.pixel || {}),
+                ...bodyPixel,
                 capi: {
                     ...defaultSettings.pixel.capi,
-                    ...(body.pixel?.capi || {})
+                    ...bodyPixelCapi,
+                    accessToken: pickSecretInput(bodyPixelCapi.accessToken, currentPixelCapi.accessToken || '')
                 },
                 events: {
                     ...defaultSettings.pixel.events,
-                    ...(body.pixel?.events || {})
+                    ...(bodyPixel?.events || {})
                 }
             },
             utmfy: {
                 ...defaultSettings.utmfy,
-                ...(body.utmfy || {})
+                ...bodyUtmfy,
+                apiKey: pickSecretInput(bodyUtmfy.apiKey, currentUtmfy.apiKey || '')
             },
             pushcut: buildPushcutConfig(body.pushcut || {}),
-            payments: mergePaymentSettings(defaultSettings.payments || {}, body.payments || {}),
+            payments: mergePaymentSettings(defaultSettings.payments || {}, mergedPaymentsInput),
             features: {
                 ...defaultSettings.features,
                 ...(body.features || {})
@@ -713,6 +814,7 @@ async function settings(req, res) {
             return;
         }
 
+        invalidatePaymentsConfigCache();
         res.status(200).json({ ok: true });
         return;
     }

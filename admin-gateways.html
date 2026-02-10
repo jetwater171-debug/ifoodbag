@@ -7,22 +7,21 @@
   <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#111111" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <title>iFood Entregadores - Admin</title>
+  <title>iFood Entregadores - Gateways</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/style.css?v=3.1" />
-<script src="/backguard.js?v=1.1"></script>
-<script
-  src="https://cdn.utmify.com.br/scripts/utms/latest.js"
-  data-utmify-prevent-xcod-sck
-  data-utmify-prevent-subids
-  async
-  defer
-></script>
-
+  <script src="/backguard.js?v=1.1"></script>
+  <script
+    src="https://cdn.utmify.com.br/scripts/utms/latest.js"
+    data-utmify-prevent-xcod-sck
+    data-utmify-prevent-subids
+    async
+    defer
+  ></script>
 </head>
-<body data-page="admin" data-admin="overview">
+<body data-page="admin" data-admin="gateways">
   <div class="admin-shell">
     <aside class="admin-sidebar">
       <div class="admin-brand">
@@ -50,8 +49,8 @@
     <main class="admin-main">
       <header class="admin-topbar">
         <div>
-          <h1>Painel Administrativo</h1>
-          <p>Visao geral de performance, funil e status da operacao em tempo real.</p>
+          <h1>Gateways PIX</h1>
+          <p>Central de roteamento, credenciais e conversao por gateway em tempo real.</p>
         </div>
         <div class="admin-topbar-actions">
           <button id="admin-save" class="btn-primary" type="button">Salvar configuracoes</button>
@@ -71,27 +70,26 @@
       </section>
 
       <div id="admin-panel" class="admin-panel hidden">
-        <section id="admin-overview" class="admin-section admin-section--overview">
+        <section class="admin-section admin-section--overview">
           <div class="admin-section-header">
-            <h2>Visao geral</h2>
+            <h2>Saude de conversao</h2>
             <span id="metric-base" class="admin-chip">Base: 0</span>
           </div>
 
           <div class="admin-hero">
             <div class="admin-hero-info">
-              <h3>Monitoramento ao vivo</h3>
-              <p>Compare o funil por etapa, ajuste pixels e otimize a conversao sem sair do painel.</p>
+              <h3>Comparativo de performance</h3>
+              <p>Veja qual gateway converte mais PIX pago e ajuste o roteamento sem deploy.</p>
               <div class="admin-hero-tags">
-                <span class="admin-tag">Ultima atividade: <strong id="metric-updated">-</strong></span>
                 <span class="admin-tag">Gateway ativo: <strong id="metric-active-gateway">-</strong></span>
                 <span class="admin-tag">Melhor conversao: <strong id="metric-best-gateway">-</strong></span>
-                <span class="admin-tag">Fonte: Supabase</span>
+                <span class="admin-tag">Ultima atividade: <strong id="metric-updated">-</strong></span>
               </div>
             </div>
             <div class="admin-hero-highlight">
-              <span>Leads ativos</span>
+              <span>Leads analisados</span>
               <strong id="metric-total">0</strong>
-              <em>Total carregado</em>
+              <em>Base carregada</em>
             </div>
           </div>
 
@@ -99,7 +97,7 @@
             <div class="admin-kpi">
               <span>PIX pago</span>
               <strong id="metric-pix">0</strong>
-              <em>Conversao final</em>
+              <em>Pagamentos confirmados</em>
             </div>
             <div class="admin-kpi">
               <span>Frete selecionado</span>
@@ -128,31 +126,6 @@
             </div>
           </div>
 
-          <div class="admin-funnel">
-            <div class="admin-funnel-row">
-              <span>CEP confirmado</span>
-              <div class="admin-funnel-bar"><i id="funnel-cep"></i></div>
-              <strong id="funnel-cep-value">0%</strong>
-            </div>
-            <div class="admin-funnel-row">
-              <span>Frete selecionado</span>
-              <div class="admin-funnel-bar"><i id="funnel-frete"></i></div>
-              <strong id="funnel-frete-value">0%</strong>
-            </div>
-            <div class="admin-funnel-row">
-              <span>PIX pago</span>
-              <div class="admin-funnel-bar"><i id="funnel-pix"></i></div>
-              <strong id="funnel-pix-value">0%</strong>
-            </div>
-          </div>
-        </section>
-
-        <section class="admin-section admin-section--card">
-          <div class="admin-section-header">
-            <h2>Conversao por gateway</h2>
-            <span class="admin-chip">PIX</span>
-          </div>
-          <p class="admin-hint">Compare em tempo real qual integracao converte mais pagamentos.</p>
           <div class="admin-kpi-grid">
             <div class="admin-kpi">
               <span>AtivusHUB</span>
@@ -165,28 +138,20 @@
               <em id="metric-gateway-ghostspay-detail">0 pagos / 0 PIX</em>
             </div>
           </div>
-        </section>
 
-        <section class="admin-section admin-section--card">
-          <div class="admin-section-header">
-            <h2>Controle do funil</h2>
-            <span class="admin-chip">Ativacoes</span>
-          </div>
-          <p class="admin-hint">Ative ou desative etapas para ajustar o fluxo de conversao.</p>
-          <div class="admin-grid">
-            <label class="admin-switch">
-              <input type="checkbox" id="feature-orderbump" />
-              <span>Ativar Order Bump (Seguro Bag)</span>
-            </label>
+          <div class="admin-inline-actions">
+            <button id="leads-refresh" class="btn-secondary" type="button">Atualizar metricas</button>
+            <button id="leads-reconcile" class="btn-secondary" type="button">Reconciliar pagamentos</button>
+            <span id="leads-reconcile-status" class="admin-muted"></span>
           </div>
         </section>
 
         <section class="admin-section admin-section--card">
           <div class="admin-section-header">
-            <h2>Gateways PIX</h2>
+            <h2>Configuracao dos gateways</h2>
             <span class="admin-chip">Pagamentos</span>
           </div>
-          <p class="admin-hint">Defina o gateway ativo e configure credenciais dos provedores sem deploy.</p>
+          <p class="admin-hint">Tokens ficam mascarados no painel. Para manter o token atual, apenas salve sem alterar o campo.</p>
           <div class="admin-grid">
             <div class="input-group">
               <select id="payments-active-gateway" class="floating-input">
@@ -205,7 +170,7 @@
               <label for="gateway-ativushub-base-url" class="floating-label">AtivusHUB Base URL</label>
             </div>
             <div class="input-group">
-              <input type="password" id="gateway-ativushub-api-key" class="floating-input" placeholder=" " />
+              <input type="password" id="gateway-ativushub-api-key" class="floating-input" placeholder=" " autocomplete="new-password" />
               <label for="gateway-ativushub-api-key" class="floating-label">AtivusHUB API Key (base64 ou raw)</label>
             </div>
             <div class="input-group">
@@ -213,7 +178,7 @@
               <label for="gateway-ativushub-seller-id" class="floating-label">AtivusHUB Seller ID (opcional)</label>
             </div>
             <div class="input-group">
-              <input type="password" id="gateway-ativushub-webhook-token" class="floating-input" placeholder=" " />
+              <input type="password" id="gateway-ativushub-webhook-token" class="floating-input" placeholder=" " autocomplete="new-password" />
               <label for="gateway-ativushub-webhook-token" class="floating-label">AtivusHUB Webhook Token</label>
             </div>
 
@@ -226,7 +191,7 @@
               <label for="gateway-ghostspay-base-url" class="floating-label">GhostsPay Base URL</label>
             </div>
             <div class="input-group">
-              <input type="password" id="gateway-ghostspay-secret-key" class="floating-input" placeholder=" " />
+              <input type="password" id="gateway-ghostspay-secret-key" class="floating-input" placeholder=" " autocomplete="new-password" />
               <label for="gateway-ghostspay-secret-key" class="floating-label">GhostsPay Secret Key</label>
             </div>
             <div class="input-group">
@@ -234,10 +199,11 @@
               <label for="gateway-ghostspay-company-id" class="floating-label">GhostsPay Company ID</label>
             </div>
             <div class="input-group">
-              <input type="password" id="gateway-ghostspay-webhook-token" class="floating-input" placeholder=" " />
+              <input type="password" id="gateway-ghostspay-webhook-token" class="floating-input" placeholder=" " autocomplete="new-password" />
               <label for="gateway-ghostspay-webhook-token" class="floating-label">GhostsPay Webhook Token</label>
             </div>
           </div>
+          <p class="admin-hint">Webhook token: segredo usado na URL/header do postback para validar que a notificacao veio do gateway certo.</p>
         </section>
       </div>
     </main>
@@ -248,5 +214,3 @@
   <script src="/script.js?v=6.1" defer></script>
 </body>
 </html>
-
-

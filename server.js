@@ -65,6 +65,10 @@ app.get('/admin/utmfy', (_req, res) => {
     res.sendFile(path.join(__dirname, 'admin-utmfy.html'));
 });
 
+app.get('/admin/gateways', (_req, res) => {
+    res.sendFile(path.join(__dirname, 'admin-gateways.html'));
+});
+
 app.get('/admin/pages', (_req, res) => {
     res.sendFile(path.join(__dirname, 'admin-pages.html'));
 });

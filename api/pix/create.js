@@ -4,8 +4,8 @@ const { ensureAllowedRequest } = require('../../lib/request-guard');
 const { enqueueDispatch, processDispatchQueue } = require('../../lib/dispatch-queue');
 const { sendUtmfy } = require('../../lib/utmfy');
 const { sendPushcut } = require('../../lib/pushcut');
-const { getSettings } = require('../../lib/settings-store');
-const { buildPaymentsConfig, normalizeGatewayId } = require('../../lib/payment-gateway-config');
+const { normalizeGatewayId } = require('../../lib/payment-gateway-config');
+const { getPaymentsConfig } = require('../../lib/payments-config-store');
 const {
     requestCreateTransaction: requestAtivushubCreate,
     getSellerId: getAtivushubSellerId,
@@ -95,8 +95,7 @@ module.exports = async (req, res) => {
             return res.status(400).json({ error: 'JSON invalido no corpo da requisicao.' });
         }
 
-        const settings = await getSettings().catch(() => ({}));
-        const payments = buildPaymentsConfig(settings?.payments || {});
+        const payments = await getPaymentsConfig();
         const gateway = resolveGateway(rawBody, payments);
         const gatewayConfig = payments?.gateways?.[gateway] || {};
 
@@ -334,84 +333,7 @@ module.exports = async (req, res) => {
         }, req).catch(() => null);
 
         const utmOrderId = txid || orderId;
-        const utmJob = {
-            channel: 'utmfy',
-            eventName: upsellEnabled ? 'upsell_pix_created' : 'pix_created',
-            dedupeKey: txid ? `utmfy:pix_created:${txid}` : null,
-            payload: {
-                orderId: utmOrderId,
-                amount: totalAmount,
-                sessionId: rawBody.sessionId || '',
-                personal,
-                shipping,
-                bump,
-                utm: rawBody.utm || {},
-                txid,
-                gateway,
-                createdAt: pixCreatedAt,
-                status: 'waiting_payment',
-                upsell: upsellEnabled ? {
-                    enabled: true,
-                    kind: String(upsell?.kind || 'frete_1dia'),
-                    title: String(upsell?.title || 'Prioridade de envio'),
-                    price: Number(upsell?.price || totalAmount)
-                } : null
-            }
-        };
-
-        const utmImmediate = await sendUtmfy(utmJob.eventName, utmJob.payload).catch((error) => ({
-            ok: false,
-            reason: error?.message || 'utmfy_immediate_error'
-        }));
-        if (!utmImmediate?.ok) {
-            await enqueueDispatch(utmJob).catch(() => null);
-            await processDispatchQueue(8).catch(() => null);
-        }
-
-        const pushPayload = {
-            txid,
-            orderId: utmOrderId,
-            amount: totalAmount,
-            customerName: name,
-            customerEmail: email,
-            shippingName: shipping?.name || '',
-            cep: zipCode,
-            gateway,
-            isUpsell: upsellEnabled
-        };
-        const pushKind = upsellEnabled ? 'upsell_pix_created' : 'pix_created';
-        const pushImmediate = await sendPushcut(pushKind, pushPayload).catch(() => ({ ok: false }));
-        if (!pushImmediate?.ok) {
-            await enqueueDispatch({
-                channel: 'pushcut',
-                kind: pushKind,
-                dedupeKey: txid ? `pushcut:pix_created:${txid}` : null,
-                payload: pushPayload
-            }).catch(() => null);
-            await processDispatchQueue(8).catch(() => null);
-        }
-
-        await enqueueDispatch({
-            channel: 'pixel',
-            eventName: 'AddPaymentInfo',
-            dedupeKey: txid ? `pixel:add_payment_info:${txid}` : null,
-            payload: {
-                amount: totalAmount,
-                orderId: utmOrderId,
-                shippingName: shipping?.name || '',
-                gateway,
-                isUpsell: upsellEnabled,
-                client_email: email,
-                client_document: cpf,
-                source_url: sourceUrl,
-                fbclid,
-                fbp,
-                fbc
-            }
-        }).catch(() => null);
-        await processDispatchQueue(8).catch(() => null);
-
-        return res.status(200).json({
+        const responsePayload = {
             idTransaction: txid,
             paymentCode,
             paymentCodeBase64,
@@ -419,7 +341,92 @@ module.exports = async (req, res) => {
             status: statusRaw || '',
             amount: totalAmount,
             gateway
+        };
+        res.status(200).json(responsePayload);
+
+        // Side effects run asynchronously to keep PIX generation fast for the buyer.
+        (async () => {
+            const utmJob = {
+                channel: 'utmfy',
+                eventName: upsellEnabled ? 'upsell_pix_created' : 'pix_created',
+                dedupeKey: txid ? `utmfy:pix_created:${txid}` : null,
+                payload: {
+                    orderId: utmOrderId,
+                    amount: totalAmount,
+                    sessionId: rawBody.sessionId || '',
+                    personal,
+                    shipping,
+                    bump,
+                    utm: rawBody.utm || {},
+                    txid,
+                    gateway,
+                    createdAt: pixCreatedAt,
+                    status: 'waiting_payment',
+                    upsell: upsellEnabled ? {
+                        enabled: true,
+                        kind: String(upsell?.kind || 'frete_1dia'),
+                        title: String(upsell?.title || 'Prioridade de envio'),
+                        price: Number(upsell?.price || totalAmount)
+                    } : null
+                }
+            };
+
+            const utmImmediate = await sendUtmfy(utmJob.eventName, utmJob.payload).catch((error) => ({
+                ok: false,
+                reason: error?.message || 'utmfy_immediate_error'
+            }));
+            if (!utmImmediate?.ok) {
+                await enqueueDispatch(utmJob).catch(() => null);
+                await processDispatchQueue(8).catch(() => null);
+            }
+
+            const pushPayload = {
+                txid,
+                orderId: utmOrderId,
+                amount: totalAmount,
+                customerName: name,
+                customerEmail: email,
+                shippingName: shipping?.name || '',
+                cep: zipCode,
+                gateway,
+                isUpsell: upsellEnabled
+            };
+            const pushKind = upsellEnabled ? 'upsell_pix_created' : 'pix_created';
+            const pushImmediate = await sendPushcut(pushKind, pushPayload).catch(() => ({ ok: false }));
+            if (!pushImmediate?.ok) {
+                await enqueueDispatch({
+                    channel: 'pushcut',
+                    kind: pushKind,
+                    dedupeKey: txid ? `pushcut:pix_created:${txid}` : null,
+                    payload: pushPayload
+                }).catch(() => null);
+                await processDispatchQueue(8).catch(() => null);
+            }
+
+            await enqueueDispatch({
+                channel: 'pixel',
+                eventName: 'AddPaymentInfo',
+                dedupeKey: txid ? `pixel:add_payment_info:${txid}` : null,
+                payload: {
+                    amount: totalAmount,
+                    orderId: utmOrderId,
+                    shippingName: shipping?.name || '',
+                    gateway,
+                    isUpsell: upsellEnabled,
+                    client_email: email,
+                    client_document: cpf,
+                    source_url: sourceUrl,
+                    fbclid,
+                    fbp,
+                    fbc
+                }
+            }).catch(() => null);
+            await processDispatchQueue(8).catch(() => null);
+        })().catch((error) => {
+            console.error('[pix] side effect error', { message: error?.message || String(error) });
         });
+
+        return;
     } catch (error) {
         console.error('[pix] unexpected error', { message: error.message || String(error) });
         return res.status(500).json({

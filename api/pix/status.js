@@ -1,12 +1,11 @@
 const { ensureAllowedRequest } = require('../../lib/request-guard');
 const { requestTransactionStatus: requestAtivushubStatus } = require('../../lib/ativushub-provider');
 const { requestTransactionById: requestGhostspayStatus } = require('../../lib/ghostspay-provider');
-const { getSettings } = require('../../lib/settings-store');
 const {
-    buildPaymentsConfig,
     normalizeGatewayId,
     resolveGatewayFromPayload
 } = require('../../lib/payment-gateway-config');
+const { getPaymentsConfig } = require('../../lib/payments-config-store');
 const {
     getAtivusStatus,
     isAtivusPaidStatus,
@@ -186,8 +185,7 @@ module.exports = async (req, res) => {
         leadData = bySession?.ok ? bySession.data : null;
     }
 
-    const settings = await getSettings().catch(() => ({}));
-    const payments = buildPaymentsConfig(settings?.payments || {});
+    const payments = await getPaymentsConfig();
     const leadStatus = deriveLeadStatus(leadData);
     const gateway = resolveStatusGateway(body, leadData, payments);
     const gatewayConfig = payments?.gateways?.[gateway] || {};
