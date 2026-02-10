@@ -1,5 +1,5 @@
 const { WEBHOOK_TOKEN } = require('../../lib/ativus');
-const { updateLeadByPixTxid, getLeadByPixTxid, updateLeadBySessionId, getLeadBySessionId } = require('../../lib/lead-store');
+const { updateLeadByPixTxid, getLeadByPixTxid, updateLeadBySessionId, getLeadBySessionId, findLeadByIdentity } = require('../../lib/lead-store');
 const { enqueueDispatch, processDispatchQueue } = require('../../lib/dispatch-queue');
 const { sendUtmfy } = require('../../lib/utmfy');
 const {
@@ -91,6 +91,19 @@ module.exports = async (req, res) => {
         await updateLeadBySessionId(sessionOrderId, { last_event: lastEvent, stage: 'pix' }).catch(() => ({ ok: false, count: 0 }));
         const bySession = await getLeadBySessionId(sessionOrderId).catch(() => ({ ok: false, data: null }));
         leadData = bySession?.ok ? bySession.data : null;
+    }
+
+    if (!leadData) {
+        const byIdentity = await findLeadByIdentity({
+            cpf: body?.client_document || body?.documento || '',
+            email: body?.client_email || body?.email || '',
+            phone: body?.client_phone || body?.telefone || ''
+        }).catch(() => ({ ok: false, data: null }));
+        if (byIdentity?.ok && byIdentity?.data) {
+            leadData = byIdentity.data;
+            const lastEvent = isPaid ? 'pix_confirmed' : isRefunded ? 'pix_refunded' : isRefused ? 'pix_refused' : 'pix_pending';
+            await updateLeadBySessionId(leadData.session_id, { last_event: lastEvent, stage: 'pix' }).catch(() => ({ ok: false, count: 0 }));
+        }
     }
 
     const leadUtm = leadData?.payload?.utm || {};
