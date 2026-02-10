@@ -2255,6 +2255,10 @@ function initAdmin() {
     const gatewayGhostspaySecretKey = document.getElementById('gateway-ghostspay-secret-key');
     const gatewayGhostspayCompanyId = document.getElementById('gateway-ghostspay-company-id');
     const gatewayGhostspayWebhookToken = document.getElementById('gateway-ghostspay-webhook-token');
+    const gatewayAtivushubState = document.getElementById('gateway-ativushub-state');
+    const gatewayGhostspayState = document.getElementById('gateway-ghostspay-state');
+    const gatewayCards = Array.from(document.querySelectorAll('[data-gateway-card]'));
+    const gatewayConfigToggles = Array.from(document.querySelectorAll('[data-gateway-config-toggle]'));
 
     const saveBtn = document.getElementById('admin-save');
     const saveStatus = document.getElementById('admin-save-status');
@@ -2373,6 +2377,49 @@ function initAdmin() {
     const wantsPages = !!pagesGrid;
     const wantsBackredirects = !!backredirectGrid;
 
+    const normalizeGatewayKey = (value) => (String(value || '').toLowerCase() === 'ghostspay' ? 'ghostspay' : 'ativushub');
+
+    const syncGatewaySwitchState = (input, label) => {
+        if (!label) return;
+        const enabled = !!input?.checked;
+        label.textContent = enabled ? 'Ligado' : 'Desligado';
+        label.classList.toggle('is-on', enabled);
+    };
+
+    const syncGatewaySwitches = () => {
+        syncGatewaySwitchState(gatewayAtivushubEnabled, gatewayAtivushubState);
+        syncGatewaySwitchState(gatewayGhostspayEnabled, gatewayGhostspayState);
+    };
+
+    const setCurrentGatewayCard = (gateway) => {
+        const active = normalizeGatewayKey(gateway);
+        gatewayCards.forEach((card) => {
+            const cardGateway = normalizeGatewayKey(card.getAttribute('data-gateway-card'));
+            card.classList.toggle('is-current', cardGateway === active);
+        });
+    };
+
+    const setGatewayCardOpen = (gateway, shouldOpen = true) => {
+        const target = normalizeGatewayKey(gateway);
+        gatewayCards.forEach((card) => {
+            const cardGateway = normalizeGatewayKey(card.getAttribute('data-gateway-card'));
+            const isOpen = shouldOpen && cardGateway === target;
+            card.classList.toggle('is-open', isOpen);
+            const toggleButton = card.querySelector('[data-gateway-config-toggle]');
+            if (toggleButton) {
+                toggleButton.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+                toggleButton.textContent = isOpen ? 'Fechar' : 'Configurar';
+            }
+        });
+    };
+
+    const toggleGatewayCard = (gateway) => {
+        const target = normalizeGatewayKey(gateway);
+        const current = gatewayCards.find((card) => normalizeGatewayKey(card.getAttribute('data-gateway-card')) === target);
+        const shouldOpen = !(current && current.classList.contains('is-open'));
+        setGatewayCardOpen(target, shouldOpen);
+    };
+
     const setLoginVisible = (visible) => {
         if (loginWrap) loginWrap.classList.toggle('hidden', !visible);
         if (panelWrap) panelWrap.classList.toggle('hidden', visible);
@@ -2431,7 +2478,7 @@ function initAdmin() {
             const gateways = payments.gateways || {};
             const ativushub = gateways.ativushub || {};
             const ghostspay = gateways.ghostspay || {};
-            const activeGateway = String(payments.activeGateway || 'ativushub').toLowerCase() === 'ghostspay' ? 'ghostspay' : 'ativushub';
+            const activeGateway = normalizeGatewayKey(payments.activeGateway || 'ativushub');
 
             if (paymentsActiveGateway) paymentsActiveGateway.value = activeGateway;
             if (gatewayAtivushubEnabled) gatewayAtivushubEnabled.checked = ativushub.enabled !== false;
@@ -2445,6 +2492,10 @@ function initAdmin() {
             if (gatewayGhostspaySecretKey) gatewayGhostspaySecretKey.value = ghostspay.secretKey || '';
             if (gatewayGhostspayCompanyId) gatewayGhostspayCompanyId.value = ghostspay.companyId || '';
             if (gatewayGhostspayWebhookToken) gatewayGhostspayWebhookToken.value = ghostspay.webhookToken || '';
+
+            syncGatewaySwitches();
+            setCurrentGatewayCard(activeGateway);
+            setGatewayCardOpen(activeGateway, true);
 
             if (metricActiveGateway) {
                 metricActiveGateway.textContent = activeGateway === 'ghostspay' ? 'GhostsPay' : 'AtivusHUB';
@@ -2568,10 +2619,13 @@ function initAdmin() {
                 if (saveStatus) saveStatus.textContent = '';
             }, 2500);
         }
-        if (res.ok && hasPaymentsForm && metricActiveGateway) {
-            metricActiveGateway.textContent = String(paymentsActiveGateway?.value || 'ativushub') === 'ghostspay'
-                ? 'GhostsPay'
-                : 'AtivusHUB';
+        if (res.ok && hasPaymentsForm) {
+            const activeGateway = normalizeGatewayKey(paymentsActiveGateway?.value || 'ativushub');
+            setCurrentGatewayCard(activeGateway);
+            syncGatewaySwitches();
+            if (metricActiveGateway) {
+                metricActiveGateway.textContent = activeGateway === 'ghostspay' ? 'GhostsPay' : 'AtivusHUB';
+            }
         }
         saveBtn.disabled = false;
     };
@@ -3049,6 +3103,22 @@ function initAdmin() {
     saleUtmfyBtn?.addEventListener('click', runUtmfySale);
     testPushcutBtn?.addEventListener('click', runPushcutTest);
     processDispatchBtn?.addEventListener('click', runDispatchProcess);
+    paymentsActiveGateway?.addEventListener('change', () => {
+        const selected = normalizeGatewayKey(paymentsActiveGateway?.value || 'ativushub');
+        setCurrentGatewayCard(selected);
+        setGatewayCardOpen(selected, true);
+        if (metricActiveGateway) {
+            metricActiveGateway.textContent = selected === 'ghostspay' ? 'GhostsPay' : 'AtivusHUB';
+        }
+    });
+    gatewayAtivushubEnabled?.addEventListener('change', syncGatewaySwitches);
+    gatewayGhostspayEnabled?.addEventListener('change', syncGatewaySwitches);
+    gatewayConfigToggles.forEach((button) => {
+        button.addEventListener('click', () => {
+            const gateway = button.getAttribute('data-gateway-config-toggle') || 'ativushub';
+            toggleGatewayCard(gateway);
+        });
+    });
 
     navItems.forEach((item) => {
         const itemPage = item.getAttribute('data-admin');
@@ -3065,6 +3135,13 @@ function initAdmin() {
             if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
     });
+
+    if (hasPaymentsForm) {
+        const selected = normalizeGatewayKey(paymentsActiveGateway?.value || 'ativushub');
+        syncGatewaySwitches();
+        setCurrentGatewayCard(selected);
+        setGatewayCardOpen(selected, true);
+    }
 
     checkAuth().then((ok) => {
         if (ok) {

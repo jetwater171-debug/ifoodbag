@@ -2191,6 +2191,179 @@ body[data-page='admin'][data-admin='leads'] .admin-topbar {
     color: #2a2a2a;
 }
 
+.gateway-config-section {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.gateway-top-row {
+    display: grid;
+    grid-template-columns: minmax(220px, 360px) 1fr;
+    gap: 14px;
+    align-items: center;
+}
+
+.gateway-top-row .input-group {
+    margin: 0;
+}
+
+.gateway-top-row-note {
+    margin: 0;
+    color: #666;
+    font-size: 0.9rem;
+    line-height: 1.45;
+}
+
+.gateway-card-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.gateway-card {
+    border: 1px solid #e8ecf2;
+    border-radius: 18px;
+    background: linear-gradient(180deg, #fbfcff 0%, #ffffff 100%);
+    box-shadow: 0 10px 22px rgba(9, 30, 66, 0.05);
+    overflow: hidden;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.gateway-card:hover {
+    border-color: #dfe4ec;
+    box-shadow: 0 12px 24px rgba(9, 30, 66, 0.08);
+}
+
+.gateway-card.is-current {
+    border-color: #ffc2c8;
+    box-shadow: 0 14px 28px rgba(234, 29, 44, 0.14);
+}
+
+.gateway-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 18px;
+}
+
+.gateway-card-heading h3 {
+    margin: 0 0 4px;
+    font-size: 1.08rem;
+    color: #191919;
+}
+
+.gateway-card-heading p {
+    margin: 0;
+    color: #6a6a6a;
+    font-size: 0.86rem;
+}
+
+.gateway-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.gateway-config-toggle {
+    min-width: 120px;
+}
+
+.gateway-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    border: 1px solid #e3e8ef;
+    border-radius: 999px;
+    padding: 6px 10px 6px 8px;
+    background: #fff;
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+}
+
+.gateway-switch input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+    width: 1px;
+    height: 1px;
+}
+
+.gateway-switch-track {
+    width: 46px;
+    height: 24px;
+    border-radius: 999px;
+    background: #d4dae4;
+    border: 1px solid #c8d0dc;
+    position: relative;
+    transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.gateway-switch-track::before {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 2px 6px rgba(17, 17, 17, 0.2);
+    transition: transform 0.2s ease;
+}
+
+.gateway-switch input:checked + .gateway-switch-track {
+    background: linear-gradient(90deg, #20b55c 0%, #2ecb6f 100%);
+    border-color: #1fa255;
+}
+
+.gateway-switch input:checked + .gateway-switch-track::before {
+    transform: translateX(22px);
+}
+
+.gateway-switch input:focus-visible + .gateway-switch-track {
+    outline: 2px solid #111;
+    outline-offset: 2px;
+}
+
+.gateway-switch-text {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #6a6f78;
+    letter-spacing: 0.01em;
+}
+
+.gateway-switch-text.is-on {
+    color: #12763b;
+}
+
+.gateway-card-body {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.28s ease;
+    border-top: 1px solid transparent;
+    background: #fff;
+}
+
+.gateway-card.is-open .gateway-card-body {
+    grid-template-rows: 1fr;
+    border-top-color: #eef2f6;
+}
+
+.gateway-fields-grid {
+    overflow: hidden;
+    padding: 0 18px;
+    margin: 0;
+    transition: padding 0.28s ease;
+}
+
+.gateway-card.is-open .gateway-fields-grid {
+    padding: 14px 18px 18px;
+}
+
 .admin-metrics {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -2555,6 +2728,21 @@ body[data-page='admin'][data-admin='leads'] .admin-topbar {
     .admin-funnel-row {
         grid-template-columns: 1fr;
         gap: 6px;
+    }
+    .gateway-top-row {
+        grid-template-columns: 1fr;
+    }
+    .gateway-card-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .gateway-card-actions {
+        width: 100%;
+        justify-content: space-between;
+    }
+    .gateway-config-toggle {
+        flex: 1;
+        min-width: 0;
     }
 }
 

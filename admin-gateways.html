@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/style.css?v=3.1" />
+  <link rel="stylesheet" href="/style.css?v=3.2" />
   <script src="/backguard.js?v=1.1"></script>
   <script
     src="https://cdn.utmify.com.br/scripts/utms/latest.js"
@@ -146,62 +146,98 @@
           </div>
         </section>
 
-        <section class="admin-section admin-section--card">
+        <section class="admin-section admin-section--card gateway-config-section">
           <div class="admin-section-header">
             <h2>Configuracao dos gateways</h2>
             <span class="admin-chip">Pagamentos</span>
           </div>
-          <p class="admin-hint">Tokens ficam mascarados no painel. Para manter o token atual, apenas salve sem alterar o campo.</p>
-          <div class="admin-grid">
+          <p class="admin-hint">Defina o gateway ativo, ligue/desligue provedores e ajuste credenciais sem deploy.</p>
+
+          <div class="gateway-top-row">
             <div class="input-group">
               <select id="payments-active-gateway" class="floating-input">
                 <option value="ativushub">AtivusHUB</option>
                 <option value="ghostspay">GhostsPay</option>
               </select>
-              <label for="payments-active-gateway" class="floating-label">Gateway ativo</label>
+              <label for="payments-active-gateway" class="floating-label">Gateway ativo para gerar PIX</label>
             </div>
+            <p class="gateway-top-row-note">Tokens ficam mascarados no painel. Para manter o token atual, salve sem alterar o campo.</p>
+          </div>
 
-            <label class="admin-switch">
-              <input type="checkbox" id="gateway-ativushub-enabled" />
-              <span>AtivusHUB ativo</span>
-            </label>
-            <div class="input-group">
-              <input type="text" id="gateway-ativushub-base-url" class="floating-input" placeholder=" " />
-              <label for="gateway-ativushub-base-url" class="floating-label">AtivusHUB Base URL</label>
-            </div>
-            <div class="input-group">
-              <input type="password" id="gateway-ativushub-api-key" class="floating-input" placeholder=" " autocomplete="new-password" />
-              <label for="gateway-ativushub-api-key" class="floating-label">AtivusHUB API Key (base64 ou raw)</label>
-            </div>
-            <div class="input-group">
-              <input type="text" id="gateway-ativushub-seller-id" class="floating-input" placeholder=" " />
-              <label for="gateway-ativushub-seller-id" class="floating-label">AtivusHUB Seller ID (opcional)</label>
-            </div>
-            <div class="input-group">
-              <input type="password" id="gateway-ativushub-webhook-token" class="floating-input" placeholder=" " autocomplete="new-password" />
-              <label for="gateway-ativushub-webhook-token" class="floating-label">AtivusHUB Webhook Token</label>
-            </div>
+          <div class="gateway-card-list">
+            <article class="gateway-card" data-gateway-card="ativushub">
+              <header class="gateway-card-header">
+                <div class="gateway-card-heading">
+                  <h3>AtivusHUB</h3>
+                  <p>Gateway principal com geracao de PIX em tempo real.</p>
+                </div>
+                <div class="gateway-card-actions">
+                  <label class="gateway-switch" for="gateway-ativushub-enabled">
+                    <input type="checkbox" id="gateway-ativushub-enabled" />
+                    <span class="gateway-switch-track" aria-hidden="true"></span>
+                    <span class="gateway-switch-text" id="gateway-ativushub-state">Ligado</span>
+                  </label>
+                  <button type="button" class="btn-secondary gateway-config-toggle" data-gateway-config-toggle="ativushub" aria-controls="gateway-config-ativushub" aria-expanded="false">Configurar</button>
+                </div>
+              </header>
+              <div id="gateway-config-ativushub" class="gateway-card-body">
+                <div class="admin-grid gateway-fields-grid">
+                  <div class="input-group">
+                    <input type="text" id="gateway-ativushub-base-url" class="floating-input" placeholder=" " />
+                    <label for="gateway-ativushub-base-url" class="floating-label">AtivusHUB Base URL</label>
+                  </div>
+                  <div class="input-group">
+                    <input type="password" id="gateway-ativushub-api-key" class="floating-input" placeholder=" " autocomplete="new-password" />
+                    <label for="gateway-ativushub-api-key" class="floating-label">AtivusHUB API Key (base64 ou raw)</label>
+                  </div>
+                  <div class="input-group">
+                    <input type="text" id="gateway-ativushub-seller-id" class="floating-input" placeholder=" " />
+                    <label for="gateway-ativushub-seller-id" class="floating-label">AtivusHUB Seller ID (opcional)</label>
+                  </div>
+                  <div class="input-group">
+                    <input type="password" id="gateway-ativushub-webhook-token" class="floating-input" placeholder=" " autocomplete="new-password" />
+                    <label for="gateway-ativushub-webhook-token" class="floating-label">AtivusHUB Webhook Token</label>
+                  </div>
+                </div>
+              </div>
+            </article>
 
-            <label class="admin-switch">
-              <input type="checkbox" id="gateway-ghostspay-enabled" />
-              <span>GhostsPay ativo</span>
-            </label>
-            <div class="input-group">
-              <input type="text" id="gateway-ghostspay-base-url" class="floating-input" placeholder=" " />
-              <label for="gateway-ghostspay-base-url" class="floating-label">GhostsPay Base URL</label>
-            </div>
-            <div class="input-group">
-              <input type="password" id="gateway-ghostspay-secret-key" class="floating-input" placeholder=" " autocomplete="new-password" />
-              <label for="gateway-ghostspay-secret-key" class="floating-label">GhostsPay Secret Key</label>
-            </div>
-            <div class="input-group">
-              <input type="text" id="gateway-ghostspay-company-id" class="floating-input" placeholder=" " />
-              <label for="gateway-ghostspay-company-id" class="floating-label">GhostsPay Company ID</label>
-            </div>
-            <div class="input-group">
-              <input type="password" id="gateway-ghostspay-webhook-token" class="floating-input" placeholder=" " autocomplete="new-password" />
-              <label for="gateway-ghostspay-webhook-token" class="floating-label">GhostsPay Webhook Token</label>
-            </div>
+            <article class="gateway-card" data-gateway-card="ghostspay">
+              <header class="gateway-card-header">
+                <div class="gateway-card-heading">
+                  <h3>GhostsPay</h3>
+                  <p>Gateway alternativo para balanceamento e backup da operacao.</p>
+                </div>
+                <div class="gateway-card-actions">
+                  <label class="gateway-switch" for="gateway-ghostspay-enabled">
+                    <input type="checkbox" id="gateway-ghostspay-enabled" />
+                    <span class="gateway-switch-track" aria-hidden="true"></span>
+                    <span class="gateway-switch-text" id="gateway-ghostspay-state">Desligado</span>
+                  </label>
+                  <button type="button" class="btn-secondary gateway-config-toggle" data-gateway-config-toggle="ghostspay" aria-controls="gateway-config-ghostspay" aria-expanded="false">Configurar</button>
+                </div>
+              </header>
+              <div id="gateway-config-ghostspay" class="gateway-card-body">
+                <div class="admin-grid gateway-fields-grid">
+                  <div class="input-group">
+                    <input type="text" id="gateway-ghostspay-base-url" class="floating-input" placeholder=" " />
+                    <label for="gateway-ghostspay-base-url" class="floating-label">GhostsPay Base URL</label>
+                  </div>
+                  <div class="input-group">
+                    <input type="password" id="gateway-ghostspay-secret-key" class="floating-input" placeholder=" " autocomplete="new-password" />
+                    <label for="gateway-ghostspay-secret-key" class="floating-label">GhostsPay Secret Key</label>
+                  </div>
+                  <div class="input-group">
+                    <input type="text" id="gateway-ghostspay-company-id" class="floating-input" placeholder=" " />
+                    <label for="gateway-ghostspay-company-id" class="floating-label">GhostsPay Company ID</label>
+                  </div>
+                  <div class="input-group">
+                    <input type="password" id="gateway-ghostspay-webhook-token" class="floating-input" placeholder=" " autocomplete="new-password" />
+                    <label for="gateway-ghostspay-webhook-token" class="floating-label">GhostsPay Webhook Token</label>
+                  </div>
+                </div>
+              </div>
+            </article>
           </div>
           <p class="admin-hint">Webhook token: segredo usado na URL/header do postback para validar que a notificacao veio do gateway certo.</p>
         </section>
@@ -211,6 +247,6 @@
 
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
-  <script src="/script.js?v=6.1" defer></script>
+  <script src="/script.js?v=6.2" defer></script>
 </body>
 </html>
