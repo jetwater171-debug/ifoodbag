@@ -2306,3 +2306,7 @@ body[data-page='admin'][data-admin='leads'] .admin-topbar {
     margin-bottom: 16px;
     font-size: 1.1rem;
 }
+
+.modal.hidden {
+    pointer-events: none;
+}

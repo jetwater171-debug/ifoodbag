@@ -134,6 +134,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (page && page !== 'admin') {
         trackPageView(page);
     }
+    setupGlobalBackRedirect(page);
     switch (page) {
         case 'home':
             initHome();
@@ -169,6 +170,70 @@ document.addEventListener('DOMContentLoaded', () => {
             break;
     }
 });
+
+function setupGlobalBackRedirect(page) {
+    if (!page || page === 'admin') return;
+    if (page === 'pix') return;
+
+    const offerKey = 'ifoodbag.backRedirectShown';
+    let allowBack = false;
+
+    const showCouponModal = () => {
+        const modal = document.getElementById('coupon-modal');
+        if (!modal) return;
+        modal.classList.remove('hidden');
+        modal.setAttribute('aria-hidden', 'false');
+        trackLead('coupon_offer_shown', { stage: page });
+    };
+
+    const hideCouponModal = () => {
+        const modal = document.getElementById('coupon-modal');
+        if (!modal) return;
+        modal.classList.add('hidden');
+        modal.setAttribute('aria-hidden', 'true');
+    };
+
+    const handlePop = () => {
+        if (allowBack) {
+            window.removeEventListener('popstate', handlePop);
+            return;
+        }
+        if (sessionStorage.getItem(offerKey)) {
+            allowBack = true;
+            window.removeEventListener('popstate', handlePop);
+            return;
+        }
+        sessionStorage.setItem(offerKey, '1');
+        showCouponModal();
+        history.pushState({}, '', location.href);
+    };
+
+    history.pushState({}, '', location.href);
+    history.pushState({}, '', location.href);
+    window.addEventListener('popstate', handlePop);
+
+    const btnApply = document.getElementById('btn-coupon-apply');
+    const btnExit = document.getElementById('btn-coupon-exit');
+
+    if (btnApply) {
+        btnApply.addEventListener('click', () => {
+            saveCoupon({ code: 'FRETE20', discount: 0.2, appliedAt: Date.now() });
+            hideCouponModal();
+            trackLead('coupon_offer_accept', { stage: page });
+            setStage('checkout');
+            redirect('checkout.html');
+        });
+    }
+
+    if (btnExit) {
+        btnExit.addEventListener('click', () => {
+            hideCouponModal();
+            trackLead('coupon_offer_exit', { stage: page });
+            allowBack = true;
+            history.back();
+        });
+    }
+}
 
 function cacheCommonDom() {
     dom.stockCounter = document.getElementById('stock-counter');
