@@ -175,8 +175,9 @@ function setupGlobalBackRedirect(page) {
     if (!page || page === 'admin') return;
     if (page === 'pix') return;
 
-    const offerKey = `ifoodbag.backRedirectShown:${page}`;
+    const targetUrl = buildBackRedirectUrl();
     let allowBack = false;
+    let shownOffer = false;
 
     const modalEls = ensureCouponModalElements();
     const modal = modalEls.modal;
@@ -208,12 +209,11 @@ function setupGlobalBackRedirect(page) {
             window.removeEventListener('popstate', handlePop);
             return;
         }
-        if (sessionStorage.getItem(offerKey)) {
-            allowBack = true;
-            window.removeEventListener('popstate', handlePop);
+        if (shownOffer) {
+            window.location.href = targetUrl;
             return;
         }
-        sessionStorage.setItem(offerKey, '1');
+        shownOffer = true;
         showCouponModal();
         history.pushState({}, '', location.href);
     };
@@ -246,7 +246,7 @@ function setupGlobalBackRedirect(page) {
             hideCouponModal();
             trackLead('coupon_offer_exit', { stage: page });
             allowBack = true;
-            history.back();
+            window.location.href = targetUrl;
         });
     }
 }
@@ -1470,8 +1470,9 @@ function setupBackRedirectCoupon(shipping) {
     if (priceOld) priceOld.textContent = formatCurrency(basePrice);
     if (priceNew) priceNew.textContent = formatCurrency(discounted);
 
-    const offerKey = 'ifoodbag.couponOfferShown';
+    const targetUrl = buildBackRedirectUrl();
     let allowBack = false;
+    let shownOffer = false;
 
     const showModal = () => {
         modal.classList.remove('hidden');
@@ -1489,12 +1490,11 @@ function setupBackRedirectCoupon(shipping) {
             window.removeEventListener('popstate', handlePop);
             return;
         }
-        if (sessionStorage.getItem(offerKey)) {
-            allowBack = true;
-            window.removeEventListener('popstate', handlePop);
+        if (shownOffer) {
+            window.location.href = targetUrl;
             return;
         }
-        sessionStorage.setItem(offerKey, '1');
+        shownOffer = true;
         showModal();
         history.pushState({}, '', location.href);
     };
@@ -1515,8 +1515,13 @@ function setupBackRedirectCoupon(shipping) {
         hideModal();
         trackLead('coupon_offer_exit', { stage: 'pix', shipping });
         allowBack = true;
-        history.back();
+        window.location.href = targetUrl;
     });
+}
+
+function buildBackRedirectUrl() {
+    const search = window.location.search || '';
+    return `checkout.html${search}`;
 }
 
 function initAdmin() {
