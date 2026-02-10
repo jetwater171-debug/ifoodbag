@@ -185,14 +185,12 @@ function setupGlobalBackRedirect(page) {
     const stateBase = { ifb: true, token: guardToken };
     const offer = getBackRedirectOffer(page);
     let lastGuardAt = 0;
-    const guardHashPrefix = '#ifb-back-';
     const currentHash = window.location.hash || '';
-    const stableHash = currentHash.startsWith(guardHashPrefix) ? '' : currentHash;
+    const legacyBackHash = /^#ifb-back-/i.test(currentHash);
+    const stableHash = legacyBackHash ? '' : currentHash;
     const baseUrl = `${window.location.pathname}${window.location.search}${stableHash}`;
-    const guardHash = `${guardHashPrefix}${guardToken.slice(-6)}`;
-    const guardUrl = `${window.location.pathname}${window.location.search}${guardHash}`;
 
-    if (currentHash !== stableHash) {
+    if (legacyBackHash) {
         try {
             history.replaceState(history.state || {}, '', baseUrl);
         } catch (_error) {
@@ -250,10 +248,11 @@ function setupGlobalBackRedirect(page) {
         const now = Date.now();
         if (!force && (now - lastGuardAt) < 350) return;
         const state = history.state || {};
-        if (state.ifb && state.token === guardToken && state.step === 1 && window.location.hash === guardHash) return;
+        if (state.ifb && state.token === guardToken && state.step >= 2) return;
         try {
             history.replaceState({ ...stateBase, step: 0 }, '', baseUrl);
-            history.pushState({ ...stateBase, step: 1 }, '', guardUrl);
+            history.pushState({ ...stateBase, step: 1 }, '', baseUrl);
+            history.pushState({ ...stateBase, step: 2 }, '', baseUrl);
             lastGuardAt = now;
         } catch (error) {
             return;
@@ -261,6 +260,8 @@ function setupGlobalBackRedirect(page) {
     };
 
     const handleBackAttempt = () => {
+        const currentState = history.state || {};
+        if (!currentState.ifb || currentState.token !== guardToken) return;
         const now = Date.now();
         if ((now - backAttemptAt) < 120) return;
         backAttemptAt = now;
@@ -293,7 +294,11 @@ function setupGlobalBackRedirect(page) {
         }
         shownOffer = true;
         showCouponModal();
-        ensureGuardEntry(true);
+        try {
+            history.pushState({ ...stateBase, step: 2 }, '', baseUrl);
+        } catch (_error) {
+            // Ignore browser-specific history restrictions.
+        }
     };
 
     const reinforceGuards = () => {
@@ -318,13 +323,6 @@ function setupGlobalBackRedirect(page) {
         reinforceGuards();
     }, { once: true });
     window.addEventListener('popstate', handleBackAttempt);
-    window.addEventListener('hashchange', (event) => {
-        const oldHash = new URL(event.oldURL || window.location.href).hash;
-        const newHash = new URL(event.newURL || window.location.href).hash;
-        if (oldHash !== guardHash) return;
-        if (newHash === guardHash) return;
-        handleBackAttempt();
-    });
 
     if (btnApply) {
         btnApply.addEventListener('click', async () => {
