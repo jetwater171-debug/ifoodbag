@@ -2143,7 +2143,7 @@ function initPix() {
     };
 
     btnCopy?.addEventListener('click', () => handleCopy(btnCopy));
-    btnCopyIcon?.addEventListener('click', () => handleCopy(btnCopy));
+    btnCopyIcon?.addEventListener('click', () => handleCopy(btnCopyIcon));
 
     if (pixOrderId) {
         const id = String(pix.idTransaction || '').trim();
@@ -2324,8 +2324,11 @@ function initPix() {
         return;
     }
 
+    const missingPixVisualData = !String(pix?.paymentCode || '').trim() && !String(pix?.paymentQrUrl || pix?.paymentCodeBase64 || '').trim();
+    const pollIntervalMs = missingPixVisualData ? 2500 : 5000;
+
     pollPixStatus();
-    statusPollTimer = setInterval(pollPixStatus, 5000);
+    statusPollTimer = setInterval(pollPixStatus, pollIntervalMs);
     window.addEventListener('pagehide', clearStatusPolling, { once: true });
     window.addEventListener('beforeunload', clearStatusPolling, { once: true });
 }

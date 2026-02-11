@@ -54,6 +54,13 @@ const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.en
 const pick = (...values) => values.find((value) => value !== undefined && value !== null && value !== '');
 const clamp = (value, min, max) => Math.min(Math.max(Number(value) || 0, min), max);
 const SECRET_MASK = '__SECRET_SET__';
+const QUIZ_STATS_CACHE_TTL_MS = 30 * 1000;
+
+let quizStatsCache = {
+    at: 0,
+    key: '',
+    payload: null
+};
 
 function asObject(input) {
     if (!input) return {};
@@ -729,18 +736,40 @@ async function getQuizStats(req, res) {
         return;
     }
 
-    const maxRows = clamp(req.query.max || 20000, 1, 50000);
-    const pageSize = 1000;
+    const maxRows = clamp(req.query.max || 8000, 1, 50000);
+    const pageSize = clamp(req.query.pageSize || 600, 100, 2000);
+    const maxMs = clamp(req.query.maxMs || 7000, 1500, 25000);
+    const cacheKey = `${maxRows}:${pageSize}:${maxMs}`;
+    const now = Date.now();
+    if (
+        quizStatsCache.payload &&
+        quizStatsCache.key === cacheKey &&
+        now - Number(quizStatsCache.at || 0) <= QUIZ_STATS_CACHE_TTL_MS
+    ) {
+        res.status(200).json({
+            ...quizStatsCache.payload,
+            cached: true
+        });
+        return;
+    }
+
+    const startedAt = Date.now();
     let offset = 0;
     let scannedRows = 0;
     let leadsWithQuiz = 0;
     let leadsCompleted = 0;
     let totalAnswers = 0;
     let lastUpdated = null;
+    let partialReason = '';
 
     const questionMap = new Map();
 
     while (offset < maxRows) {
+        if (Date.now() - startedAt >= maxMs) {
+            partialReason = partialReason || 'time_budget_reached';
+            break;
+        }
+
         const take = Math.min(pageSize, maxRows - offset);
         const url = new URL(`${SUPABASE_URL}/rest/v1/leads`);
         url.searchParams.set('select', 'session_id,last_event,updated_at,payload');
@@ -748,16 +777,39 @@ async function getQuizStats(req, res) {
         url.searchParams.set('limit', String(take));
         url.searchParams.set('offset', String(offset));
 
-        const response = await fetchFn(url.toString(), {
-            headers: {
-                apikey: SUPABASE_SERVICE_KEY,
-                Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
-                'Content-Type': 'application/json'
+        let response;
+        let timeoutRef = null;
+        try {
+            const controller = new AbortController();
+            timeoutRef = setTimeout(() => controller.abort(), 4500);
+            response = await fetchFn(url.toString(), {
+                headers: {
+                    apikey: SUPABASE_SERVICE_KEY,
+                    Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
+                    'Content-Type': 'application/json'
+                },
+                signal: controller.signal
+            });
+        } catch (error) {
+            if (scannedRows > 0) {
+                partialReason = partialReason || 'request_timeout';
+                break;
             }
-        });
+            res.status(502).json({
+                error: 'Falha ao buscar dados do quiz.',
+                detail: error?.message || String(error)
+            });
+            return;
+        } finally {
+            if (timeoutRef) clearTimeout(timeoutRef);
+        }
 
         if (!response.ok) {
             const detail = await response.text().catch(() => '');
+            if (scannedRows > 0) {
+                partialReason = partialReason || 'upstream_error';
+                break;
+            }
             res.status(502).json({ error: 'Falha ao buscar dados do quiz.', detail });
             return;
         }
@@ -892,7 +944,7 @@ async function getQuizStats(req, res) {
         ? Math.round((leadsCompleted / leadsWithQuiz) * 1000) / 10
         : 0;
 
-    res.status(200).json({
+    const payload = {
         summary: {
             scanned_rows: scannedRows,
             leads_with_quiz: leadsWithQuiz,
@@ -900,10 +952,19 @@ async function getQuizStats(req, res) {
             completion_rate: completionRate,
             total_answers: totalAnswers,
             total_questions: questionsWithDrop.length,
-            last_updated: lastUpdated
+            last_updated: lastUpdated,
+            partial: !!partialReason,
+            partial_reason: partialReason || ''
         },
         questions: questionsWithDrop
-    });
+    };
+
+    quizStatsCache = {
+        at: Date.now(),
+        key: cacheKey,
+        payload
+    };
+    res.status(200).json(payload);
 }
 
 async function getBackredirects(req, res) {
@@ -1116,7 +1177,9 @@ async function settings(req, res) {
         const currentPixel = currentSaved?.pixel || {};
         const currentPixelCapi = currentPixel.capi || {};
         const currentUtmfy = currentSaved?.utmfy || {};
+        const currentPushcut = currentSaved?.pushcut || {};
         const bodyUtmfy = body.utmfy && typeof body.utmfy === 'object' ? body.utmfy : {};
+        const bodyPushcut = body.pushcut && typeof body.pushcut === 'object' ? body.pushcut : {};
 
         const payload = {
             ...defaultSettings,
@@ -1139,7 +1202,10 @@ async function settings(req, res) {
                 ...bodyUtmfy,
                 apiKey: pickSecretInput(bodyUtmfy.apiKey, currentUtmfy.apiKey || '')
             },
-            pushcut: buildPushcutConfig(body.pushcut || {}),
+            pushcut: buildPushcutConfig({
+                ...currentPushcut,
+                ...bodyPushcut
+            }),
             payments: mergePaymentSettings(defaultSettings.payments || {}, mergedPaymentsInput),
             features: {
                 ...defaultSettings.features,

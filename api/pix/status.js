@@ -335,6 +335,16 @@ module.exports = async (req, res) => {
     const leadStatus = deriveLeadStatus(leadData);
     const gateway = resolveStatusGateway(body, leadData, payments);
     const gatewayConfig = payments?.gateways?.[gateway] || {};
+    const statusGatewayConfig = {
+        ...gatewayConfig,
+        timeoutMs: Math.max(
+            2500,
+            Math.min(
+                Number(gatewayConfig?.timeoutMs || 12000),
+                gateway === 'ghostspay' ? 6500 : 7000
+            )
+        )
+    };
 
     if (leadStatus.status === 'paid') {
         res.status(200).json({
@@ -370,7 +380,7 @@ module.exports = async (req, res) => {
     let paymentQrUrl = '';
 
     if (gateway === 'ghostspay') {
-        ({ response, data } = await requestGhostspayStatus(gatewayConfig, txid));
+        ({ response, data } = await requestGhostspayStatus(statusGatewayConfig, txid));
         if (!response?.ok) {
             const status = Number(response?.status || 0);
             res.status(status === 404 ? 200 : 502).json({
@@ -401,7 +411,7 @@ module.exports = async (req, res) => {
             new Date().toISOString();
         ({ paymentCode, paymentCodeBase64, paymentQrUrl } = extractPixFieldsForStatus(gateway, data));
     } else if (gateway === 'sunize') {
-        ({ response, data } = await requestSunizeStatus(gatewayConfig, txid));
+        ({ response, data } = await requestSunizeStatus(statusGatewayConfig, txid));
         if (!response?.ok) {
             const status = Number(response?.status || 0);
             res.status(status === 404 ? 200 : 502).json({
@@ -432,7 +442,7 @@ module.exports = async (req, res) => {
             new Date().toISOString();
         ({ paymentCode, paymentCodeBase64, paymentQrUrl } = extractPixFieldsForStatus(gateway, data));
     } else {
-        ({ response, data } = await requestAtivushubStatus(gatewayConfig, txid));
+        ({ response, data } = await requestAtivushubStatus(statusGatewayConfig, txid));
         if (!response?.ok) {
             const blockedByAtivus = Number(response?.status || 0) === 403;
             res.status(blockedByAtivus ? 200 : 502).json({

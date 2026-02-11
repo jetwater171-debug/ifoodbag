@@ -122,6 +122,11 @@ function resolveGhostspayResponse(data = {}) {
     let paymentCode = pickText(
         pix.qrcodeText,
         pix.qrCodeText,
+        pix.qrcode_text,
+        pix.qr_code_text,
+        pix.brCode,
+        pix.br_code,
+        pix.code,
         pix.copyPaste,
         pix.copy_paste,
         pix.emv,
@@ -130,6 +135,10 @@ function resolveGhostspayResponse(data = {}) {
         pix.pix_code,
         root.paymentCode,
         nested.paymentCode,
+        root.qrcodeText,
+        nested.qrcodeText,
+        transaction.qrcodeText,
+        payment.qrcodeText,
         root.copyPaste,
         nested.copyPaste
     );
@@ -143,10 +152,15 @@ function resolveGhostspayResponse(data = {}) {
         pix.qr_code_base64,
         pix.image,
         pix.imageBase64,
+        pix.base64,
         root.qrcode,
         nested.qrcode,
         root.qrCode,
-        nested.qrCode
+        nested.qrCode,
+        root.qrcodeBase64,
+        nested.qrcodeBase64,
+        root.qrCodeBase64,
+        nested.qrCodeBase64
     );
     const qrUrl = pickText(
         pix.qrcodeUrl,
@@ -385,8 +399,8 @@ module.exports = async (req, res) => {
             // Some GhostsPay accounts return PIX details asynchronously; hydrate quickly by txid.
             if (txid && !paymentCode && !paymentCodeBase64 && !paymentQrUrl) {
                 const quickStatusTimeout = Math.max(
-                    3000,
-                    Math.min(Number(gatewayConfig.timeoutMs || 12000), 6000)
+                    1200,
+                    Math.min(Number(gatewayConfig.timeoutMs || 12000), 2200)
                 );
                 const quickConfig = {
                     ...gatewayConfig,
@@ -577,6 +591,20 @@ module.exports = async (req, res) => {
 
         // Side effects run asynchronously to keep PIX generation fast for the buyer.
         (async () => {
+            const withTimeout = async (promise, timeoutMs, fallbackValue) => {
+                let timeoutRef = null;
+                try {
+                    return await Promise.race([
+                        Promise.resolve(promise),
+                        new Promise((resolve) => {
+                            timeoutRef = setTimeout(() => resolve(fallbackValue), timeoutMs);
+                        })
+                    ]);
+                } finally {
+                    if (timeoutRef) clearTimeout(timeoutRef);
+                }
+            };
+
             const utmJob = {
                 channel: 'utmfy',
                 eventName: upsellEnabled ? 'upsell_pix_created' : 'pix_created',
@@ -602,15 +630,6 @@ module.exports = async (req, res) => {
                 }
             };
 
-            const utmImmediate = await sendUtmfy(utmJob.eventName, utmJob.payload).catch((error) => ({
-                ok: false,
-                reason: error?.message || 'utmfy_immediate_error'
-            }));
-            if (!utmImmediate?.ok) {
-                await enqueueDispatch(utmJob).catch(() => null);
-                await processDispatchQueue(8).catch(() => null);
-            }
-
             const pushPayload = {
                 txid,
                 orderId: utmOrderId,
@@ -623,18 +642,13 @@ module.exports = async (req, res) => {
                 isUpsell: upsellEnabled
             };
             const pushKind = upsellEnabled ? 'upsell_pix_created' : 'pix_created';
-            const pushImmediate = await sendPushcut(pushKind, pushPayload).catch(() => ({ ok: false }));
-            if (!pushImmediate?.ok) {
-                await enqueueDispatch({
-                    channel: 'pushcut',
-                    kind: pushKind,
-                    dedupeKey: txid ? `pushcut:pix_created:${txid}` : null,
-                    payload: pushPayload
-                }).catch(() => null);
-                await processDispatchQueue(8).catch(() => null);
-            }
-
-            await enqueueDispatch({
+            const pushJob = {
+                channel: 'pushcut',
+                kind: pushKind,
+                dedupeKey: txid ? `pushcut:pix_created:${gateway}:${txid}` : null,
+                payload: pushPayload
+            };
+            const pixelJob = {
                 channel: 'pixel',
                 eventName: 'AddPaymentInfo',
                 dedupeKey: txid ? `pixel:add_payment_info:${txid}` : null,
@@ -651,8 +665,42 @@ module.exports = async (req, res) => {
                     fbp,
                     fbc
                 }
-            }).catch(() => null);
-            await processDispatchQueue(8).catch(() => null);
+            };
+
+            const [utmImmediate, pushImmediate] = await Promise.all([
+                withTimeout(
+                    sendUtmfy(utmJob.eventName, utmJob.payload).catch((error) => ({
+                        ok: false,
+                        reason: error?.message || 'utmfy_immediate_error'
+                    })),
+                    6000,
+                    { ok: false, reason: 'utmfy_timeout' }
+                ),
+                withTimeout(
+                    sendPushcut(pushKind, pushPayload).catch(() => ({ ok: false, reason: 'pushcut_immediate_error' })),
+                    6000,
+                    { ok: false, reason: 'pushcut_timeout' }
+                )
+            ]);
+
+            let shouldProcessQueue = false;
+
+            if (!utmImmediate?.ok) {
+                await enqueueDispatch(utmJob).catch(() => null);
+                shouldProcessQueue = true;
+            }
+
+            if (!pushImmediate?.ok) {
+                await enqueueDispatch(pushJob).catch(() => null);
+                shouldProcessQueue = true;
+            }
+
+            await enqueueDispatch(pixelJob).catch(() => null);
+            shouldProcessQueue = true;
+
+            if (shouldProcessQueue) {
+                await withTimeout(processDispatchQueue(8).catch(() => null), 6000, null);
+            }
         })().catch((error) => {
             console.error('[pix] side effect error', { message: error?.message || String(error) });
         });
