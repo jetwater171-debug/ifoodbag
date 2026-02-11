@@ -333,6 +333,75 @@ function isTerminalPixStatus(value = '') {
     );
 }
 
+const PIX_CREATE_INFLIGHT = globalThis.__ifbPixCreateInflightMap || new Map();
+if (!globalThis.__ifbPixCreateInflightMap) {
+    globalThis.__ifbPixCreateInflightMap = PIX_CREATE_INFLIGHT;
+}
+const PIX_CREATE_INFLIGHT_TTL_MS = 25000;
+
+function buildPixCreateInflightKey({ sessionId, gateway, shippingId, totalAmount, upsellEnabled }) {
+    const cleanSession = String(sessionId || '').trim();
+    if (!cleanSession) return '';
+    return [
+        cleanSession,
+        String(normalizeGatewayId(gateway) || 'ativushub'),
+        String(shippingId || '').trim(),
+        Number(totalAmount || 0).toFixed(2),
+        upsellEnabled ? 'upsell' : 'base'
+    ].join('|');
+}
+
+function getPixCreateInflight(key) {
+    if (!key) return null;
+    const entry = PIX_CREATE_INFLIGHT.get(key);
+    if (!entry) return null;
+    if (Number(entry.expiresAt || 0) <= Date.now()) {
+        PIX_CREATE_INFLIGHT.delete(key);
+        return null;
+    }
+    return entry;
+}
+
+function beginPixCreateInflight(key) {
+    if (!key) return null;
+    let resolvePromise;
+    let rejectPromise;
+    const promise = new Promise((resolve, reject) => {
+        resolvePromise = resolve;
+        rejectPromise = reject;
+    });
+    const entry = {
+        key,
+        promise,
+        resolve: resolvePromise,
+        reject: rejectPromise,
+        expiresAt: Date.now() + PIX_CREATE_INFLIGHT_TTL_MS
+    };
+    PIX_CREATE_INFLIGHT.set(key, entry);
+    return entry;
+}
+
+function finishPixCreateInflight(key, entry, result, error) {
+    if (!key || !entry) return;
+    const current = PIX_CREATE_INFLIGHT.get(key);
+    if (current === entry) {
+        PIX_CREATE_INFLIGHT.delete(key);
+    }
+    if (error) {
+        try {
+            entry.reject(error);
+        } catch (_error) {
+            // Ignore duplicate rejects.
+        }
+        return;
+    }
+    try {
+        entry.resolve(result);
+    } catch (_error) {
+        // Ignore duplicate resolves.
+    }
+}
+
 async function hydratePixVisualByGateway(gateway, gatewayConfig, txid) {
     if (!txid) {
         return { paymentCode: '', paymentCodeBase64: '', paymentQrUrl: '', status: '', externalId: '' };
@@ -559,6 +628,20 @@ module.exports = async (req, res) => {
             price: bumpPrice
         };
         const orderId = rawBody.sessionId || `order_${Date.now()}`;
+        const pixCreateInflightKey = buildPixCreateInflightKey({
+            sessionId: rawBody.sessionId,
+            gateway,
+            shippingId: String(normalizedShipping?.id || '').trim(),
+            totalAmount,
+            upsellEnabled
+        });
+        const existingCreateInflight = getPixCreateInflight(pixCreateInflightKey);
+        if (existingCreateInflight) {
+            const inflightResult = await existingCreateInflight.promise.catch(() => null);
+            if (inflightResult?.payload) {
+                return res.status(200).json(inflightResult.payload);
+            }
+        }
 
         const items = [
             {
@@ -590,19 +673,25 @@ module.exports = async (req, res) => {
             return res.status(200).json(reusable);
         }
 
-        let response;
-        let data;
-        let txid = '';
-        let paymentCode = '';
-        let paymentCodeBase64 = '';
-        let paymentQrUrl = '';
-        let statusRaw = '';
-        let externalId = '';
+        const createInflightEntry = beginPixCreateInflight(pixCreateInflightKey);
+        let createInflightResult = null;
+        let createInflightError = null;
 
-        if (gateway === 'ghostspay') {
-            if (!hasGhostspayCredentials(gatewayConfig)) {
-                return res.status(500).json({ error: 'Credenciais GhostsPay nao configuradas.' });
-            }
+        try {
+            let response;
+            let data;
+            let txid = '';
+            let paymentCode = '';
+            let paymentCodeBase64 = '';
+            let paymentQrUrl = '';
+            let statusRaw = '';
+            let externalId = '';
+
+            if (gateway === 'ghostspay') {
+                if (!hasGhostspayCredentials(gatewayConfig)) {
+                    createInflightError = new Error('ghostspay_missing_credentials');
+                    return res.status(500).json({ error: 'Credenciais GhostsPay nao configuradas.' });
+                }
 
             const ghostItems = items.map((item) => ({
                 title: item.title,
@@ -652,47 +741,49 @@ module.exports = async (req, res) => {
                 }
             };
 
-            ({ response, data } = await requestGhostspayCreate(gatewayConfig, ghostPayload));
-            if (!response?.ok) {
-                return res.status(response?.status || 502).json({
-                    error: 'Falha ao gerar o PIX.',
-                    detail: data
-                });
-            }
-
-            const ghostData = resolveGhostspayResponse(data);
-            txid = ghostData.txid;
-            paymentCode = ghostData.paymentCode;
-            paymentCodeBase64 = ghostData.paymentCodeBase64;
-            paymentQrUrl = ghostData.paymentQrUrl;
-            statusRaw = ghostData.status;
-
-            // Some GhostsPay accounts return PIX details asynchronously; hydrate quickly by txid.
-            if (txid && !paymentCode && !paymentCodeBase64 && !paymentQrUrl) {
-                const quickStatusTimeout = Math.max(
-                    1200,
-                    Math.min(Number(gatewayConfig.timeoutMs || 12000), 2200)
-                );
-                const quickConfig = {
-                    ...gatewayConfig,
-                    timeoutMs: quickStatusTimeout
-                };
-                const quickStatus = await requestGhostspayStatus(quickConfig, txid).catch(() => ({
-                    response: { ok: false },
-                    data: {}
-                }));
-                if (quickStatus?.response?.ok) {
-                    const fromStatus = resolveGhostspayResponse(quickStatus.data || {});
-                    paymentCode = paymentCode || fromStatus.paymentCode;
-                    paymentCodeBase64 = paymentCodeBase64 || fromStatus.paymentCodeBase64;
-                    paymentQrUrl = paymentQrUrl || fromStatus.paymentQrUrl;
-                    statusRaw = statusRaw || fromStatus.status;
+                ({ response, data } = await requestGhostspayCreate(gatewayConfig, ghostPayload));
+                if (!response?.ok) {
+                    createInflightError = new Error('ghostspay_create_failed');
+                    return res.status(response?.status || 502).json({
+                        error: 'Falha ao gerar o PIX.',
+                        detail: data
+                    });
                 }
-            }
-        } else if (gateway === 'sunize') {
-            if (!hasSunizeCredentials(gatewayConfig)) {
-                return res.status(500).json({ error: 'Credenciais Sunize nao configuradas.' });
-            }
+
+                const ghostData = resolveGhostspayResponse(data);
+                txid = ghostData.txid;
+                paymentCode = ghostData.paymentCode;
+                paymentCodeBase64 = ghostData.paymentCodeBase64;
+                paymentQrUrl = ghostData.paymentQrUrl;
+                statusRaw = ghostData.status;
+
+                // Some GhostsPay accounts return PIX details asynchronously; hydrate quickly by txid.
+                if (txid && !paymentCode && !paymentCodeBase64 && !paymentQrUrl) {
+                    const quickStatusTimeout = Math.max(
+                        1200,
+                        Math.min(Number(gatewayConfig.timeoutMs || 12000), 2200)
+                    );
+                    const quickConfig = {
+                        ...gatewayConfig,
+                        timeoutMs: quickStatusTimeout
+                    };
+                    const quickStatus = await requestGhostspayStatus(quickConfig, txid).catch(() => ({
+                        response: { ok: false },
+                        data: {}
+                    }));
+                    if (quickStatus?.response?.ok) {
+                        const fromStatus = resolveGhostspayResponse(quickStatus.data || {});
+                        paymentCode = paymentCode || fromStatus.paymentCode;
+                        paymentCodeBase64 = paymentCodeBase64 || fromStatus.paymentCodeBase64;
+                        paymentQrUrl = paymentQrUrl || fromStatus.paymentQrUrl;
+                        statusRaw = statusRaw || fromStatus.status;
+                    }
+                }
+            } else if (gateway === 'sunize') {
+                if (!hasSunizeCredentials(gatewayConfig)) {
+                    createInflightError = new Error('sunize_missing_credentials');
+                    return res.status(500).json({ error: 'Credenciais Sunize nao configuradas.' });
+                }
 
             const documentType = resolveDocumentType(cpf);
             const phoneE164 = toE164Phone(phone);
@@ -723,31 +814,34 @@ module.exports = async (req, res) => {
                 }
             };
 
-            ({ response, data } = await requestSunizeCreate(gatewayConfig, sunizePayload));
-            if (!response?.ok) {
-                return res.status(response?.status || 502).json({
-                    error: 'Falha ao gerar o PIX.',
-                    detail: data
-                });
-            }
-            if (data?.hasError === true) {
-                return res.status(502).json({
-                    error: 'Falha ao gerar o PIX.',
-                    detail: data
-                });
-            }
+                ({ response, data } = await requestSunizeCreate(gatewayConfig, sunizePayload));
+                if (!response?.ok) {
+                    createInflightError = new Error('sunize_create_failed');
+                    return res.status(response?.status || 502).json({
+                        error: 'Falha ao gerar o PIX.',
+                        detail: data
+                    });
+                }
+                if (data?.hasError === true) {
+                    createInflightError = new Error('sunize_create_error');
+                    return res.status(502).json({
+                        error: 'Falha ao gerar o PIX.',
+                        detail: data
+                    });
+                }
 
-            const sunizeData = resolveSunizeResponse(data);
-            txid = sunizeData.txid;
-            paymentCode = sunizeData.paymentCode;
-            paymentCodeBase64 = sunizeData.paymentCodeBase64;
-            paymentQrUrl = sunizeData.paymentQrUrl;
-            statusRaw = sunizeData.status;
-            externalId = sunizeData.externalId || externalId;
-        } else {
-            if (!String(gatewayConfig.apiKeyBase64 || '').trim()) {
-                return res.status(500).json({ error: 'API Key da AtivusHUB nao configurada.' });
-            }
+                const sunizeData = resolveSunizeResponse(data);
+                txid = sunizeData.txid;
+                paymentCode = sunizeData.paymentCode;
+                paymentCodeBase64 = sunizeData.paymentCodeBase64;
+                paymentQrUrl = sunizeData.paymentQrUrl;
+                statusRaw = sunizeData.status;
+                externalId = sunizeData.externalId || externalId;
+            } else {
+                if (!String(gatewayConfig.apiKeyBase64 || '').trim()) {
+                    createInflightError = new Error('ativushub_missing_credentials');
+                    return res.status(500).json({ error: 'API Key da AtivusHUB nao configurada.' });
+                }
 
             const sellerId = await getAtivushubSellerId(gatewayConfig);
             const ativusPayload = {
@@ -802,30 +896,32 @@ module.exports = async (req, res) => {
                 }
             };
 
-            ({ response, data } = await requestAtivushubCreate(gatewayConfig, ativusPayload));
-            if (!response?.ok) {
-                return res.status(response?.status || 502).json({
-                    error: 'Falha ao gerar o PIX.',
+                ({ response, data } = await requestAtivushubCreate(gatewayConfig, ativusPayload));
+                if (!response?.ok) {
+                    createInflightError = new Error('ativushub_create_failed');
+                    return res.status(response?.status || 502).json({
+                        error: 'Falha ao gerar o PIX.',
+                        detail: data
+                    });
+                }
+
+                txid = String(data?.idTransaction || data?.idtransaction || '').trim();
+                paymentCode = String(data?.paymentCode || data?.paymentcode || '').trim();
+                paymentCodeBase64 = String(data?.paymentCodeBase64 || data?.paymentcodebase64 || '').trim();
+                statusRaw = String(data?.status_transaction || data?.status || '').trim();
+            }
+
+            if (!txid) {
+                createInflightError = new Error('missing_txid');
+                return res.status(502).json({
+                    error: 'Gateway retornou PIX sem identificador de transacao.',
                     detail: data
                 });
             }
 
-            txid = String(data?.idTransaction || data?.idtransaction || '').trim();
-            paymentCode = String(data?.paymentCode || data?.paymentcode || '').trim();
-            paymentCodeBase64 = String(data?.paymentCodeBase64 || data?.paymentcodebase64 || '').trim();
-            statusRaw = String(data?.status_transaction || data?.status || '').trim();
-        }
+            const pixCreatedAt = new Date().toISOString();
 
-        if (!txid) {
-            return res.status(502).json({
-                error: 'Gateway retornou PIX sem identificador de transacao.',
-                detail: data
-            });
-        }
-
-        const pixCreatedAt = new Date().toISOString();
-
-        upsertLead({
+            await upsertLead({
             ...(rawBody || {}),
             shipping: normalizedShipping,
             bump: normalizedBump,
@@ -862,116 +958,134 @@ module.exports = async (req, res) => {
                 price: Number(upsell?.price || totalAmount),
                 previousTxid: String(upsell?.previousTxid || '')
             } : null
-        }, req).catch(() => null);
+            }, req).catch(() => null);
 
-        const utmOrderId = orderId;
-        const responsePayload = {
-            idTransaction: txid,
-            paymentCode,
-            paymentCodeBase64,
-            paymentQrUrl,
-            status: statusRaw || '',
-            amount: totalAmount,
-            gateway,
-            externalId
-        };
-        res.status(200).json(responsePayload);
-
-        // Side effects run asynchronously to keep PIX generation fast for the buyer.
-        (async () => {
-            const utmJob = {
-                channel: 'utmfy',
-                eventName: upsellEnabled ? 'upsell_pix_created' : 'pix_created',
-                dedupeKey: txid ? `utmfy:pix_created:${txid}` : null,
-                payload: {
-                    orderId: utmOrderId,
-                    amount: totalAmount,
-                    sessionId: rawBody.sessionId || '',
-                    personal,
-                    shipping: normalizedShipping,
-                    bump: normalizedBump.selected ? normalizedBump : null,
-                    utm: rawBody.utm || {},
-                    txid,
-                    gateway,
-                    createdAt: pixCreatedAt,
-                    status: 'waiting_payment',
-                    upsell: upsellEnabled ? {
-                        enabled: true,
-                        kind: String(upsell?.kind || 'frete_1dia'),
-                        title: String(upsell?.title || 'Prioridade de envio'),
-                        price: Number(upsell?.price || totalAmount)
-                    } : null
-                }
-            };
-
-            const pushPayload = {
-                txid,
-                orderId: utmOrderId,
+            const utmOrderId = orderId;
+            const responsePayload = {
+                idTransaction: txid,
+                paymentCode,
+                paymentCodeBase64,
+                paymentQrUrl,
+                status: statusRaw || '',
                 amount: totalAmount,
-                customerName: name,
-                customerEmail: email,
-                shippingName: normalizedShipping?.name || '',
-                cep: zipCode,
                 gateway,
-                isUpsell: upsellEnabled
+                externalId
             };
-            const pushKind = upsellEnabled ? 'upsell_pix_created' : 'pix_created';
-            const pushJob = {
-                channel: 'pushcut',
-                kind: pushKind,
-                dedupeKey: txid ? `pushcut:pix_created:${gateway}:${txid}` : null,
-                payload: pushPayload
-            };
-            const pixelJob = {
-                channel: 'pixel',
-                eventName: 'AddPaymentInfo',
-                dedupeKey: txid ? `pixel:add_payment_info:${txid}` : null,
-                payload: {
-                    amount: totalAmount,
+            createInflightResult = responsePayload;
+            res.status(200).json(responsePayload);
+
+            // Side effects run asynchronously to keep PIX generation fast for the buyer.
+            (async () => {
+                const utmJob = {
+                    channel: 'utmfy',
+                    eventName: upsellEnabled ? 'upsell_pix_created' : 'pix_created',
+                    dedupeKey: txid ? `utmfy:pix_created:${txid}` : null,
+                    payload: {
+                        orderId: utmOrderId,
+                        amount: totalAmount,
+                        sessionId: rawBody.sessionId || '',
+                        personal,
+                        shipping: normalizedShipping,
+                        bump: normalizedBump.selected ? normalizedBump : null,
+                        utm: rawBody.utm || {},
+                        txid,
+                        gateway,
+                        createdAt: pixCreatedAt,
+                        status: 'waiting_payment',
+                        upsell: upsellEnabled ? {
+                            enabled: true,
+                            kind: String(upsell?.kind || 'frete_1dia'),
+                            title: String(upsell?.title || 'Prioridade de envio'),
+                            price: Number(upsell?.price || totalAmount)
+                        } : null
+                    }
+                };
+
+                const pushPayload = {
+                    txid,
                     orderId: utmOrderId,
+                    amount: totalAmount,
+                    customerName: name,
+                    customerEmail: email,
                     shippingName: normalizedShipping?.name || '',
+                    cep: zipCode,
                     gateway,
-                    isUpsell: upsellEnabled,
-                    client_email: email,
-                    client_document: cpf,
-                    source_url: sourceUrl,
-                    fbclid,
-                    fbp,
-                    fbc
+                    isUpsell: upsellEnabled
+                };
+                const pushKind = upsellEnabled ? 'upsell_pix_created' : 'pix_created';
+                const pushJob = {
+                    channel: 'pushcut',
+                    kind: pushKind,
+                    dedupeKey: txid ? `pushcut:pix_created:${gateway}:${txid}` : null,
+                    payload: pushPayload
+                };
+                const pixelJob = {
+                    channel: 'pixel',
+                    eventName: 'AddPaymentInfo',
+                    dedupeKey: txid ? `pixel:add_payment_info:${txid}` : null,
+                    payload: {
+                        amount: totalAmount,
+                        orderId: utmOrderId,
+                        shippingName: normalizedShipping?.name || '',
+                        gateway,
+                        isUpsell: upsellEnabled,
+                        client_email: email,
+                        client_document: cpf,
+                        source_url: sourceUrl,
+                        fbclid,
+                        fbp,
+                        fbc
+                    }
+                };
+
+                const [utmImmediate, pushImmediate] = await Promise.all([
+                    sendUtmfy(utmJob.eventName, utmJob.payload).catch((error) => ({
+                        ok: false,
+                        reason: error?.message || 'utmfy_immediate_error'
+                    })),
+                    sendPushcut(pushKind, pushPayload).catch(() => ({ ok: false, reason: 'pushcut_immediate_error' }))
+                ]);
+
+                let shouldProcessQueue = false;
+
+                if (!utmImmediate?.ok) {
+                    await enqueueDispatch(utmJob).catch(() => null);
+                    shouldProcessQueue = true;
                 }
-            };
 
-            const [utmImmediate, pushImmediate] = await Promise.all([
-                sendUtmfy(utmJob.eventName, utmJob.payload).catch((error) => ({
-                    ok: false,
-                    reason: error?.message || 'utmfy_immediate_error'
-                })),
-                sendPushcut(pushKind, pushPayload).catch(() => ({ ok: false, reason: 'pushcut_immediate_error' }))
-            ]);
+                if (!pushImmediate?.ok) {
+                    await enqueueDispatch(pushJob).catch(() => null);
+                    shouldProcessQueue = true;
+                }
 
-            let shouldProcessQueue = false;
-
-            if (!utmImmediate?.ok) {
-                await enqueueDispatch(utmJob).catch(() => null);
+                await enqueueDispatch(pixelJob).catch(() => null);
                 shouldProcessQueue = true;
+
+                if (shouldProcessQueue) {
+                    await processDispatchQueue(8).catch(() => null);
+                }
+            })().catch((error) => {
+                console.error('[pix] side effect error', { message: error?.message || String(error) });
+            });
+
+            return;
+        } finally {
+            if (createInflightEntry) {
+                if (createInflightResult) {
+                    finishPixCreateInflight(pixCreateInflightKey, createInflightEntry, {
+                        ok: true,
+                        payload: createInflightResult
+                    });
+                } else {
+                    finishPixCreateInflight(
+                        pixCreateInflightKey,
+                        createInflightEntry,
+                        null,
+                        createInflightError || new Error('pix_create_not_completed')
+                    );
+                }
             }
-
-            if (!pushImmediate?.ok) {
-                await enqueueDispatch(pushJob).catch(() => null);
-                shouldProcessQueue = true;
-            }
-
-            await enqueueDispatch(pixelJob).catch(() => null);
-            shouldProcessQueue = true;
-
-            if (shouldProcessQueue) {
-                await processDispatchQueue(8).catch(() => null);
-            }
-        })().catch((error) => {
-            console.error('[pix] side effect error', { message: error?.message || String(error) });
-        });
-
-        return;
+        }
     } catch (error) {
         console.error('[pix] unexpected error', { message: error.message || String(error) });
         return res.status(500).json({

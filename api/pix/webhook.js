@@ -604,6 +604,15 @@ module.exports = async (req, res) => {
     }
 
     const leadUtm = leadData?.payload?.utm || {};
+    const leadPayload = asObject(leadData?.payload);
+    const amountFromLead = normalizeMoneyToBrl(
+        leadPayload?.pixAmount ||
+        leadData?.pix_amount ||
+        leadPayload?.pix?.amount ||
+        0
+    );
+    const normalizedEventAmount = normalizeMoneyToBrl(amount);
+    const eventAmount = amountFromLead > 0 ? amountFromLead : normalizedEventAmount;
     const orderId =
         String(
             leadData?.session_id ||
@@ -624,20 +633,10 @@ module.exports = async (req, res) => {
                 : (upsellEvent ? 'upsell_pix_created' : 'pix_created');
     const dedupeBase = orderId || txid || 'unknown';
     const isTerminalUpdate = Boolean(isPaid || isRefunded || isRefused);
-    const previousLifecycleEvent = new Set([
-        'pix_created',
-        'pix_pending',
-        'pix_confirmed',
-        'pix_refunded',
-        'pix_refused',
-        'upsell_pix_created',
-        'upsell_pix_confirmed'
-    ]).has(previousLastEvent);
-    const shouldSendPendingFallback = !isTerminalUpdate && !previousLifecycleEvent;
     const shouldSendUtmStatus =
         Boolean(orderId || txid) &&
         previousLastEvent !== lastEvent &&
-        (isTerminalUpdate || shouldSendPendingFallback);
+        isTerminalUpdate;
     const shouldTriggerPaidSideEffects = Boolean(isPaid && txid) && previousLastEvent !== 'pix_confirmed';
 
     if (shouldSendUtmStatus) {
@@ -647,7 +646,7 @@ module.exports = async (req, res) => {
             txid,
             gateway,
             status: utmifyStatus,
-            amount,
+            amount: eventAmount,
             personal: leadData ? {
                 name: leadData.name,
                 email: leadData.email,
@@ -672,9 +671,9 @@ module.exports = async (req, res) => {
             } : null,
             upsell: upsellEvent ? {
                 enabled: true,
-                kind: asObject(leadData?.payload).upsell?.kind || 'frete_1dia',
-                title: asObject(leadData?.payload).upsell?.title || leadData?.shipping_name || 'Prioridade de envio',
-                price: Number(asObject(leadData?.payload).upsell?.price || leadData?.shipping_price || amount || 0)
+                kind: leadPayload?.upsell?.kind || 'frete_1dia',
+                title: leadPayload?.upsell?.title || leadData?.shipping_name || 'Prioridade de envio',
+                price: Number(leadPayload?.upsell?.price || leadData?.shipping_price || eventAmount || 0)
             } : null,
             utm: leadData ? {
                 utm_source: leadData.utm_source,
@@ -698,7 +697,7 @@ module.exports = async (req, res) => {
             refundedAt: isRefunded ? (leadData?.payload?.pixRefundedAt || statusChangedAt) : null,
             gatewayFeeInCents: Math.round(Number(gatewayFee || 0) * 100),
             userCommissionInCents: Math.round(Number(userCommission || 0) * 100),
-            totalPriceInCents: Math.round(Number(amount || 0) * 100)
+            totalPriceInCents: Math.round(Number(eventAmount || 0) * 100)
         };
 
         const utmJob = {
@@ -730,7 +729,7 @@ module.exports = async (req, res) => {
             txid,
             orderId: txid || orderIdForPush,
             status: statusRaw || 'confirmed',
-            amount,
+            amount: eventAmount,
             gateway,
             customerName: leadData?.name || evt.fallbackPersonal?.name || '',
             customerEmail: leadData?.email || evt.fallbackPersonal?.email || '',
@@ -750,7 +749,6 @@ module.exports = async (req, res) => {
             await processDispatchQueue(10).catch(() => null);
         }
 
-        const leadPayload = asObject(leadData?.payload);
         const fbclid = String(leadData?.fbclid || leadPayload?.fbclid || leadUtm?.fbclid || '').trim();
         const fbp = String(leadPayload?.fbp || '').trim();
         const fbc = String(leadPayload?.fbc || '').trim() || (fbclid ? `fb.1.${Date.now()}.${fbclid}` : '');
@@ -759,7 +757,7 @@ module.exports = async (req, res) => {
             eventName: 'Purchase',
             dedupeKey: `pixel:purchase:${gateway}:${txid}`,
             payload: {
-                amount,
+                amount: eventAmount,
                 orderId: txid || orderIdForPush,
                 gateway,
                 shippingName: leadData?.shipping_name || '',

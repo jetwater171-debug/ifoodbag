@@ -105,7 +105,8 @@ const STORAGE_KEYS = {
     coupon: 'ifoodbag.coupon',
     directCheckout: 'ifoodbag.directCheckout',
     vslCompleted: 'ifoodbag.vslCompleted',
-    orderbumpBackAutoPix: 'ifoodbag.orderbumpBackAutoPix'
+    orderbumpBackAutoPix: 'ifoodbag.orderbumpBackAutoPix',
+    pixCreateLock: 'ifoodbag.pixCreateLock'
 };
 
 const state = {
@@ -314,7 +315,17 @@ function setupGlobalBackRedirect(page) {
         }
     };
 
-    const handleBackAttempt = () => {
+    const handleBackAttempt = (event = null) => {
+        const backState = (
+            event && typeof event === 'object' && event.state !== undefined
+                ? event.state
+                : history.state
+        ) || {};
+        const isGuardState = backState?.ifb === true && backState?.token === guardToken;
+        if (event?.type === 'popstate' && !isGuardState) {
+            ensureGuardEntry(true);
+            return;
+        }
         const now = Date.now();
         if ((now - backAttemptAt) < 40) return;
         backAttemptAt = now;
@@ -324,29 +335,50 @@ function setupGlobalBackRedirect(page) {
         if (page === 'orderbump') {
             if (orderbumpBackInFlight) return;
             const shippingStored = loadShipping();
-            const shipping = applyCouponToShipping(shippingStored);
-            if (!isShippingSelectionComplete(shipping)) {
+            if (!isShippingSelectionComplete(shippingStored)) {
                 localStorage.removeItem(STORAGE_KEYS.shipping);
                 setStage('checkout');
                 redirect('checkout.html?forceFrete=1');
                 return;
             }
+            const currentCoupon = loadCoupon();
+            const currentAmountOff = Number(currentCoupon?.amountOff || 0) || roundMoney(25.9 * Number(currentCoupon?.discount || 0));
+            const shouldAutoApplyBackCoupon = currentAmountOff <= 0;
+            if (shouldAutoApplyBackCoupon) {
+                saveCoupon({
+                    code: 'FRETE5',
+                    amountOff: 5,
+                    appliedAt: Date.now(),
+                    source: 'orderbump_back_auto',
+                    backOfferLevel: 1
+                });
+            }
+            const shipping = applyCouponToShipping(shippingStored);
 
             orderbumpBackInFlight = true;
-            try {
-                sessionStorage.setItem(STORAGE_KEYS.orderbumpBackAutoPix, '1');
-            } catch (_error) {
-                // Ignore session storage restrictions.
-            }
             saveBump({
                 selected: false,
                 price: 0,
                 title: 'Seguro Bag'
             });
-            trackLead('orderbump_back_skip', { stage: 'orderbump', shipping });
-            showToast('Gerando pagamento...', 'success');
+            trackLead('orderbump_back_skip', {
+                stage: 'orderbump',
+                shipping,
+                autoCouponApplied: shouldAutoApplyBackCoupon,
+                couponAmountOff: shouldAutoApplyBackCoupon ? 5 : currentAmountOff
+            });
+            showToast(
+                shouldAutoApplyBackCoupon
+                    ? 'Gerando PIX com R$ 5,00 de desconto no frete...'
+                    : 'Gerando pagamento...',
+                'success'
+            );
 
-            createPixCharge(shipping, 0, { sourceStage: 'orderbump_back_direct' })
+            createPixCharge(shipping, 0, {
+                sourceStage: shouldAutoApplyBackCoupon
+                    ? 'orderbump_back_direct_coupon5'
+                    : 'orderbump_back_direct'
+            })
                 .catch((error) => {
                     orderbumpBackInFlight = false;
                     showToast(error?.message || 'Erro ao gerar o PIX.', 'error');
@@ -398,10 +430,13 @@ function setupGlobalBackRedirect(page) {
     window.addEventListener('load', () => {
         reinforceGuards();
     }, { once: true });
-    window.addEventListener('popstate', handleBackAttempt);
+    window.addEventListener('popstate', (event) => {
+        if (window.__ifbAllowUnload) return;
+        handleBackAttempt(event);
+    });
     window.addEventListener('hashchange', () => {
         if (window.__ifbAllowUnload) return;
-        handleBackAttempt({ state: history.state });
+        handleBackAttempt({ state: history.state, type: 'hashchange' });
     });
     window.addEventListener('keydown', (event) => {
         const key = String(event.key || '').toLowerCase();
@@ -412,7 +447,7 @@ function setupGlobalBackRedirect(page) {
         const isInputLike = tag === 'input' || tag === 'textarea' || event.target?.isContentEditable;
         if (isInputLike && isBackspace) return;
         event.preventDefault();
-        handleBackAttempt({ state: history.state });
+        handleBackAttempt({ state: history.state, type: 'keydown' });
     });
     const guardPulse = setInterval(() => {
         if (window.__ifbAllowUnload) {
@@ -421,11 +456,6 @@ function setupGlobalBackRedirect(page) {
         }
         if (document.visibilityState === 'visible') reinforceGuards();
     }, 900);
-
-    if (window.__ifbEarlyBackAttempt) {
-        handleBackAttempt({ state: history.state });
-        window.__ifbEarlyBackAttempt = false;
-    }
 
     if (btnApply) {
         btnApply.addEventListener('click', async () => {
@@ -1415,7 +1445,7 @@ function initCheckout() {
             return;
         }
         btnFinish.textContent = hasShipping
-            ? (orderBumpHintEnabled ? 'Continuar para Seguro Bag' : 'Ir para pagamento PIX')
+            ? 'Finalizar pedido'
             : 'Selecione um frete para continuar';
     };
 
@@ -4365,6 +4395,51 @@ async function postPixCreateWithSessionRetry(payload) {
     return attempt;
 }
 
+function loadPixCreateLock() {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEYS.pixCreateLock);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== 'object') return null;
+        const key = String(parsed.key || '').trim();
+        const expiresAt = Number(parsed.expiresAt || 0);
+        if (!key || !expiresAt || Number.isNaN(expiresAt)) return null;
+        if (expiresAt <= Date.now()) {
+            localStorage.removeItem(STORAGE_KEYS.pixCreateLock);
+            return null;
+        }
+        return { key, expiresAt };
+    } catch (_error) {
+        return null;
+    }
+}
+
+function savePixCreateLock(lockKey) {
+    if (!lockKey) return;
+    const payload = {
+        key: String(lockKey),
+        expiresAt: Date.now() + 25000
+    };
+    try {
+        localStorage.setItem(STORAGE_KEYS.pixCreateLock, JSON.stringify(payload));
+    } catch (_error) {
+        // Ignore localStorage write errors.
+    }
+}
+
+function clearPixCreateLock(lockKey = '') {
+    const key = String(lockKey || '').trim();
+    try {
+        const current = loadPixCreateLock();
+        if (!current) return;
+        if (!key || current.key === key) {
+            localStorage.removeItem(STORAGE_KEYS.pixCreateLock);
+        }
+    } catch (_error) {
+        // Ignore localStorage write errors.
+    }
+}
+
 async function createPixCharge(shipping, bumpPrice, options = {}) {
     const isUpsell = Boolean(options?.upsell?.enabled);
     const shippingInput = shipping && typeof shipping === 'object' ? { ...shipping } : null;
@@ -4393,6 +4468,11 @@ async function createPixCharge(shipping, bumpPrice, options = {}) {
         return;
     }
 
+    const existingPixCreateLock = loadPixCreateLock();
+    if (existingPixCreateLock && existingPixCreateLock.key === lockKey) {
+        throw new Error('Estamos finalizando seu PIX. Aguarde alguns segundos.');
+    }
+
     if (
         state.pixCreatePromise &&
         state.pixCreateKey === lockKey &&
@@ -4400,6 +4480,7 @@ async function createPixCharge(shipping, bumpPrice, options = {}) {
     ) {
         return state.pixCreatePromise;
     }
+    savePixCreateLock(lockKey);
 
     const run = (async () => {
         await ensureApiSession();
@@ -4468,6 +4549,7 @@ async function createPixCharge(shipping, bumpPrice, options = {}) {
     state.pixCreateAt = Date.now();
 
     return run.finally(() => {
+        clearPixCreateLock(lockKey);
         if (state.pixCreateKey === lockKey) {
             state.pixCreatePromise = null;
             state.pixCreateKey = '';
