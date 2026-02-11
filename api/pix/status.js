@@ -37,6 +37,7 @@ const {
     updateLeadByPixTxid,
     updateLeadBySessionId
 } = require('../../lib/lead-store');
+const { enqueueDispatch, processDispatchQueue } = require('../../lib/dispatch-queue');
 
 function asObject(input) {
     return input && typeof input === 'object' && !Array.isArray(input) ? input : {};
@@ -66,6 +67,21 @@ function normalizeStatus(value) {
         .toLowerCase()
         .replace(/\s+/g, '_')
         .replace(/-+/g, '_');
+}
+
+function normalizeMoneyToBrl(value) {
+    if (value === undefined || value === null || value === '') return 0;
+    const raw = String(value).trim();
+    if (!raw) return 0;
+    const normalized = raw.replace(',', '.');
+    const amount = Number(normalized);
+    if (!Number.isFinite(amount)) return 0;
+    const hasDecimalMark = /[.,]/.test(raw);
+    if (hasDecimalMark) return Number(amount.toFixed(2));
+    if (Number.isInteger(amount) && Math.abs(amount) >= 100) {
+        return Number((amount / 100).toFixed(2));
+    }
+    return Number(amount.toFixed(2));
 }
 
 function pickText(...values) {
@@ -225,6 +241,15 @@ function deriveLeadStatus(leadData) {
     const statusRaw = String(payload.pixStatus || payload.status || '');
     const mapped = mapGatewayStatusToFrontend(gateway, statusRaw);
     return { status: mapped, statusRaw, gateway };
+}
+
+function isUpsellLead(leadData) {
+    const payload = asObject(leadData?.payload);
+    const shippingId = String(leadData?.shipping_id || payload?.shipping?.id || payload?.shippingId || '').trim().toLowerCase();
+    const shippingName = String(leadData?.shipping_name || payload?.shipping?.name || payload?.shippingName || '').trim().toLowerCase();
+    if (payload?.upsell?.enabled === true || payload?.isUpsell === true) return true;
+    if (shippingId === 'expresso_1dia') return true;
+    return /adiantamento|prioridade|expresso/.test(shippingName);
 }
 
 function buildPatchFromGatewayStatus(leadData, txid, gateway, statusRaw, nextStatus, changedAtIso) {
@@ -475,11 +500,195 @@ module.exports = async (req, res) => {
         ({ paymentCode, paymentCodeBase64, paymentQrUrl } = extractPixFieldsForStatus(gateway, data));
     }
 
+    let leadUpdated = false;
     if (leadData || sessionId) {
         const patch = buildPatchFromGatewayStatus(leadData, txid, gateway, statusRaw, nextStatus, changedAtIso);
         let updated = await updateLeadByPixTxid(txid, patch).catch(() => ({ ok: false, count: 0 }));
         if ((!updated?.ok || Number(updated?.count || 0) === 0) && sessionId) {
             updated = await updateLeadBySessionId(sessionId, patch).catch(() => ({ ok: false, count: 0 }));
+        }
+        leadUpdated = Boolean(updated?.ok) && Number(updated?.count || 0) > 0;
+    }
+
+    const terminalStatus = nextStatus === 'paid' || nextStatus === 'refunded' || nextStatus === 'refused';
+    const shouldDispatchTerminalFallback = terminalStatus && leadStatus.status !== nextStatus;
+
+    if (shouldDispatchTerminalFallback) {
+        let latestLead = leadData;
+        if (!latestLead || leadUpdated) {
+            const refreshedByTxid = await getLeadByPixTxid(txid).catch(() => ({ ok: false, data: null }));
+            latestLead = refreshedByTxid?.ok ? refreshedByTxid.data : null;
+            if (!latestLead && sessionId) {
+                const refreshedBySession = await getLeadBySessionId(sessionId).catch(() => ({ ok: false, data: null }));
+                latestLead = refreshedBySession?.ok ? refreshedBySession.data : null;
+            }
+        }
+
+        const latestPayload = asObject(latestLead?.payload);
+        const leadUtm = asObject(latestPayload?.utm);
+        const amountFromLead = normalizeMoneyToBrl(
+            latestPayload?.pixAmount ||
+            latestLead?.pix_amount ||
+            latestPayload?.pix?.amount ||
+            0
+        );
+        const amountFromGateway = normalizeMoneyToBrl(
+            data?.amount ||
+            data?.data?.amount ||
+            data?.total_amount ||
+            data?.totalAmount ||
+            data?.valor_bruto ||
+            data?.deposito_liquido ||
+            0
+        );
+        const fallbackLeadAmount = normalizeMoneyToBrl(
+            Number(latestLead?.shipping_price || 0) + Number(latestLead?.bump_price || 0)
+        );
+        const eventAmount = amountFromLead > 0
+            ? amountFromLead
+            : amountFromGateway > 0
+                ? amountFromGateway
+                : fallbackLeadAmount;
+        const upsellEvent = isUpsellLead(latestLead);
+        const utmifyStatus = nextStatus === 'paid'
+            ? 'paid'
+            : nextStatus === 'refunded'
+                ? 'refunded'
+                : 'refused';
+        const eventName = nextStatus === 'paid'
+            ? (upsellEvent ? 'upsell_pix_confirmed' : 'pix_confirmed')
+            : nextStatus === 'refunded'
+                ? 'pix_refunded'
+                : 'pix_failed';
+        const orderId = String(
+            latestLead?.session_id ||
+            sessionId ||
+            latestPayload?.orderId ||
+            latestPayload?.sessionId ||
+            txid ||
+            ''
+        ).trim();
+        const dedupeBase = orderId || txid || 'unknown';
+        let gatewayFee = 0;
+        if (gateway === 'ghostspay') {
+            gatewayFee = normalizeMoneyToBrl(
+                data?.gatewayFee ||
+                data?.fee ||
+                data?.data?.gatewayFee ||
+                data?.data?.fee ||
+                0
+            );
+        } else if (gateway === 'ativushub') {
+            gatewayFee = normalizeMoneyToBrl(data?.taxa_deposito || 0) + normalizeMoneyToBrl(data?.taxa_adquirente || 0);
+        }
+        const userCommission = Math.max(
+            0,
+            normalizeMoneyToBrl(
+                data?.deposito_liquido ||
+                data?.valor_liquido ||
+                latestPayload?.userCommission ||
+                (eventAmount - gatewayFee)
+            )
+        );
+
+        const utmPayload = {
+            event: 'pix_status',
+            orderId: orderId || txid,
+            txid,
+            gateway,
+            status: utmifyStatus,
+            amount: eventAmount,
+            personal: latestLead ? {
+                name: latestLead.name,
+                email: latestLead.email,
+                cpf: latestLead.cpf,
+                phoneDigits: latestLead.phone
+            } : null,
+            address: latestLead ? {
+                street: latestLead.address_line,
+                neighborhood: latestLead.neighborhood,
+                city: latestLead.city,
+                state: latestLead.state,
+                cep: latestLead.cep
+            } : null,
+            shipping: latestLead ? {
+                id: latestLead.shipping_id,
+                name: latestLead.shipping_name,
+                price: latestLead.shipping_price
+            } : null,
+            bump: latestLead && latestLead.bump_selected ? {
+                title: 'Seguro Bag',
+                price: latestLead.bump_price
+            } : null,
+            upsell: upsellEvent ? {
+                enabled: true,
+                kind: latestPayload?.upsell?.kind || 'frete_1dia',
+                title: latestPayload?.upsell?.title || latestLead?.shipping_name || 'Prioridade de envio',
+                price: Number(latestPayload?.upsell?.price || latestLead?.shipping_price || eventAmount || 0)
+            } : null,
+            utm: latestLead ? {
+                utm_source: latestLead.utm_source,
+                utm_medium: latestLead.utm_medium,
+                utm_campaign: latestLead.utm_campaign,
+                utm_term: latestLead.utm_term,
+                utm_content: latestLead.utm_content,
+                gclid: latestLead.gclid,
+                fbclid: latestLead.fbclid,
+                ttclid: latestLead.ttclid,
+                src: leadUtm.src,
+                sck: leadUtm.sck
+            } : leadUtm,
+            payload: data,
+            client_ip: req?.headers?.['x-forwarded-for']
+                ? String(req.headers['x-forwarded-for']).split(',')[0].trim()
+                : req?.socket?.remoteAddress || '',
+            user_agent: req?.headers?.['user-agent'] || '',
+            createdAt: latestPayload?.pixCreatedAt || latestLead?.created_at || changedAtIso,
+            approvedDate: nextStatus === 'paid' ? (latestPayload?.pixPaidAt || changedAtIso) : null,
+            refundedAt: nextStatus === 'refunded' ? (latestPayload?.pixRefundedAt || changedAtIso) : null,
+            gatewayFeeInCents: Math.round(Number(gatewayFee || 0) * 100),
+            userCommissionInCents: Math.round(Number(userCommission || 0) * 100),
+            totalPriceInCents: Math.round(Number(eventAmount || 0) * 100)
+        };
+
+        let shouldProcessQueue = false;
+
+        const utmQueued = await enqueueDispatch({
+            channel: 'utmfy',
+            eventName,
+            dedupeKey: `utmfy:status:${gateway}:${dedupeBase}:${upsellEvent ? 'upsell' : 'base'}:${utmifyStatus}`,
+            payload: utmPayload
+        }).catch(() => null);
+        if (utmQueued?.ok || utmQueued?.fallback) {
+            shouldProcessQueue = true;
+        }
+
+        if (nextStatus === 'paid') {
+            const pushKind = upsellEvent ? 'upsell_pix_confirmed' : 'pix_confirmed';
+            const pushQueued = await enqueueDispatch({
+                channel: 'pushcut',
+                kind: pushKind,
+                dedupeKey: `pushcut:pix_confirmed:${gateway}:${txid}`,
+                payload: {
+                    txid,
+                    orderId: txid || orderId,
+                    status: statusRaw || 'confirmed',
+                    amount: eventAmount,
+                    gateway,
+                    customerName: latestLead?.name || '',
+                    customerEmail: latestLead?.email || '',
+                    cep: latestLead?.cep || '',
+                    shippingName: latestLead?.shipping_name || '',
+                    isUpsell: upsellEvent
+                }
+            }).catch(() => null);
+            if (pushQueued?.ok || pushQueued?.fallback) {
+                shouldProcessQueue = true;
+            }
+        }
+
+        if (shouldProcessQueue) {
+            await processDispatchQueue(10).catch(() => null);
         }
     }
 

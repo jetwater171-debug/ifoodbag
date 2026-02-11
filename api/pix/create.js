@@ -977,7 +977,7 @@ module.exports = async (req, res) => {
                 const utmJob = {
                     channel: 'utmfy',
                     eventName: upsellEnabled ? 'upsell_pix_created' : 'pix_created',
-                    dedupeKey: txid ? `utmfy:pix_created:${txid}` : null,
+                    dedupeKey: txid ? `utmfy:pix_created:${gateway}:${upsellEnabled ? 'upsell' : 'base'}:${txid}` : null,
                     payload: {
                         orderId: utmOrderId,
                         amount: totalAmount,

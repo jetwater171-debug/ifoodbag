@@ -364,13 +364,18 @@ function extractGatewayEvent(gateway, body = {}) {
     const isRefused = isAtivusRefusedStatus(statusRaw);
     const amount = normalizeMoneyToBrl(
         body?.amount ||
-        body?.deposito_liquido ||
         body?.valor_bruto ||
         body?.cash_out_liquido ||
+        body?.deposito_liquido ||
+        body?.valor_liquido ||
         0
     );
     const gatewayFee = normalizeMoneyToBrl(body?.taxa_deposito || 0) + normalizeMoneyToBrl(body?.taxa_adquirente || 0);
-    const userCommission = normalizeMoneyToBrl(body?.deposito_liquido || body?.valor_liquido || 0);
+    const userCommission = normalizeMoneyToBrl(
+        body?.deposito_liquido ||
+        body?.valor_liquido ||
+        Math.max(0, Number(amount || 0) - Number(gatewayFee || 0))
+    );
     const sessionOrderId = String(
         body?.externalreference ||
         body?.external_reference ||
@@ -661,10 +666,10 @@ module.exports = async (req, res) => {
     const fallbackLeadAmount = normalizeMoneyToBrl(
         Number(leadData?.shipping_price || 0) + Number(leadData?.bump_price || 0)
     );
-    const eventAmount = normalizedEventAmount > 0
-        ? normalizedEventAmount
-        : amountFromLead > 0
-            ? amountFromLead
+    const eventAmount = amountFromLead > 0
+        ? amountFromLead
+        : normalizedEventAmount > 0
+            ? normalizedEventAmount
             : fallbackLeadAmount;
     const orderId =
         String(
