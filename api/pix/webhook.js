@@ -6,8 +6,6 @@ const {
     findLeadByIdentity
 } = require('../../lib/lead-store');
 const { enqueueDispatch, processDispatchQueue } = require('../../lib/dispatch-queue');
-const { sendUtmfy } = require('../../lib/utmfy');
-const { sendPushcut } = require('../../lib/pushcut');
 const {
     normalizeGatewayId
 } = require('../../lib/payment-gateway-config');
@@ -85,6 +83,23 @@ function normalizeIso(value) {
     return normalizeDate(value) || '';
 }
 
+function lifecycleRank(eventName) {
+    const name = String(eventName || '').trim().toLowerCase();
+    if (!name) return 0;
+    if (name === 'pix_pending' || name === 'pix_created' || name === 'upsell_pix_created') return 1;
+    if (name === 'pix_confirmed' || name === 'upsell_pix_confirmed') return 2;
+    if (name === 'pix_refused' || name === 'pix_failed') return 3;
+    if (name === 'pix_refunded') return 4;
+    return 0;
+}
+
+function isLifecycleRegression(previousEvent, nextEvent) {
+    const prevRank = lifecycleRank(previousEvent);
+    const nextRank = lifecycleRank(nextEvent);
+    if (!prevRank || !nextRank) return false;
+    return nextRank < prevRank;
+}
+
 function buildWebhookSignature({ gateway, eventId, txid, orderId, statusRaw, statusChangedAt }) {
     const base = [
         String(gateway || '').trim(),
@@ -107,6 +122,16 @@ function isDuplicateForLead(leadData, { webhookSignature, statusRaw, statusChang
     const incomingChangedAt = normalizeIso(statusChangedAt);
     const currentEvent = String(leadData.last_event || '').trim().toLowerCase();
     const incomingEvent = String(lastEvent || '').trim().toLowerCase();
+    const terminalEvents = new Set(['pix_confirmed', 'pix_refunded', 'pix_refused']);
+
+    if (
+        terminalEvents.has(currentEvent) &&
+        currentEvent === incomingEvent &&
+        currentStatus &&
+        currentStatus === incomingStatus
+    ) {
+        return true;
+    }
 
     return (
         currentStatus &&
@@ -337,9 +362,15 @@ function extractGatewayEvent(gateway, body = {}) {
     const isPaid = isAtivusPaidStatus(statusRaw) || body.paid === true || body.isPaid === true;
     const isRefunded = isAtivusRefundedStatus(statusRaw);
     const isRefused = isAtivusRefusedStatus(statusRaw);
-    const amount = Number(body?.amount || body?.deposito_liquido || body?.valor_bruto || body?.cash_out_liquido || 0);
-    const gatewayFee = Number(body?.taxa_deposito || 0) + Number(body?.taxa_adquirente || 0);
-    const userCommission = Number(body?.deposito_liquido || body?.valor_liquido || 0);
+    const amount = normalizeMoneyToBrl(
+        body?.amount ||
+        body?.deposito_liquido ||
+        body?.valor_bruto ||
+        body?.cash_out_liquido ||
+        0
+    );
+    const gatewayFee = normalizeMoneyToBrl(body?.taxa_deposito || 0) + normalizeMoneyToBrl(body?.taxa_adquirente || 0);
+    const userCommission = normalizeMoneyToBrl(body?.deposito_liquido || body?.valor_liquido || 0);
     const sessionOrderId = String(
         body?.externalreference ||
         body?.external_reference ||
@@ -492,6 +523,11 @@ module.exports = async (req, res) => {
         }
         rememberPreviousEvent(leadData);
 
+        if (isLifecycleRegression(previousLastEvent, lastEvent)) {
+            res.status(200).json({ status: 'regression_ignored', gateway });
+            return;
+        }
+
         if (isDuplicateForLead(leadData, { webhookSignature, statusRaw, statusChangedAt, lastEvent })) {
             res.status(200).json({ status: 'duplicate_ignored' });
             return;
@@ -547,6 +583,12 @@ module.exports = async (req, res) => {
         const bySessionBefore = await getLeadBySessionId(sessionOrderId).catch(() => ({ ok: false, data: null }));
         const leadBefore = bySessionBefore?.ok ? bySessionBefore.data : null;
         rememberPreviousEvent(leadBefore);
+
+        if (isLifecycleRegression(previousLastEvent, lastEvent)) {
+            res.status(200).json({ status: 'regression_ignored', gateway });
+            return;
+        }
+
         if (isDuplicateForLead(leadBefore, { webhookSignature, statusRaw, statusChangedAt, lastEvent })) {
             res.status(200).json({ status: 'duplicate_ignored' });
             return;
@@ -578,6 +620,10 @@ module.exports = async (req, res) => {
         if (byIdentity?.ok && byIdentity?.data) {
             leadData = byIdentity.data;
             rememberPreviousEvent(leadData);
+            if (isLifecycleRegression(previousLastEvent, lastEvent)) {
+                res.status(200).json({ status: 'regression_ignored', gateway });
+                return;
+            }
             if (isDuplicateForLead(leadData, { webhookSignature, statusRaw, statusChangedAt, lastEvent })) {
                 res.status(200).json({ status: 'duplicate_ignored' });
                 return;
@@ -612,7 +658,14 @@ module.exports = async (req, res) => {
         0
     );
     const normalizedEventAmount = normalizeMoneyToBrl(amount);
-    const eventAmount = amountFromLead > 0 ? amountFromLead : normalizedEventAmount;
+    const fallbackLeadAmount = normalizeMoneyToBrl(
+        Number(leadData?.shipping_price || 0) + Number(leadData?.bump_price || 0)
+    );
+    const eventAmount = normalizedEventAmount > 0
+        ? normalizedEventAmount
+        : amountFromLead > 0
+            ? amountFromLead
+            : fallbackLeadAmount;
     const orderId =
         String(
             leadData?.session_id ||
@@ -651,6 +704,7 @@ module.exports = async (req, res) => {
     const shouldSendCreatedPushFallback =
         Boolean(orderId || txid) &&
         shouldSendPendingFallback;
+    let shouldProcessQueue = false;
 
     if (shouldSendUtmStatus) {
         const utmPayload = {
@@ -719,14 +773,9 @@ module.exports = async (req, res) => {
             dedupeKey: `utmfy:status:${gateway}:${dedupeBase}:${upsellEvent ? 'upsell' : 'base'}:${utmifyStatus}`,
             payload: utmPayload
         };
-
-        const utmImmediate = await sendUtmfy(eventName, utmPayload).catch((error) => ({
-            ok: false,
-            reason: error?.message || 'utmfy_immediate_error'
-        }));
-        if (!utmImmediate?.ok) {
-            await enqueueDispatch(utmJob).catch(() => null);
-            await processDispatchQueue(10).catch(() => null);
+        const queued = await enqueueDispatch(utmJob).catch(() => null);
+        if (queued?.ok || queued?.fallback) {
+            shouldProcessQueue = true;
         }
     }
 
@@ -751,15 +800,14 @@ module.exports = async (req, res) => {
             isUpsell: upsellEvent
         };
         const pushKind = upsellEvent ? 'upsell_pix_created' : 'pix_created';
-        const pushImmediate = await sendPushcut(pushKind, pushPayload).catch(() => ({ ok: false }));
-        if (!pushImmediate?.ok) {
-            await enqueueDispatch({
-                channel: 'pushcut',
-                kind: pushKind,
-                dedupeKey: `pushcut:pix_created_fallback:${gateway}:${dedupeBase}`,
-                payload: pushPayload
-            }).catch(() => null);
-            await processDispatchQueue(10).catch(() => null);
+        const queued = await enqueueDispatch({
+            channel: 'pushcut',
+            kind: pushKind,
+            dedupeKey: `pushcut:pix_created_fallback:${gateway}:${dedupeBase}`,
+            payload: pushPayload
+        }).catch(() => null);
+        if (queued?.ok || queued?.fallback) {
+            shouldProcessQueue = true;
         }
     }
 
@@ -784,21 +832,20 @@ module.exports = async (req, res) => {
             isUpsell: upsellEvent
         };
         const pushKind = upsellEvent ? 'upsell_pix_confirmed' : 'pix_confirmed';
-        const pushImmediate = await sendPushcut(pushKind, pushPayload).catch(() => ({ ok: false }));
-        if (!pushImmediate?.ok) {
-            await enqueueDispatch({
-                channel: 'pushcut',
-                kind: pushKind,
-                dedupeKey: `pushcut:pix_confirmed:${gateway}:${txid}`,
-                payload: pushPayload
-            }).catch(() => null);
-            await processDispatchQueue(10).catch(() => null);
+        const pushQueued = await enqueueDispatch({
+            channel: 'pushcut',
+            kind: pushKind,
+            dedupeKey: `pushcut:pix_confirmed:${gateway}:${txid}`,
+            payload: pushPayload
+        }).catch(() => null);
+        if (pushQueued?.ok || pushQueued?.fallback) {
+            shouldProcessQueue = true;
         }
 
         const fbclid = String(leadData?.fbclid || leadPayload?.fbclid || leadUtm?.fbclid || '').trim();
         const fbp = String(leadPayload?.fbp || '').trim();
         const fbc = String(leadPayload?.fbc || '').trim() || (fbclid ? `fb.1.${Date.now()}.${fbclid}` : '');
-        await enqueueDispatch({
+        const pixelQueued = await enqueueDispatch({
             channel: 'pixel',
             eventName: 'Purchase',
             dedupeKey: `pixel:purchase:${gateway}:${txid}`,
@@ -820,7 +867,13 @@ module.exports = async (req, res) => {
                 fbc
             }
         }).catch(() => null);
-        await processDispatchQueue(10).catch(() => null);
+        if (pixelQueued?.ok || pixelQueued?.fallback) {
+            shouldProcessQueue = true;
+        }
+    }
+
+    if (shouldProcessQueue) {
+        await processDispatchQueue(12).catch(() => null);
     }
 
     res.status(200).json({ status: 'success', gateway });

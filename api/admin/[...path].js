@@ -798,26 +798,38 @@ async function settings(req, res) {
         const bodySunize = bodyGateways.sunize && typeof bodyGateways.sunize === 'object'
             ? bodyGateways.sunize
             : {};
+        const currentAtivusGateway = currentPayments?.gateways?.ativushub || {};
+        const currentGhostGateway = currentPayments?.gateways?.ghostspay || {};
+        const currentSunizeGateway = currentPayments?.gateways?.sunize || {};
         const mergedPaymentsInput = {
             ...(bodyPayments || {}),
             gateways: {
                 ...(bodyGateways || {}),
                 ativushub: {
                     ...bodyAtivus,
-                    apiKey: pickSecretInput(bodyAtivus.apiKey, currentPayments?.gateways?.ativushub?.apiKey || currentPayments?.gateways?.ativushub?.apiKeyBase64 || ''),
-                    apiKeyBase64: pickSecretInput(bodyAtivus.apiKeyBase64, currentPayments?.gateways?.ativushub?.apiKeyBase64 || ''),
-                    webhookToken: 'dev'
+                    apiKey: pickSecretInput(bodyAtivus.apiKey, currentAtivusGateway.apiKey || currentAtivusGateway.apiKeyBase64 || ''),
+                    apiKeyBase64: pickSecretInput(bodyAtivus.apiKeyBase64, currentAtivusGateway.apiKeyBase64 || ''),
+                    webhookToken: pickSecretInput(bodyAtivus.webhookToken, currentAtivusGateway.webhookToken || ''),
+                    webhookTokenRequired: bodyAtivus.webhookTokenRequired !== undefined
+                        ? !!bodyAtivus.webhookTokenRequired
+                        : currentAtivusGateway.webhookTokenRequired !== false
                 },
                 ghostspay: {
                     ...bodyGhost,
-                    secretKey: pickSecretInput(bodyGhost.secretKey, currentPayments?.gateways?.ghostspay?.secretKey || ''),
-                    basicAuthBase64: pickSecretInput(bodyGhost.basicAuthBase64, currentPayments?.gateways?.ghostspay?.basicAuthBase64 || ''),
-                    webhookToken: 'dev'
+                    secretKey: pickSecretInput(bodyGhost.secretKey, currentGhostGateway.secretKey || ''),
+                    basicAuthBase64: pickSecretInput(bodyGhost.basicAuthBase64, currentGhostGateway.basicAuthBase64 || ''),
+                    webhookToken: pickSecretInput(bodyGhost.webhookToken, currentGhostGateway.webhookToken || ''),
+                    webhookTokenRequired: bodyGhost.webhookTokenRequired !== undefined
+                        ? !!bodyGhost.webhookTokenRequired
+                        : currentGhostGateway.webhookTokenRequired === true
                 },
                 sunize: {
                     ...bodySunize,
-                    apiKey: pickSecretInput(bodySunize.apiKey, currentPayments?.gateways?.sunize?.apiKey || ''),
-                    apiSecret: pickSecretInput(bodySunize.apiSecret, currentPayments?.gateways?.sunize?.apiSecret || '')
+                    apiKey: pickSecretInput(bodySunize.apiKey, currentSunizeGateway.apiKey || ''),
+                    apiSecret: pickSecretInput(bodySunize.apiSecret, currentSunizeGateway.apiSecret || ''),
+                    webhookTokenRequired: bodySunize.webhookTokenRequired !== undefined
+                        ? !!bodySunize.webhookTokenRequired
+                        : currentSunizeGateway.webhookTokenRequired === true
                 }
             }
         };
@@ -856,7 +868,7 @@ async function settings(req, res) {
                 ...currentPushcut,
                 ...bodyPushcut
             }),
-            payments: mergePaymentSettings(defaultSettings.payments || {}, mergedPaymentsInput),
+            payments: mergePaymentSettings(currentSaved?.payments || defaultSettings.payments || {}, mergedPaymentsInput),
             features: {
                 ...defaultSettings.features,
                 ...(body.features || {})

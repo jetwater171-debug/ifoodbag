@@ -2,8 +2,6 @@ const { sanitizeDigits, extractIp } = require('../../lib/ativus');
 const { upsertLead, getLeadBySessionId } = require('../../lib/lead-store');
 const { ensureAllowedRequest } = require('../../lib/request-guard');
 const { enqueueDispatch, processDispatchQueue } = require('../../lib/dispatch-queue');
-const { sendUtmfy } = require('../../lib/utmfy');
-const { sendPushcut } = require('../../lib/pushcut');
 const { normalizeGatewayId } = require('../../lib/payment-gateway-config');
 const { getPaymentsConfig } = require('../../lib/payments-config-store');
 const {
@@ -760,8 +758,8 @@ module.exports = async (req, res) => {
                 // Some GhostsPay accounts return PIX details asynchronously; hydrate quickly by txid.
                 if (txid && !paymentCode && !paymentCodeBase64 && !paymentQrUrl) {
                     const quickStatusTimeout = Math.max(
-                        1200,
-                        Math.min(Number(gatewayConfig.timeoutMs || 12000), 2200)
+                        650,
+                        Math.min(Number(gatewayConfig.timeoutMs || 12000), 900)
                     );
                     const quickConfig = {
                         ...gatewayConfig,
@@ -1038,31 +1036,25 @@ module.exports = async (req, res) => {
                     }
                 };
 
-                const [utmImmediate, pushImmediate] = await Promise.all([
-                    sendUtmfy(utmJob.eventName, utmJob.payload).catch((error) => ({
-                        ok: false,
-                        reason: error?.message || 'utmfy_immediate_error'
-                    })),
-                    sendPushcut(pushKind, pushPayload).catch(() => ({ ok: false, reason: 'pushcut_immediate_error' }))
-                ]);
-
                 let shouldProcessQueue = false;
 
-                if (!utmImmediate?.ok) {
-                    await enqueueDispatch(utmJob).catch(() => null);
+                const utmQueued = await enqueueDispatch(utmJob).catch(() => null);
+                if (utmQueued?.ok || utmQueued?.fallback) {
                     shouldProcessQueue = true;
                 }
 
-                if (!pushImmediate?.ok) {
-                    await enqueueDispatch(pushJob).catch(() => null);
+                const pushQueued = await enqueueDispatch(pushJob).catch(() => null);
+                if (pushQueued?.ok || pushQueued?.fallback) {
                     shouldProcessQueue = true;
                 }
 
-                await enqueueDispatch(pixelJob).catch(() => null);
-                shouldProcessQueue = true;
+                const pixelQueued = await enqueueDispatch(pixelJob).catch(() => null);
+                if (pixelQueued?.ok || pixelQueued?.fallback) {
+                    shouldProcessQueue = true;
+                }
 
                 if (shouldProcessQueue) {
-                    await processDispatchQueue(8).catch(() => null);
+                    await processDispatchQueue(12).catch(() => null);
                 }
             })().catch((error) => {
                 console.error('[pix] side effect error', { message: error?.message || String(error) });
