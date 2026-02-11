@@ -59,13 +59,20 @@
             window.__ifbEarlyBackAttempt = true;
             refill(true);
             if (window.__ifoodBackRedirectInit) return;
+            if (window.__ifbEarlyRedirectTimer) return;
 
-            var target = resolveEarlyBackTarget();
-            var targetPath = normalizePath(target);
-            if (!targetPath || targetPath === currentPath()) return;
+            window.__ifbEarlyRedirectTimer = window.setTimeout(function () {
+                window.__ifbEarlyRedirectTimer = null;
+                if (window.__ifbAllowUnload) return;
+                if (window.__ifoodBackRedirectInit) return;
 
-            window.__ifbAllowUnload = true;
-            window.location.replace(target);
+                var target = resolveEarlyBackTarget();
+                var targetPath = normalizePath(target);
+                if (!targetPath || targetPath === currentPath()) return;
+
+                window.__ifbAllowUnload = true;
+                window.location.replace(target);
+            }, 220);
         };
 
         refill(true);

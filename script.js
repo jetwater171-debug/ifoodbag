@@ -183,6 +183,10 @@ function setupGlobalBackRedirect(page) {
     if (!page || page === 'admin') return;
     if (window.__ifoodBackRedirectInit) return;
     window.__ifoodBackRedirectInit = true;
+    if (window.__ifbEarlyRedirectTimer) {
+        clearTimeout(window.__ifbEarlyRedirectTimer);
+        window.__ifbEarlyRedirectTimer = null;
+    }
 
     let shownOfferLevel = 0;
     let orderBumpBackHandled = false;
