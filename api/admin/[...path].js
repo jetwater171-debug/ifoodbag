@@ -1212,15 +1212,16 @@ async function pixReconcile(req, res) {
                     sessionIdFallback ||
                     ''
                 ).trim();
-                amount = Number(
+                amount = normalizeAmountPossiblyCents(
                     data?.amount ||
                     data?.valor_bruto ||
                     data?.valor_liquido ||
                     data?.data?.amount ||
                     0
                 );
-                fee = Number(data?.taxa_deposito || 0) + Number(data?.taxa_adquirente || 0);
-                commission = Number(data?.deposito_liquido || data?.valor_liquido || 0);
+                fee = normalizeAmountPossiblyCents(data?.taxa_deposito || 0) +
+                    normalizeAmountPossiblyCents(data?.taxa_adquirente || 0);
+                commission = normalizeAmountPossiblyCents(data?.deposito_liquido || data?.valor_liquido || 0);
             }
 
             if (!(isPaid || isRefunded || isRefused || isPending)) {

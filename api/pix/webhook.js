@@ -656,20 +656,32 @@ module.exports = async (req, res) => {
 
     const leadUtm = leadData?.payload?.utm || {};
     const leadPayload = asObject(leadData?.payload);
-    const amountFromLead = normalizeMoneyToBrl(
-        leadPayload?.pixAmount ||
-        leadData?.pix_amount ||
-        leadPayload?.pix?.amount ||
-        0
-    );
+    const leadTxid = String(
+        leadData?.pix_txid ||
+        leadPayload?.pixTxid ||
+        leadPayload?.pix?.idTransaction ||
+        leadPayload?.pix?.idtransaction ||
+        ''
+    ).trim();
+    const leadMatchesTxid = !txid || (leadTxid && leadTxid === txid);
     const normalizedEventAmount = normalizeMoneyToBrl(amount);
-    const fallbackLeadAmount = normalizeMoneyToBrl(
-        Number(leadData?.shipping_price || 0) + Number(leadData?.bump_price || 0)
-    );
-    const eventAmount = amountFromLead > 0
-        ? amountFromLead
-        : normalizedEventAmount > 0
-            ? normalizedEventAmount
+    const amountFromLead = leadMatchesTxid
+        ? normalizeMoneyToBrl(
+            leadPayload?.pixAmount ||
+            leadData?.pix_amount ||
+            leadPayload?.pix?.amount ||
+            0
+        )
+        : 0;
+    const fallbackLeadAmount = leadMatchesTxid
+        ? normalizeMoneyToBrl(
+            Number(leadData?.shipping_price || 0) + Number(leadData?.bump_price || 0)
+        )
+        : 0;
+    const eventAmount = normalizedEventAmount > 0
+        ? normalizedEventAmount
+        : amountFromLead > 0
+            ? amountFromLead
             : fallbackLeadAmount;
     const orderId =
         String(

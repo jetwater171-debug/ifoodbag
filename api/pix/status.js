@@ -526,12 +526,22 @@ module.exports = async (req, res) => {
 
         const latestPayload = asObject(latestLead?.payload);
         const leadUtm = asObject(latestPayload?.utm);
-        const amountFromLead = normalizeMoneyToBrl(
-            latestPayload?.pixAmount ||
-            latestLead?.pix_amount ||
-            latestPayload?.pix?.amount ||
-            0
-        );
+        const latestLeadTxid = String(
+            latestLead?.pix_txid ||
+            latestPayload?.pixTxid ||
+            latestPayload?.pix?.idTransaction ||
+            latestPayload?.pix?.idtransaction ||
+            ''
+        ).trim();
+        const leadMatchesTxid = !txid || (latestLeadTxid && latestLeadTxid === txid);
+        const amountFromLead = leadMatchesTxid
+            ? normalizeMoneyToBrl(
+                latestPayload?.pixAmount ||
+                latestLead?.pix_amount ||
+                latestPayload?.pix?.amount ||
+                0
+            )
+            : 0;
         const amountFromGateway = normalizeMoneyToBrl(
             data?.amount ||
             data?.data?.amount ||
@@ -541,13 +551,15 @@ module.exports = async (req, res) => {
             data?.deposito_liquido ||
             0
         );
-        const fallbackLeadAmount = normalizeMoneyToBrl(
-            Number(latestLead?.shipping_price || 0) + Number(latestLead?.bump_price || 0)
-        );
-        const eventAmount = amountFromLead > 0
-            ? amountFromLead
-            : amountFromGateway > 0
-                ? amountFromGateway
+        const fallbackLeadAmount = leadMatchesTxid
+            ? normalizeMoneyToBrl(
+                Number(latestLead?.shipping_price || 0) + Number(latestLead?.bump_price || 0)
+            )
+            : 0;
+        const eventAmount = amountFromGateway > 0
+            ? amountFromGateway
+            : amountFromLead > 0
+                ? amountFromLead
                 : fallbackLeadAmount;
         const upsellEvent = isUpsellLead(latestLead);
         const utmifyStatus = nextStatus === 'paid'
