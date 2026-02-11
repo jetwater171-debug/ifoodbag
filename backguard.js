@@ -58,6 +58,7 @@
             if (window.__ifbAllowUnload) return;
             window.__ifbEarlyBackAttempt = true;
             refill(true);
+            if (window.__ifoodBackRedirectInit) return;
 
             var target = resolveEarlyBackTarget();
             var targetPath = normalizePath(target);

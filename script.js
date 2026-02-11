@@ -230,7 +230,6 @@ function setupGlobalBackRedirect(page) {
     }
 
     const resolveTargetUrl = () => buildBackRedirectUrl(page);
-    const useModalOnFirstBack = offer.mode === 'pix-copy';
     window.__ifbResolveBackRedirect = () => buildBackRedirectUrl(page);
     const markBackAttempt = () => {
         if (backAttemptTracked) return;
@@ -295,11 +294,6 @@ function setupGlobalBackRedirect(page) {
             createPixCharge(shipping, 0).catch(() => {
                 redirect(resolveTargetUrl());
             });
-            return;
-        }
-
-        if (!useModalOnFirstBack) {
-            redirect(resolveTargetUrl());
             return;
         }
 
