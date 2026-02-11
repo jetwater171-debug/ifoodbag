@@ -1879,16 +1879,10 @@ function initOrderBump() {
     const btnDecline = document.getElementById('btn-bump-decline');
     const bumpTotal = document.getElementById('bump-total');
     const bumpMonthly = document.getElementById('bump-monthly');
-    const bumpWithoutTotal = document.getElementById('bump-without-total');
-    const bumpExtraPrice = document.getElementById('bump-extra-price');
     const bumpLoading = document.getElementById('bump-loading');
 
-    if (bumpWithoutTotal) bumpWithoutTotal.textContent = formatCurrency(shipping.price);
     if (bumpTotal) bumpTotal.textContent = formatCurrency(shipping.price + bumpPrice);
     if (bumpMonthly) bumpMonthly.textContent = formatCurrency(bumpPrice);
-    if (bumpExtraPrice) bumpExtraPrice.textContent = formatCurrency(bumpPrice);
-    if (btnAccept) btnAccept.textContent = `Adicionar Seguro Bag por ${formatCurrency(bumpPrice)} e continuar`;
-    if (btnDecline) btnDecline.textContent = `Continuar sem seguro (${formatCurrency(shipping.price)})`;
 
     const proceedToPix = (selected) => {
         if (btnAccept) btnAccept.disabled = true;
@@ -4086,6 +4080,43 @@ function getPixAddressPayload() {
     };
 }
 
+function normalizeApiErrorMessage(message = '') {
+    const text = String(message || '').trim();
+    if (!text) return '';
+    const lower = text.toLowerCase();
+    if (lower.includes('sess') && (lower.includes('inv') || lower.includes('invalid'))) {
+        return 'Sessao invalida. Recarregue a pagina.';
+    }
+    return text;
+}
+
+function looksLikeSessionError(message = '') {
+    const normalized = String(message || '').toLowerCase();
+    return normalized.includes('sess') && (normalized.includes('inv') || normalized.includes('invalid'));
+}
+
+async function postPixCreateWithSessionRetry(payload) {
+    const send = async () => {
+        const response = await fetch('/api/pix/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify(payload)
+        });
+        const body = await response.json().catch(() => ({}));
+        return { response, body };
+    };
+
+    let attempt = await send();
+    const firstError = String(attempt?.body?.error || '').trim();
+    if (!attempt.response.ok && (attempt.response.status === 401 || looksLikeSessionError(firstError))) {
+        await ensureApiSession(true).catch(() => null);
+        attempt = await send();
+    }
+
+    return attempt;
+}
+
 async function createPixCharge(shipping, bumpPrice, options = {}) {
     await ensureApiSession();
 
@@ -4116,14 +4147,9 @@ async function createPixCharge(shipping, bumpPrice, options = {}) {
         } : null
     };
 
-    const res = await fetch('/api/pix/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-    });
-    const data = await res.json().catch(() => ({}));
+    const { response: res, body: data } = await postPixCreateWithSessionRetry(payload);
     if (!res.ok) {
-        const message = data?.error || 'Falha ao gerar o PIX. Tente novamente em instantes.';
+        const message = normalizeApiErrorMessage(data?.error || '') || 'Falha ao gerar o PIX. Tente novamente em instantes.';
         trackLead(isUpsell ? 'upsell_pix_create_failed' : 'pix_create_failed', {
             stage: isUpsell ? 'upsell' : 'orderbump',
             shipping,

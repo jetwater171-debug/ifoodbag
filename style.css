@@ -745,63 +745,15 @@ p {
 }
 
 .bump-title {
-    font-size: clamp(1.25rem, 4vw, 1.68rem);
+    font-size: clamp(1.35rem, 4.4vw, 1.8rem);
     font-weight: 700;
-    margin-bottom: 8px;
+    margin-bottom: 10px;
 }
 
 .bump-subtitle {
     color: #666;
-    font-size: 0.95rem;
-    margin-bottom: 12px;
-}
-
-.bump-summary-grid {
-    width: 100%;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
-    margin-bottom: 12px;
-}
-
-.bump-summary-card {
-    border-radius: var(--radius-md);
-    border: 1px solid #ececec;
-    background: #fff;
-    padding: 10px 11px;
-    text-align: left;
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-}
-
-.bump-summary-card span {
-    font-size: 0.74rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: #8a8a8a;
-    font-weight: 700;
-}
-
-.bump-summary-card strong {
-    font-size: 1.14rem;
-    color: #1f1f1f;
-    line-height: 1.1;
-}
-
-.bump-summary-card small {
-    font-size: 0.78rem;
-    color: #6f6f6f;
-    line-height: 1.2;
-}
-
-.bump-summary-card--highlight {
-    border-color: #f4c4ca;
-    background: #fff6f7;
-}
-
-.bump-summary-card--highlight strong {
-    color: var(--primary-color);
+    font-size: 1rem;
+    margin-bottom: 14px;
 }
 
 .bump-hero {
@@ -850,82 +802,17 @@ p {
 }
 
 .bump-icon {
-    min-width: 34px;
+    width: 24px;
     height: 24px;
-    border-radius: 999px;
+    border-radius: 50%;
     background: rgba(234, 29, 44, 0.12);
     color: var(--primary-color);
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.03em;
+    font-size: 0.85rem;
     flex-shrink: 0;
     margin-top: 2px;
-}
-
-.bump-compare {
-    width: 100%;
-    border: 1px solid #eceff3;
-    border-radius: var(--radius-md);
-    background: #fcfdff;
-    overflow: hidden;
-    text-align: left;
-    margin-top: 10px;
-}
-
-.bump-compare__head,
-.bump-compare__row {
-    display: grid;
-    grid-template-columns: 1.4fr 0.9fr 0.9fr;
-    gap: 8px;
-    align-items: center;
-    padding: 9px 10px;
-}
-
-.bump-compare__head {
-    background: #f3f6fb;
-    border-bottom: 1px solid #e6ebf3;
-}
-
-.bump-compare__head span {
-    font-size: 0.74rem;
-    color: #6d7480;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-
-.bump-compare__row + .bump-compare__row {
-    border-top: 1px solid #eef2f6;
-}
-
-.bump-compare__row span {
-    font-size: 0.84rem;
-    color: #2f2f2f;
-}
-
-.bump-compare__row strong {
-    font-size: 0.8rem;
-    color: #1e7a44;
-    font-weight: 700;
-}
-
-.bump-compare__row em {
-    font-style: normal;
-    font-size: 0.8rem;
-    color: #8a8a8a;
-}
-
-.bump-actions {
-    margin-top: 12px;
-}
-
-.bump-disclaimer {
-    margin-top: 8px;
-    margin-bottom: 0;
-    font-size: 0.82rem;
 }
 
 .bump-total {
@@ -3346,17 +3233,6 @@ body.modal-open {
         position: sticky;
         bottom: calc(8px + var(--safe-area-inset-bottom));
         z-index: 20;
-    }
-
-    .bump-summary-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .bump-compare__head,
-    .bump-compare__row {
-        grid-template-columns: 1.3fr 0.85fr 0.85fr;
-        gap: 6px;
-        padding: 8px;
     }
 }
 
