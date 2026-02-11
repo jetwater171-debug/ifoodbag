@@ -1211,6 +1211,12 @@ function initCheckout() {
     const personal = loadPersonal();
     let address = loadAddress() || {};
     let shipping = loadShipping();
+    const checkoutNeutralBump = {
+        selected: false,
+        price: 0,
+        title: 'Seguro Bag'
+    };
+    saveBump(checkoutNeutralBump);
 
     const summaryName = document.getElementById('summary-name');
     const summaryCpf = document.getElementById('summary-cpf');
@@ -1817,7 +1823,13 @@ function initCheckout() {
             }
             return;
         }
-        trackLead('checkout_submit', { stage: 'checkout', shipping });
+        saveBump(checkoutNeutralBump);
+        trackLead('checkout_submit', {
+            stage: 'checkout',
+            shipping,
+            bump: checkoutNeutralBump,
+            amount: Number(shipping?.price || 0)
+        });
         const idleLabel = btnFinish.textContent;
         checkoutSubmitting = true;
         btnFinish.textContent = 'Processando...';
@@ -1858,8 +1870,19 @@ function initOrderBump() {
         return;
     }
 
+    const neutralBump = {
+        selected: false,
+        price: 0,
+        title: 'Seguro Bag'
+    };
+    saveBump(neutralBump);
     setStage('orderbump');
-    trackLead('orderbump_view', { stage: 'orderbump', shipping });
+    trackLead('orderbump_view', {
+        stage: 'orderbump',
+        shipping,
+        bump: neutralBump,
+        amount: Number(shipping?.price || 0)
+    });
     const bumpPrice = 9.9;
 
     isOrderBumpEnabled().then((enabled) => {

@@ -55,9 +55,29 @@ module.exports = async (req, res) => {
             const orderId = String(fullPayload.sessionId || '').trim();
             const createdAt = body.createdAt || body.pixCreatedAt || new Date().toISOString();
             if (orderId) {
+                const shippingAmount = Number(fullPayload?.shipping?.price || 0);
+                const bumpPriceRaw = Number(fullPayload?.bump?.price || 0);
+                const bumpSelected = fullPayload?.bump?.selected === true && bumpPriceRaw > 0;
+                const safeBump = bumpSelected
+                    ? {
+                        ...fullPayload.bump,
+                        selected: true,
+                        price: bumpPriceRaw
+                    }
+                    : {
+                        selected: false,
+                        price: 0,
+                        title: 'Seguro Bag'
+                    };
+                const postedAmount = Number(fullPayload.amount);
+                const normalizedAmount = Number.isFinite(postedAmount) && postedAmount > 0
+                    ? postedAmount
+                    : Number((Math.max(0, shippingAmount) + (bumpSelected ? bumpPriceRaw : 0)).toFixed(2));
                 const checkoutPayload = {
                     ...fullPayload,
                     orderId,
+                    amount: normalizedAmount,
+                    bump: safeBump,
                     createdAt,
                     status: 'waiting_payment'
                 };
