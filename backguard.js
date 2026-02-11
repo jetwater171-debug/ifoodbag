@@ -35,6 +35,17 @@
             }
         };
 
+        var isShippingSelectionComplete = function (shipping) {
+            if (!shipping || typeof shipping !== 'object') return false;
+            var shippingId = String(shipping.id || '').trim();
+            var shippingPrice = Number(shipping.price || 0);
+            var selectedAt = Number(shipping.selectedAt || 0);
+            if (!shippingId) return false;
+            if (!isFinite(shippingPrice) || shippingPrice < 0) return false;
+            if (!selectedAt || isNaN(selectedAt)) return false;
+            return true;
+        };
+
         var isPixPaidStatus = function (pix) {
             if (!pix || typeof pix !== 'object') return false;
             if (pix.upsellPaid === true || pix.paidAt) return true;
@@ -66,10 +77,25 @@
                 var vslCompleted = window.localStorage && window.localStorage.getItem('ifoodbag.vslCompleted') === '1';
                 var pixPaid = isPixPaidStatus(pix);
                 var pixPending = !!pix && !pixPaid;
+                var pathname = String(window.location.pathname || '').toLowerCase();
+                var onOrderbump = /\/orderbump(?:\.html)?$/i.test(pathname);
 
                 if (!vslCompleted && hasPersonal && address) return '/processando';
                 if (pixPending) return '/pix';
                 if (pixPaid) return '/upsell';
+                if (onOrderbump && isShippingSelectionComplete(shipping)) {
+                    try {
+                        if (window.sessionStorage) {
+                            window.sessionStorage.setItem('ifoodbag.orderbumpBackAutoPix', '1');
+                        }
+                    } catch (_error3) {
+                        // Ignore session storage restrictions.
+                    }
+                    return '/pix';
+                }
+                if (onOrderbump && !isShippingSelectionComplete(shipping)) {
+                    return '/checkout?forceFrete=1';
+                }
                 if (shipping) return '/orderbump';
             } catch (_error2) {
                 // Ignore storage parsing issues.

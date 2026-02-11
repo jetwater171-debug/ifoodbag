@@ -104,7 +104,8 @@ const STORAGE_KEYS = {
     pixelConfig: 'ifoodbag.pixelConfig',
     coupon: 'ifoodbag.coupon',
     directCheckout: 'ifoodbag.directCheckout',
-    vslCompleted: 'ifoodbag.vslCompleted'
+    vslCompleted: 'ifoodbag.vslCompleted',
+    orderbumpBackAutoPix: 'ifoodbag.orderbumpBackAutoPix'
 };
 
 const state = {
@@ -322,13 +323,21 @@ function setupGlobalBackRedirect(page) {
 
         if (page === 'orderbump') {
             if (orderbumpBackInFlight) return;
-            const shipping = loadShipping();
-            if (!shipping) {
-                redirect(resolveTargetUrl());
+            const shippingStored = loadShipping();
+            const shipping = applyCouponToShipping(shippingStored);
+            if (!isShippingSelectionComplete(shipping)) {
+                localStorage.removeItem(STORAGE_KEYS.shipping);
+                setStage('checkout');
+                redirect('checkout.html?forceFrete=1');
                 return;
             }
 
             orderbumpBackInFlight = true;
+            try {
+                sessionStorage.setItem(STORAGE_KEYS.orderbumpBackAutoPix, '1');
+            } catch (_error) {
+                // Ignore session storage restrictions.
+            }
             saveBump({
                 selected: false,
                 price: 0,
@@ -501,15 +510,9 @@ function setupExitGuard(page) {
     if (window.__ifbExitGuardInit) return;
     window.__ifbExitGuardInit = true;
     window.__ifbAllowUnload = false;
-
-    window.addEventListener('beforeunload', (event) => {
+    window.addEventListener('pagehide', (event) => {
         if (window.__ifbAllowUnload) return;
-        event.preventDefault();
-        event.returnValue = '';
-        return '';
-    });
-    window.addEventListener('pagehide', () => {
-        if (window.__ifbAllowUnload) return;
+        if (event?.persisted) return;
         setTimeout(() => {
             if (!window.__ifbAllowUnload) window.location.href = buildBackRedirectUrl(page);
         }, 0);
@@ -1300,6 +1303,20 @@ function initCheckout() {
     const personal = loadPersonal();
     let address = loadAddress() || {};
     let shipping = loadShipping();
+    const checkoutParams = new URLSearchParams(window.location.search || '');
+    const forceFreteSelection = checkoutParams.get('forceFrete') === '1';
+    if (forceFreteSelection) {
+        localStorage.removeItem(STORAGE_KEYS.shipping);
+        shipping = null;
+        checkoutParams.delete('forceFrete');
+        const nextQuery = checkoutParams.toString();
+        const nextUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ''}${window.location.hash || ''}`;
+        try {
+            history.replaceState(history.state || {}, '', nextUrl);
+        } catch (_error) {
+            // Ignore browser-specific history restrictions.
+        }
+    }
     const checkoutNeutralBump = {
         selected: false,
         price: 0,
@@ -1452,6 +1469,10 @@ function initCheckout() {
 
     if (shipping) {
         shipping = applyCouponToShipping(shipping);
+        if (!isShippingSelectionComplete(shipping)) {
+            localStorage.removeItem(STORAGE_KEYS.shipping);
+            shipping = null;
+        }
     }
 
     const orderBumpEnabledPromise = isOrderBumpEnabled()
@@ -1475,11 +1496,11 @@ function initCheckout() {
         const options = buildShippingOptions(rawCep);
         cachedOptions = options;
         if (!cachedSelectedId || !options.some((opt) => opt.id === cachedSelectedId)) {
-            cachedSelectedId = 'padrao';
+            cachedSelectedId = null;
         }
         showFreightSelection();
-        const selected = options.find((opt) => opt.id === cachedSelectedId) || options.find((opt) => opt.id === 'padrao') || options[0];
-        if (selected) selectShipping(selected, options);
+        const selected = cachedSelectedId ? options.find((opt) => opt.id === cachedSelectedId) : null;
+        if (selected) selectShipping(selected, options, { autoRestore: true });
         if (shouldTrack) {
             trackLead('frete_options_shown', { stage: 'checkout' });
         }
@@ -1547,7 +1568,7 @@ function initCheckout() {
     });
 
     let cachedOptions = null;
-    let cachedSelectedId = 'padrao';
+    let cachedSelectedId = null;
 
     const isExtraValid = () => {
         const numberOk = !!(noNumber?.checked || (addrNumber?.value || '').trim().length);
@@ -1649,24 +1670,37 @@ function initCheckout() {
         noComplement: !!noComplement?.checked
     });
 
-    const selectShipping = (opt, options) => {
-        saveShipping(opt);
-        cachedSelectedId = opt.id;
-        shipping = opt;
-        trackLead('frete_selected', { stage: 'checkout', shipping: opt });
+    const selectShipping = (opt, options, flags = {}) => {
+        const autoRestore = flags?.autoRestore === true;
+        const basePrice = Number(opt.originalPrice || opt.basePrice || opt.price || 0);
+        const selectedShipping = {
+            ...opt,
+            id: String(opt.id || 'padrao').trim() || 'padrao',
+            name: String(opt.name || 'Frete iFood').trim() || 'Frete iFood',
+            price: Number(Number(opt.price || 0).toFixed(2)),
+            basePrice: Number(basePrice.toFixed(2)),
+            originalPrice: Number(basePrice.toFixed(2)),
+            selectedAt: Number(opt.selectedAt || 0) > 0 ? Number(opt.selectedAt) : Date.now(),
+            selectedByUser: autoRestore ? (opt.selectedByUser !== false) : true,
+            sessionId: getLeadSessionId()
+        };
+        saveShipping(selectedShipping);
+        cachedSelectedId = selectedShipping.id;
+        shipping = selectedShipping;
+        trackLead('frete_selected', { stage: 'checkout', shipping: selectedShipping });
         if (shippingTotal) {
             const strong = shippingTotal.querySelector('strong');
-            const hasDiscount = Number(opt.originalPrice || 0) > Number(opt.price || 0);
+            const hasDiscount = Number(selectedShipping.originalPrice || 0) > Number(selectedShipping.price || 0);
             if (strong) {
                 strong.innerHTML = hasDiscount
-                    ? `<span class="price-old">${formatCurrency(opt.originalPrice)}</span><span class="price-new">${formatCurrency(opt.price)}</span>`
-                    : formatCurrency(opt.price);
+                    ? `<span class="price-old">${formatCurrency(selectedShipping.originalPrice)}</span><span class="price-new">${formatCurrency(selectedShipping.price)}</span>`
+                    : formatCurrency(selectedShipping.price);
             }
             setHidden(shippingTotal, false);
         }
         const labels = freightOptions?.querySelectorAll('.freight-option') || [];
         labels.forEach((label) => {
-            label.classList.toggle('freight-option--active', label.querySelector('input')?.value === opt.id);
+            label.classList.toggle('freight-option--active', label.querySelector('input')?.value === selectedShipping.id);
         });
         updateCheckoutActionPanel();
     };
@@ -1674,7 +1708,7 @@ function initCheckout() {
     const clearShippingSelection = () => {
         localStorage.removeItem(STORAGE_KEYS.shipping);
         shipping = null;
-        cachedSelectedId = 'padrao';
+        cachedSelectedId = null;
         if (freightOptions) freightOptions.innerHTML = '';
         setHidden(freightOptions, true);
         setHidden(freightHint, true);
@@ -1856,7 +1890,7 @@ function initCheckout() {
         hydrateExtraAddress();
         bindExtraAddress();
 
-        if (storedShipping && freightOptions) {
+        if (storedShipping && freightOptions && isShippingSelectionComplete(storedShipping)) {
             cachedOptions = buildShippingOptions((storedAddress.cep || '').replace(/\D/g, ''));
             cachedSelectedId = storedShipping.id;
             setHidden(freightForm, true);
@@ -1880,11 +1914,7 @@ function initCheckout() {
 
         setHidden(summaryBlock, false);
         setHidden(freightForm, true);
-        if (cachedOptions) {
-            const defaultOpt = cachedOptions.find((opt) => opt.id === 'padrao');
-            if (defaultOpt) selectShipping(defaultOpt, cachedOptions);
-            showFreightSelection();
-        }
+        if (cachedOptions) showFreightSelection();
         if (btnCalcFreight) btnCalcFreight.classList.add('hidden');
         updateCheckoutActionPanel();
     };
@@ -1952,10 +1982,12 @@ function initOrderBump() {
     if (!requirePersonal()) return;
     if (!requireAddress()) return;
 
-    const shipping = loadShipping();
-    if (!shipping) {
+    const shippingStored = loadShipping();
+    const shipping = applyCouponToShipping(shippingStored);
+    if (!isShippingSelectionComplete(shipping)) {
+        localStorage.removeItem(STORAGE_KEYS.shipping);
         setStage('checkout');
-        redirect('checkout.html');
+        redirect('checkout.html?forceFrete=1');
         return;
     }
 
@@ -2029,7 +2061,8 @@ function initUpsell() {
 
     setStage('upsell');
     const personal = loadPersonal();
-    const shipping = loadShipping();
+    const shippingStored = loadShipping();
+    const shipping = isShippingSelectionComplete(shippingStored) ? shippingStored : null;
     const pix = loadPix();
     const offerPrice = 18.98;
     const query = new URLSearchParams(window.location.search || '');
@@ -2174,6 +2207,7 @@ function initUpsell() {
 function initPix() {
     const pix = loadPix();
     const shipping = loadShipping();
+    const shouldAutoCreateFromOrderbumpBack = sessionStorage.getItem(STORAGE_KEYS.orderbumpBackAutoPix) === '1';
     const pixQr = document.getElementById('pix-qr');
     const pixCode = document.getElementById('pix-code');
     const pixAmount = document.getElementById('pix-amount');
@@ -2186,6 +2220,33 @@ function initPix() {
     const pixBumpPrice = document.getElementById('pix-bump-price');
     const btnCopy = document.getElementById('btn-copy-pix');
     const btnCopyIcon = document.getElementById('btn-copy-pix-icon');
+
+    if (pix) {
+        sessionStorage.removeItem(STORAGE_KEYS.orderbumpBackAutoPix);
+    }
+
+    if (!pix && shouldAutoCreateFromOrderbumpBack && isShippingSelectionComplete(shipping)) {
+        saveBump({
+            selected: false,
+            price: 0,
+            title: 'Seguro Bag'
+        });
+        setStage('pix');
+        createPixCharge(shipping, 0, { sourceStage: 'orderbump_back_fallback' })
+            .catch((error) => {
+                showToast(error?.message || 'Erro ao gerar o PIX.', 'error');
+                sessionStorage.removeItem(STORAGE_KEYS.orderbumpBackAutoPix);
+                if (pixEmpty) pixEmpty.classList.remove('hidden');
+                if (pixCard) pixCard.classList.add('hidden');
+            });
+        return;
+    }
+    if (!pix && shouldAutoCreateFromOrderbumpBack && !isShippingSelectionComplete(shipping)) {
+        sessionStorage.removeItem(STORAGE_KEYS.orderbumpBackAutoPix);
+        setStage('checkout');
+        redirect('checkout.html?forceFrete=1');
+        return;
+    }
 
     if (!pix) {
         if (pixEmpty) pixEmpty.classList.remove('hidden');
@@ -4108,6 +4169,17 @@ function loadShipping() {
     }
 }
 
+function isShippingSelectionComplete(shipping) {
+    if (!shipping || typeof shipping !== 'object') return false;
+    const shippingId = String(shipping.id || '').trim();
+    const shippingPrice = Number(shipping.price);
+    const selectedAt = Number(shipping.selectedAt || 0);
+    if (!shippingId) return false;
+    if (!Number.isFinite(shippingPrice) || shippingPrice < 0) return false;
+    if (!selectedAt || Number.isNaN(selectedAt)) return false;
+    return true;
+}
+
 function applyCouponToShipping(shipping) {
     if (!shipping) return shipping;
     const coupon = loadCoupon();
@@ -4294,19 +4366,28 @@ async function postPixCreateWithSessionRetry(payload) {
 }
 
 async function createPixCharge(shipping, bumpPrice, options = {}) {
-    const extraCharge = Number(bumpPrice || 0);
-    const amount = Number((shipping.price + extraCharge).toFixed(2));
     const isUpsell = Boolean(options?.upsell?.enabled);
+    const shippingInput = shipping && typeof shipping === 'object' ? { ...shipping } : null;
+    const shippingForPix = isUpsell ? shippingInput : applyCouponToShipping(shippingInput);
+    const shippingPrice = Number(shippingForPix?.price || 0);
+    if (!shippingForPix || !Number.isFinite(shippingPrice) || shippingPrice < 0) {
+        throw new Error('Selecione um frete valido antes de gerar o PIX.');
+    }
+    const extraChargeRaw = Number(bumpPrice || 0);
+    const extraCharge = Number.isFinite(extraChargeRaw) && extraChargeRaw > 0
+        ? Number(extraChargeRaw.toFixed(2))
+        : 0;
+    const amount = Number((shippingPrice + extraCharge).toFixed(2));
     const sessionId = getLeadSessionId();
     const lockKey = [
         sessionId,
         isUpsell ? 'upsell' : 'base',
-        String(shipping?.id || ''),
+        String(shippingForPix?.id || ''),
         String(amount.toFixed(2))
     ].join('|');
 
     const cachedPix = loadPix();
-    if (canReuseRecentPixCharge(cachedPix, { amount, shippingId: shipping?.id || '', isUpsell })) {
+    if (canReuseRecentPixCharge(cachedPix, { amount, shippingId: shippingForPix?.id || '', isUpsell })) {
         setStage('pix');
         redirect('pix.html');
         return;
@@ -4332,7 +4413,7 @@ async function createPixCharge(shipping, bumpPrice, options = {}) {
             event: trackEventRequested,
             sourceUrl: window.location.href,
             utm: getUtmData(),
-            shipping,
+            shipping: shippingForPix,
             bump: extraCharge > 0 ? { title: 'Seguro Bag', price: extraCharge } : null,
             personal: getPixPersonalPayload(),
             address: getPixAddressPayload(),
@@ -4342,7 +4423,7 @@ async function createPixCharge(shipping, bumpPrice, options = {}) {
                 enabled: true,
                 kind: String(options?.upsell?.kind || 'frete_1dia'),
                 title: String(options?.upsell?.title || 'Prioridade de envio'),
-                price: Number(options?.upsell?.price || extraCharge || shipping.price || 0),
+                price: Number(options?.upsell?.price || extraCharge || shippingPrice || 0),
                 previousTxid: String(options?.upsell?.previousTxid || '')
             } : null
         };
@@ -4352,7 +4433,7 @@ async function createPixCharge(shipping, bumpPrice, options = {}) {
             const message = normalizeApiErrorMessage(data?.error || '') || 'Falha ao gerar o PIX. Tente novamente em instantes.';
             trackLead(isUpsell ? 'upsell_pix_create_failed' : 'pix_create_failed', {
                 stage: isUpsell ? 'upsell' : 'orderbump',
-                shipping,
+                shipping: shippingForPix,
                 bump: payload.bump,
                 amount
             });
@@ -4362,8 +4443,8 @@ async function createPixCharge(shipping, bumpPrice, options = {}) {
         const pixPayload = {
             ...data,
             amount,
-            shippingId: shipping.id,
-            shippingName: shipping.name,
+            shippingId: shippingForPix.id,
+            shippingName: shippingForPix.name,
             bumpName: extraCharge > 0 ? 'Seguro Bag' : '',
             bumpPrice: extraCharge,
             createdAt: Date.now(),
@@ -4374,7 +4455,7 @@ async function createPixCharge(shipping, bumpPrice, options = {}) {
         setStage('pix');
         trackLead(trackEventCreated, {
             stage: 'pix',
-            shipping,
+            shipping: shippingForPix,
             bump: payload.bump,
             pix: pixPayload,
             amount

@@ -84,6 +84,21 @@ function pickText(...values) {
     return '';
 }
 
+function toBrlAmount(value) {
+    if (value === undefined || value === null || value === '') return 0;
+    const raw = String(value).trim();
+    if (!raw) return 0;
+    const normalized = raw.replace(',', '.');
+    const num = Number(normalized);
+    if (!Number.isFinite(num)) return 0;
+    const hasDecimalMark = /[.,]/.test(raw);
+    if (hasDecimalMark) return Number(num.toFixed(2));
+    if (Number.isInteger(num) && Math.abs(num) >= 100) {
+        return Number((num / 100).toFixed(2));
+    }
+    return Number(num.toFixed(2));
+}
+
 function asObject(input) {
     return input && typeof input === 'object' && !Array.isArray(input) ? input : {};
 }
@@ -489,16 +504,12 @@ module.exports = async (req, res) => {
         const gatewayConfig = payments?.gateways?.[gateway] || {};
 
         const { amount, personal = {}, address = {}, extra = {}, shipping = {}, bump, upsell = null } = rawBody;
-        const value = Number(amount);
+        const value = toBrlAmount(amount);
         const upsellEnabled = Boolean(upsell && upsell.enabled);
         const sourceUrl = String(rawBody?.sourceUrl || '').trim();
         const fbclid = String(rawBody?.fbclid || rawBody?.utm?.fbclid || '').trim();
         const fbp = String(rawBody?.fbp || '').trim();
         const fbc = String(rawBody?.fbc || '').trim() || (fbclid ? `fb.1.${Date.now()}.${fbclid}` : '');
-
-        if (!value || value <= 0) {
-            return res.status(400).json({ error: 'Valor do frete invalido.' });
-        }
 
         const name = String(personal.name || '').trim();
         const cpf = sanitizeDigits(personal.cpf || '');
@@ -521,9 +532,32 @@ module.exports = async (req, res) => {
         const streetNumber = extra?.noNumber ? 'S/N' : String(extra?.number || '').trim() || 'S/N';
         const complement = extra?.noComplement ? 'Sem complemento' : String(extra?.complement || '').trim() || 'Sem complemento';
 
-        const shippingPrice = Number(shipping?.price || 0);
-        const bumpPrice = bump?.price ? Number(bump.price) : 0;
-        const totalAmount = Number((shippingPrice + bumpPrice).toFixed(2));
+        let shippingPrice = toBrlAmount(shipping?.price || 0);
+        let bumpPrice = bump?.price ? toBrlAmount(bump.price) : 0;
+        if (bump?.selected === false) bumpPrice = 0;
+        let totalAmount = Number((shippingPrice + bumpPrice).toFixed(2));
+        if (totalAmount <= 0 && value > 0) {
+            totalAmount = Number(value.toFixed(2));
+            if (shippingPrice <= 0) {
+                shippingPrice = Number(Math.max(0, totalAmount - bumpPrice).toFixed(2));
+            }
+        }
+        if (!totalAmount || totalAmount <= 0) {
+            return res.status(400).json({ error: 'Valor do frete invalido.' });
+        }
+        const normalizedShipping = {
+            ...(shipping || {}),
+            id: String(shipping?.id || '').trim() || 'frete',
+            name: String(shipping?.name || '').trim() || 'Frete Bag iFood',
+            price: shippingPrice,
+            basePrice: toBrlAmount(shipping?.basePrice || shipping?.originalPrice || shippingPrice),
+            originalPrice: toBrlAmount(shipping?.originalPrice || shipping?.basePrice || shippingPrice)
+        };
+        const normalizedBump = {
+            selected: bumpPrice > 0,
+            title: String(bump?.title || 'Seguro Bag').trim() || 'Seguro Bag',
+            price: bumpPrice
+        };
         const orderId = rawBody.sessionId || `order_${Date.now()}`;
 
         const items = [
@@ -549,7 +583,7 @@ module.exports = async (req, res) => {
             gateway,
             gatewayConfig,
             totalAmount,
-            shippingId: String(shipping?.id || '').trim(),
+            shippingId: String(normalizedShipping?.id || '').trim(),
             upsellEnabled
         });
         if (reusable) {
@@ -597,12 +631,12 @@ module.exports = async (req, res) => {
                 metadata: {
                     gateway: 'ghostspay',
                     orderId,
-                    shippingId: shipping?.id || '',
-                    shippingName: shipping?.name || '',
+                    shippingId: normalizedShipping?.id || '',
+                    shippingName: normalizedShipping?.name || '',
                     cep: zipCode,
                     reference: extra?.reference || '',
-                    bumpSelected: !!(bump && bump.price),
-                    bumpPrice: bump?.price || 0,
+                    bumpSelected: normalizedBump.selected,
+                    bumpPrice: normalizedBump.price,
                     upsellEnabled,
                     upsellKind: upsellEnabled ? String(upsell?.kind || 'frete_1dia') : '',
                     upsellTitle: upsellEnabled ? String(upsell?.title || 'Prioridade de envio') : '',
@@ -666,7 +700,7 @@ module.exports = async (req, res) => {
             externalId = `${externalIdBase}-${Date.now()}`;
 
             const sunizeItems = items.map((item, index) => ({
-                id: `${shipping?.id || 'item'}-${index + 1}`,
+                id: `${normalizedShipping?.id || 'item'}-${index + 1}`,
                 title: String(item.title || 'Item'),
                 description: String(item.title || 'Item'),
                 price: Number(Number(item.unitPrice || 0).toFixed(2)),
@@ -751,12 +785,12 @@ module.exports = async (req, res) => {
                 metadata: {
                     gateway: 'ativushub',
                     orderId,
-                    shippingId: shipping?.id || '',
-                    shippingName: shipping?.name || '',
+                    shippingId: normalizedShipping?.id || '',
+                    shippingName: normalizedShipping?.name || '',
                     cep: zipCode,
                     reference: extra?.reference || '',
-                    bumpSelected: !!(bump && bump.price),
-                    bumpPrice: bump?.price || 0,
+                    bumpSelected: normalizedBump.selected,
+                    bumpPrice: normalizedBump.price,
                     upsellEnabled,
                     upsellKind: upsellEnabled ? String(upsell?.kind || 'frete_1dia') : '',
                     upsellTitle: upsellEnabled ? String(upsell?.title || 'Prioridade de envio') : '',
@@ -793,6 +827,8 @@ module.exports = async (req, res) => {
 
         upsertLead({
             ...(rawBody || {}),
+            shipping: normalizedShipping,
+            bump: normalizedBump,
             gateway,
             pixGateway: gateway,
             paymentGateway: gateway,
@@ -852,8 +888,8 @@ module.exports = async (req, res) => {
                     amount: totalAmount,
                     sessionId: rawBody.sessionId || '',
                     personal,
-                    shipping,
-                    bump,
+                    shipping: normalizedShipping,
+                    bump: normalizedBump.selected ? normalizedBump : null,
                     utm: rawBody.utm || {},
                     txid,
                     gateway,
@@ -874,7 +910,7 @@ module.exports = async (req, res) => {
                 amount: totalAmount,
                 customerName: name,
                 customerEmail: email,
-                shippingName: shipping?.name || '',
+                shippingName: normalizedShipping?.name || '',
                 cep: zipCode,
                 gateway,
                 isUpsell: upsellEnabled
@@ -893,7 +929,7 @@ module.exports = async (req, res) => {
                 payload: {
                     amount: totalAmount,
                     orderId: utmOrderId,
-                    shippingName: shipping?.name || '',
+                    shippingName: normalizedShipping?.name || '',
                     gateway,
                     isUpsell: upsellEnabled,
                     client_email: email,

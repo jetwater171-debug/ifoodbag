@@ -130,9 +130,15 @@ function isPaidFromStatus(status) {
 }
 
 function normalizeAmountPossiblyCents(value) {
-    const amount = Number(value || 0);
+    if (value === undefined || value === null || value === '') return 0;
+    const raw = String(value).trim();
+    if (!raw) return 0;
+    const normalized = raw.replace(',', '.');
+    const amount = Number(normalized);
     if (!Number.isFinite(amount)) return 0;
-    if (Number.isInteger(amount) && Math.abs(amount) >= 1000) {
+    const hasDecimalMark = /[.,]/.test(raw);
+    if (hasDecimalMark) return Number(amount.toFixed(2));
+    if (Number.isInteger(amount) && Math.abs(amount) >= 100) {
         return Number((amount / 100).toFixed(2));
     }
     return Number(amount.toFixed(2));
