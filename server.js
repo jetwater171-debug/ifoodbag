@@ -81,9 +81,23 @@ app.get('/admin/leads', (_req, res) => {
     res.sendFile(path.join(__dirname, 'admin-leads.html'));
 });
 
-app.get('/upsell', (_req, res) => {
-    res.sendFile(path.join(__dirname, 'upsell.html'));
-});
+const funnelRoutes = {
+    '/quiz': 'quiz.html',
+    '/dados': 'dados.html',
+    '/endereco': 'endereco.html',
+    '/processando': 'processando.html',
+    '/sucesso': 'sucesso.html',
+    '/checkout': 'checkout.html',
+    '/orderbump': 'orderbump.html',
+    '/pix': 'pix.html',
+    '/upsell': 'upsell.html'
+};
+
+for (const [routePath, fileName] of Object.entries(funnelRoutes)) {
+    app.get(routePath, (_req, res) => {
+        res.sendFile(path.join(__dirname, fileName));
+    });
+}
 
 app.post('/api/admin/utmfy-test', async (req, res) => {
     if (!ensureAllowedRequest(req, res, { requireSession: false })) {

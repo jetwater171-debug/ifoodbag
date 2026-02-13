@@ -2484,22 +2484,39 @@ function initPix() {
             .replace(/-+/g, '_');
     };
 
-    const pollPixStatus = async () => {
-        if (pollingBusy || redirectedToUpsell) return;
-        if (!pix?.idTransaction) return;
-        pollingBusy = true;
-
-        try {
-            const res = await fetch('/api/pix/status', {
+    const postPixStatusWithSessionRetry = async () => {
+        const send = async () => {
+            const response = await fetch('/api/pix/status', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
                 body: JSON.stringify({
                     txid: pix.idTransaction,
                     sessionId: getLeadSessionId(),
                     gateway: pix.gateway || pix.pixGateway || ''
                 })
             });
-            const data = await res.json().catch(() => ({}));
+            const body = await response.json().catch(() => ({}));
+            return { response, body };
+        };
+
+        let attempt = await send();
+        const firstError = String(attempt?.body?.error || '').trim();
+        if (!attempt.response.ok && (attempt.response.status === 401 || looksLikeSessionError(firstError))) {
+            await ensureApiSession(true).catch(() => null);
+            attempt = await send();
+        }
+
+        return attempt;
+    };
+
+    const pollPixStatus = async () => {
+        if (pollingBusy || redirectedToUpsell) return;
+        if (!pix?.idTransaction) return;
+        pollingBusy = true;
+
+        try {
+            const { response: res, body: data } = await postPixStatusWithSessionRetry();
             if (!res.ok) return;
 
             const nextPaymentCode = String(data?.paymentCode || '').trim();
@@ -2554,6 +2571,24 @@ function initPix() {
     statusPollTimer = setInterval(pollPixStatus, pollIntervalMs);
     window.addEventListener('pagehide', clearStatusPolling, { once: true });
     window.addEventListener('beforeunload', clearStatusPolling, { once: true });
+}
+
+function toRootRelativePath(rawUrl = '') {
+    const text = String(rawUrl || '').trim();
+    if (!text) return '';
+    if (/^(?:[a-z][a-z0-9+.-]*:|\/\/)/i.test(text) || text.startsWith('#')) {
+        return text;
+    }
+    if (text.startsWith('?')) {
+        return `${window.location.pathname}${text}`;
+    }
+
+    let normalized = text.replace(/^\.\/+/, '');
+    if (normalized === 'index' || normalized === 'index.html') {
+        return '/';
+    }
+    normalized = normalized.replace(/\.html(?=$|\?)/i, '');
+    return normalized.startsWith('/') ? normalized : `/${normalized}`;
 }
 
 function buildBackRedirectUrl(pageOverride) {
@@ -2703,11 +2738,11 @@ function buildBackRedirectFallbackUrl(pageOverride) {
 }
 
 function buildDistinctBackRedirectUrl(pageOverride) {
-    const target = buildBackRedirectUrl(pageOverride);
+    const target = toRootRelativePath(buildBackRedirectUrl(pageOverride));
     const targetPath = normalizeBackRedirectPath(target);
     const currentPath = normalizeBackRedirectPath(`${window.location.pathname}${window.location.search || ''}`);
     if (targetPath && targetPath !== currentPath) return target;
-    return buildBackRedirectFallbackUrl(pageOverride);
+    return toRootRelativePath(buildBackRedirectFallbackUrl(pageOverride));
 }
 
 function initAdmin() {
@@ -4950,8 +4985,7 @@ function requireAddress() {
 }
 
 function redirect(url) {
-    const clean = (url || '').replace(/\.html(?=$|\?)/, '');
-    let target = clean === 'index' ? '/' : (clean || url);
+    let target = toRootRelativePath(url || '');
     if (!target) return;
 
     const currentPath = normalizeBackRedirectPath(`${window.location.pathname}${window.location.search || ''}`);
