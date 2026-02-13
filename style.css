@@ -1664,6 +1664,8 @@ body[data-page='checkout'] .container {
     font-weight: 700;
     color: var(--primary-color);
     white-space: nowrap;
+    font-size: 1.06rem;
+    line-height: 1.05;
 }
 
 .freight-option--active {
@@ -1676,7 +1678,7 @@ body[data-page='checkout'] .container {
     border-radius: var(--radius-lg);
     border: 1px solid #f1d1d5;
     background: linear-gradient(180deg, #fff 0%, #fff8f8 100%);
-    box-shadow: 0 10px 20px rgba(234, 29, 44, 0.08);
+    box-shadow: 0 6px 14px rgba(234, 29, 44, 0.08);
     padding: 14px;
     margin-top: 0;
 }
@@ -3218,6 +3220,12 @@ body.modal-open {
         grid-template-columns: 1fr;
         gap: 12px;
     }
+    .checkout-main .freight-card {
+        order: 1;
+    }
+    .checkout-main .checkout-summary-col {
+        order: 2;
+    }
     .checkout-step {
         padding: clamp(16px, 4vw, 24px);
     }
@@ -3279,11 +3287,6 @@ body.modal-open {
 }
 
 @media (max-width: 640px) {
-    body[data-page='checkout'] .checkout-action-panel {
-        position: sticky;
-        bottom: calc(8px + var(--safe-area-inset-bottom));
-        z-index: 20;
-    }
     .checkout-flow {
         gap: 6px;
     }
