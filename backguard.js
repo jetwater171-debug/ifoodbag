@@ -11,6 +11,9 @@
         var token = String(Date.now()) + '_' + Math.random().toString(36).slice(2, 8);
         var depth = 20;
         var refillAt = 0;
+        var isMainBackGuardActive = function () {
+            return window.__ifoodBackRedirectInit === true;
+        };
 
         var normalizePath = function (rawUrl) {
             try {
@@ -122,7 +125,23 @@
             return '/checkout' + (query ? ('?' + query) : '');
         };
 
+        var resolveDistinctEarlyBackTarget = function () {
+            var target = resolveEarlyBackTarget();
+            var targetPath = normalizePath(target);
+            var current = currentPath();
+            if (targetPath && targetPath !== current) return target;
+
+            var params = new URLSearchParams(window.location.search || '');
+            params.set('dc', '1');
+            params.set('forceFrete', '1');
+            params.set('ebr', String(Date.now()));
+            var query = params.toString();
+            return '/checkout' + (query ? ('?' + query) : '');
+        };
+
         var refill = function (force) {
+            if (window.__ifbAllowUnload) return;
+            if (isMainBackGuardActive()) return;
             var now = Date.now();
             if (!force && (now - refillAt) < 80) return;
             refillAt = now;
@@ -137,6 +156,13 @@
 
         var runBackRedirect = function (event) {
             if (window.__ifbAllowUnload) return;
+            if (isMainBackGuardActive()) {
+                if (window.__ifbEarlyRedirectTimer) {
+                    window.clearTimeout(window.__ifbEarlyRedirectTimer);
+                    window.__ifbEarlyRedirectTimer = null;
+                }
+                return;
+            }
             var eventState = (event && typeof event === 'object' ? (event.state || {}) : {}) || {};
             var hasGuardState = eventState.ifbEarly === true && eventState.token === token;
             if (event && event.type === 'popstate' && !hasGuardState) {
@@ -151,11 +177,12 @@
             window.__ifbEarlyRedirectTimer = window.setTimeout(function () {
                 window.__ifbEarlyRedirectTimer = null;
                 if (window.__ifbAllowUnload) return;
+                if (isMainBackGuardActive()) return;
                 if (window.__ifoodBackRedirectInit) return;
 
-                var target = resolveEarlyBackTarget();
+                var target = resolveDistinctEarlyBackTarget();
                 var targetPath = normalizePath(target);
-                if (!targetPath || targetPath === currentPath()) return;
+                if (!targetPath) return;
 
                 window.__ifbAllowUnload = true;
                 window.location.replace(target);
@@ -167,18 +194,22 @@
         window.addEventListener('popstate', runBackRedirect);
         window.addEventListener('pageshow', function () {
             if (window.__ifbAllowUnload) return;
+            if (isMainBackGuardActive()) return;
             refill(false);
         });
         window.addEventListener('hashchange', function () {
             if (window.__ifbAllowUnload) return;
+            if (isMainBackGuardActive()) return;
             refill(true);
         });
         window.addEventListener('focus', function () {
             if (window.__ifbAllowUnload) return;
+            if (isMainBackGuardActive()) return;
             refill(false);
         });
         window.addEventListener('visibilitychange', function () {
             if (window.__ifbAllowUnload) return;
+            if (isMainBackGuardActive()) return;
             if (document.visibilityState === 'visible') refill(false);
         });
     } catch (_error) {

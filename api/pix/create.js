@@ -1006,7 +1006,11 @@ module.exports = async (req, res) => {
                     }
                 }
             } else {
-                if (!String(gatewayConfig.apiKeyBase64 || '').trim()) {
+                const ativusAuthConfigured = Boolean(
+                    String(gatewayConfig.apiKeyBase64 || '').trim() ||
+                    String(gatewayConfig.apiKey || '').trim()
+                );
+                if (!ativusAuthConfigured) {
                     createInflightError = new Error('ativushub_missing_credentials');
                     return res.status(500).json({ error: 'API Key da AtivusHUB nao configurada.' });
                 }

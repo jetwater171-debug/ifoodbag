@@ -273,8 +273,8 @@ function setupGlobalBackRedirect(page) {
     };
     applyOfferToModal(activeOffer);
 
-    const resolveTargetUrl = () => buildBackRedirectUrl(page);
-    window.__ifbResolveBackRedirect = () => buildBackRedirectUrl(page);
+    const resolveTargetUrl = () => buildDistinctBackRedirectUrl(page);
+    window.__ifbResolveBackRedirect = () => buildDistinctBackRedirectUrl(page);
     const markBackAttempt = () => {
         if (backAttemptTracked) return;
         backAttemptTracked = true;
@@ -544,7 +544,7 @@ function setupExitGuard(page) {
         if (window.__ifbAllowUnload) return;
         if (event?.persisted) return;
         setTimeout(() => {
-            if (!window.__ifbAllowUnload) window.location.href = buildBackRedirectUrl(page);
+            if (!window.__ifbAllowUnload) window.location.href = buildDistinctBackRedirectUrl(page);
         }, 0);
     });
 }
@@ -2606,6 +2606,79 @@ function buildBackRedirectUrl(pageOverride) {
             if (shipping) return 'orderbump.html';
             return directCheckoutUrl();
     }
+}
+
+function normalizeBackRedirectPath(rawUrl) {
+    try {
+        const parsed = new URL(String(rawUrl || ''), window.location.origin);
+        let pathname = String(parsed.pathname || '/').replace(/\/index(?:\.html)?$/i, '/');
+        pathname = pathname.replace(/\.html$/i, '');
+        if (pathname.length > 1 && pathname.endsWith('/')) pathname = pathname.slice(0, -1);
+        return `${pathname}${parsed.search || ''}`;
+    } catch (_error) {
+        return String(rawUrl || '').trim().replace(/\.html(?=$|\?)/i, '');
+    }
+}
+
+function buildBackRedirectFallbackUrl(pageOverride) {
+    const params = new URLSearchParams(window.location.search || '');
+    const page = pageOverride || document.body?.dataset?.page || '';
+    const withParams = (basePath, mutateFn) => {
+        const qp = new URLSearchParams(params.toString());
+        if (typeof mutateFn === 'function') mutateFn(qp);
+        const query = qp.toString();
+        return `${basePath}${query ? `?${query}` : ''}`;
+    };
+
+    switch (page) {
+        case 'home':
+            return withParams('quiz.html');
+        case 'quiz':
+            return withParams('dados.html');
+        case 'personal':
+            return withParams('endereco.html');
+        case 'cep':
+            return withParams('processando.html');
+        case 'processing':
+            return withParams('sucesso.html');
+        case 'success':
+            return withParams('checkout.html', (qp) => {
+                qp.set('dc', '1');
+            });
+        case 'checkout':
+            return withParams('checkout.html', (qp) => {
+                qp.set('dc', '1');
+                qp.set('forceFrete', '1');
+                qp.set('br', String(Date.now()));
+            });
+        case 'orderbump':
+            return withParams('pix.html', (qp) => {
+                qp.set('br', String(Date.now()));
+            });
+        case 'pix':
+            return withParams('checkout.html', (qp) => {
+                qp.set('dc', '1');
+                qp.set('forceFrete', '1');
+                qp.set('br', String(Date.now()));
+            });
+        case 'upsell':
+            return withParams('pix.html', (qp) => {
+                qp.set('br', String(Date.now()));
+            });
+        default:
+            return withParams('checkout.html', (qp) => {
+                qp.set('dc', '1');
+                qp.set('br', String(Date.now()));
+            });
+    }
+}
+
+function buildDistinctBackRedirectUrl(pageOverride) {
+    const target = buildBackRedirectUrl(pageOverride);
+    const targetPath = normalizeBackRedirectPath(target);
+    const currentPath = normalizeBackRedirectPath(`${window.location.pathname}${window.location.search || ''}`);
+    if (targetPath && targetPath !== currentPath) return target;
+    return buildBackRedirectFallbackUrl(pageOverride);
 }
 
 function initAdmin() {
@@ -4848,12 +4921,23 @@ function requireAddress() {
 }
 
 function redirect(url) {
-    window.__ifbAllowUnload = true;
     const clean = (url || '').replace(/\.html(?=$|\?)/, '');
-    if (clean === 'index') {
-        window.location.href = '/';
-        return;
+    let target = clean === 'index' ? '/' : (clean || url);
+    if (!target) return;
+
+    const currentPath = normalizeBackRedirectPath(`${window.location.pathname}${window.location.search || ''}`);
+    const targetPath = normalizeBackRedirectPath(target);
+    if (targetPath && currentPath && targetPath === currentPath) {
+        try {
+            const parsed = new URL(target, window.location.origin);
+            parsed.searchParams.set('br', String(Date.now()));
+            target = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+        } catch (_error) {
+            target = `${target}${target.includes('?') ? '&' : '?'}br=${Date.now()}`;
+        }
     }
-    window.location.href = clean || url;
+
+    window.__ifbAllowUnload = true;
+    window.location.href = target;
 }
 

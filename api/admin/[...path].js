@@ -151,8 +151,10 @@ function normalizeAmountPossiblyCents(value) {
 }
 
 function pickSecretInput(inputValue, existingValue) {
-    const raw = inputValue === undefined || inputValue === null ? '' : String(inputValue);
-    if (raw === SECRET_MASK) return String(existingValue || '');
+    const current = String(existingValue || '');
+    if (inputValue === undefined || inputValue === null) return current;
+    const raw = String(inputValue);
+    if (raw === SECRET_MASK) return current;
     return raw;
 }
 
