@@ -2679,21 +2679,34 @@ function initPix() {
     if (pixCode) pixCode.value = pix.paymentCode || '';
     if (pixIofCode) pixIofCode.value = pix.paymentCode || '';
 
-    const applyPixQrSource = (qrUrl, qrBase64) => {
+    const buildPixQrFallbackUrl = (codeText = '') => {
+        const clean = String(codeText || '').trim();
+        if (!clean) return '';
+        const url = new URL('https://quickchart.io/qr');
+        url.searchParams.set('text', clean);
+        url.searchParams.set('size', '620');
+        url.searchParams.set('margin', '2');
+        url.searchParams.set('ecLevel', 'M');
+        return url.toString();
+    };
+
+    const applyPixQrSource = (qrUrl, qrBase64, fallbackCode = '') => {
         const qrTargets = [pixQr, pixIofQr].filter(Boolean);
         if (!qrTargets.length) return;
         const qrSource = String(qrUrl || qrBase64 || '').trim();
-        if (!qrSource) return;
-        const src = (/^https?:\/\//i.test(qrSource) || qrSource.startsWith('data:image'))
-            ? qrSource
-            : `data:image/png;base64,${qrSource}`;
+        const src = qrSource
+            ? ((/^https?:\/\//i.test(qrSource) || qrSource.startsWith('data:image'))
+                ? qrSource
+                : `data:image/png;base64,${qrSource}`)
+            : buildPixQrFallbackUrl(fallbackCode);
+        if (!src) return;
         qrTargets.forEach((img) => {
             img.src = src;
         });
     };
 
-    if ((pixQr || pixIofQr) && (pix.paymentQrUrl || pix.paymentCodeBase64)) {
-        applyPixQrSource(pix.paymentQrUrl, pix.paymentCodeBase64);
+    if ((pixQr || pixIofQr) && (pix.paymentQrUrl || pix.paymentCodeBase64 || pix.paymentCode)) {
+        applyPixQrSource(pix.paymentQrUrl, pix.paymentCodeBase64, pix.paymentCode);
     }
 
     const handleCopy = async (button, inputEl = pixCode) => {
@@ -2915,8 +2928,8 @@ function initPix() {
                 if (nextPaymentCode && pixIofCode && !String(pixIofCode.value || '').trim()) {
                     pixIofCode.value = nextPaymentCode;
                 }
-                if ((nextPaymentQrUrl || nextPaymentCodeBase64) && pixQr) {
-                    applyPixQrSource(nextPaymentQrUrl, nextPaymentCodeBase64);
+                if (nextPaymentCode || nextPaymentQrUrl || nextPaymentCodeBase64) {
+                    applyPixQrSource(nextPaymentQrUrl, nextPaymentCodeBase64, nextPaymentCode || pix.paymentCode || '');
                 }
                 Object.assign(pix, {
                     paymentCode: pix.paymentCode || nextPaymentCode,
