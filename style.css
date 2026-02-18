@@ -1193,48 +1193,19 @@ body[data-page='upsell-correios'] .step {
     width: 100%;
     background: #fff;
     border-bottom: 1px solid #d8dde6;
-}
-
-.correios-access {
-    height: 42px;
-    display: flex;
-    align-items: center;
-    padding: 0 16px;
-    border-bottom: 1px solid #d8dde6;
-    color: #005ca9;
-    font-size: 1.04rem;
-    font-weight: 400;
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.02);
 }
 
 .correios-nav {
-    min-height: 60px;
+    min-height: 74px;
     display: flex;
     align-items: center;
-    gap: 14px;
-    padding: 10px 16px;
-}
-
-.correios-menu {
-    width: 28px;
-    height: 24px;
-    border: 0;
-    background: transparent;
-    cursor: default;
-    padding: 0;
-    display: inline-flex;
-    flex-direction: column;
-    justify-content: space-between;
-}
-
-.correios-menu span {
-    width: 26px;
-    height: 3px;
-    border-radius: 8px;
-    background: #005ca9;
+    justify-content: center;
+    padding: 12px 16px;
 }
 
 .correios-logo {
-    height: 38px;
+    height: 42px;
     width: auto;
     display: block;
 }
@@ -1248,27 +1219,6 @@ body[data-page='upsell-correios'] .step {
 .upsell-correios-step {
     max-width: 620px;
     margin: 0 auto;
-}
-
-.correios-breadcrumb {
-    margin: 0 0 8px;
-    color: #005ca9;
-    font-size: 1.02rem;
-    font-weight: 400;
-}
-
-.correios-breadcrumb span {
-    font-size: 1.3rem;
-    line-height: 0;
-    vertical-align: text-bottom;
-}
-
-.correios-title {
-    margin: 0 0 14px;
-    color: #005ca9;
-    font-weight: 700;
-    font-size: clamp(2rem, 5vw, 2.8rem);
-    line-height: 1.04;
 }
 
 .correios-card {
@@ -4150,22 +4100,13 @@ body.modal-open {
         font-size: 0.79rem;
     }
 
-    .correios-access {
-        font-size: 0.96rem;
-        height: 38px;
-    }
-
     .correios-nav {
-        min-height: 54px;
+        min-height: 62px;
         padding: 8px 12px;
     }
 
     .correios-logo {
-        height: 32px;
-    }
-
-    .correios-title {
-        font-size: 2rem;
+        height: 35px;
     }
 
     .correios-copy {
