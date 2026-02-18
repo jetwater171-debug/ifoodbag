@@ -70,7 +70,8 @@
                 String(pix.shippingName || '').toLowerCase(),
                 String((pix.upsell && pix.upsell.title) || '').toLowerCase()
             ].join(' ');
-            if (/iof/.test(kind) || /iof/.test(hints)) return '/upsell';
+            if (/iof/.test(kind) || /iof/.test(hints)) return '/upsell-correios';
+            if (/correios|objeto_grande|objeto grande/.test(kind) || /correios|objeto_grande|objeto grande/.test(hints)) return '/upsell';
 
             return '/upsell?paid=1';
         };

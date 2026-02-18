@@ -91,6 +91,7 @@ const funnelRoutes = {
     '/orderbump': 'orderbump.html',
     '/pix': 'pix.html',
     '/upsell-iof': 'upsell-iof.html',
+    '/upsell-correios': 'upsell-correios.html',
     '/upsell': 'upsell.html'
 };
 

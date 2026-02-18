@@ -1170,6 +1170,252 @@ body[data-page='orderbump'] .step {
     color: #c9172a;
 }
 
+body[data-page='upsell-correios'] {
+    background: #f2f4f7;
+    color: #0c2f57;
+    font-family: 'Rawline', 'Outfit', sans-serif;
+}
+
+body[data-page='upsell-correios'] .container {
+    max-width: 760px;
+    padding-top: 18px;
+    padding-bottom: 28px;
+}
+
+body[data-page='upsell-correios'] .step {
+    padding: 0;
+    border: 0;
+    box-shadow: none;
+    background: transparent;
+}
+
+.correios-top {
+    width: 100%;
+    background: #fff;
+    border-bottom: 1px solid #d8dde6;
+}
+
+.correios-access {
+    height: 42px;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    border-bottom: 1px solid #d8dde6;
+    color: #005ca9;
+    font-size: 1.04rem;
+    font-weight: 400;
+}
+
+.correios-nav {
+    min-height: 60px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 16px;
+}
+
+.correios-menu {
+    width: 28px;
+    height: 24px;
+    border: 0;
+    background: transparent;
+    cursor: default;
+    padding: 0;
+    display: inline-flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.correios-menu span {
+    width: 26px;
+    height: 3px;
+    border-radius: 8px;
+    background: #005ca9;
+}
+
+.correios-logo {
+    height: 38px;
+    width: auto;
+    display: block;
+}
+
+.correios-border {
+    height: 2px;
+    width: 100%;
+    background: #ffcc00;
+}
+
+.upsell-correios-step {
+    max-width: 620px;
+    margin: 0 auto;
+}
+
+.correios-breadcrumb {
+    margin: 0 0 8px;
+    color: #005ca9;
+    font-size: 1.02rem;
+    font-weight: 400;
+}
+
+.correios-breadcrumb span {
+    font-size: 1.3rem;
+    line-height: 0;
+    vertical-align: text-bottom;
+}
+
+.correios-title {
+    margin: 0 0 14px;
+    color: #005ca9;
+    font-weight: 700;
+    font-size: clamp(2rem, 5vw, 2.8rem);
+    line-height: 1.04;
+}
+
+.correios-card {
+    background: #e7ecf2;
+    border: 1px solid #d2d9e3;
+    border-radius: 6px;
+    padding: 14px;
+    display: grid;
+    gap: 13px;
+}
+
+.correios-copy {
+    margin: 0;
+    color: #17395f;
+    font-size: 1.08rem;
+    line-height: 1.34;
+    max-width: none;
+}
+
+.correios-copy strong {
+    color: #0f2d4f;
+    font-weight: 700;
+}
+
+.correios-price {
+    background: #fff;
+    border: 1px solid #ced7e2;
+    border-radius: 6px;
+    padding: 11px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.correios-price span {
+    font-size: 0.92rem;
+    color: #365171;
+    font-weight: 500;
+}
+
+.correios-price strong {
+    color: #063565;
+    font-size: 1.74rem;
+    line-height: 1;
+    font-weight: 800;
+}
+
+.correios-meta {
+    background: #fff;
+    border: 1px solid #ced7e2;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.correios-meta-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    border-bottom: 1px solid #e3e8ef;
+    font-size: 0.91rem;
+    color: #4a5f79;
+}
+
+.correios-meta-row:last-child {
+    border-bottom: 0;
+}
+
+.correios-meta-row strong {
+    color: #12385f;
+    font-size: 0.96rem;
+    font-weight: 700;
+}
+
+.correios-deadline {
+    margin-top: 2px;
+    font-size: 0.9rem;
+    color: #2d4867;
+}
+
+.correios-deadline b {
+    color: #004b8f;
+    font-size: 1rem;
+}
+
+.correios-btn {
+    min-height: 58px;
+    border-radius: 6px;
+    background: #0066b3;
+    box-shadow: none;
+    font-size: 1.18rem;
+}
+
+.correios-btn:hover {
+    background: #00579a;
+}
+
+.correios-btn:disabled {
+    background: #90a6be;
+}
+
+.correios-btn-secondary {
+    width: 100%;
+    min-height: 52px;
+    border-radius: 6px;
+    border-color: #005ca9;
+    color: #005ca9;
+    background: rgba(255, 255, 255, 0.84);
+}
+
+.correios-note {
+    margin: 0;
+    color: #4c6582;
+    font-size: 0.83rem;
+    line-height: 1.3;
+}
+
+.correios-banner {
+    margin-top: 10px;
+    background: #ffcd00;
+    border-radius: 6px;
+    padding: 12px 14px;
+    display: grid;
+    gap: 4px;
+}
+
+.correios-banner strong {
+    color: #003f79;
+    font-size: 1.06rem;
+    font-weight: 700;
+}
+
+.correios-banner span {
+    color: #114a82;
+    font-size: 0.9rem;
+}
+
+body[data-page='upsell-correios'] .inline-loading {
+    justify-content: center;
+    background: #fff;
+    border: 1px solid #d4dbe4;
+    border-radius: 6px;
+    padding: 10px 12px;
+}
+
 body[data-page='upsell'] .step,
 body[data-page='upsell-iof'] .step {
     gap: 12px;
@@ -3903,6 +4149,37 @@ body.modal-open {
     .upsell-explain li {
         font-size: 0.79rem;
     }
+
+    .correios-access {
+        font-size: 0.96rem;
+        height: 38px;
+    }
+
+    .correios-nav {
+        min-height: 54px;
+        padding: 8px 12px;
+    }
+
+    .correios-logo {
+        height: 32px;
+    }
+
+    .correios-title {
+        font-size: 2rem;
+    }
+
+    .correios-copy {
+        font-size: 0.96rem;
+    }
+
+    .correios-price strong {
+        font-size: 1.45rem;
+    }
+
+    .correios-btn {
+        font-size: 1.02rem;
+        min-height: 54px;
+    }
 }
 
 @media (max-width: 640px) {
@@ -3951,5 +4228,28 @@ body.modal-open {
 
     .small-text {
         display: none;
+    }
+
+    body[data-page='upsell-correios'] .container {
+        padding-top: 14px;
+        padding-bottom: 18px;
+    }
+
+    .upsell-correios-step {
+        width: 100%;
+    }
+
+    .correios-card {
+        padding: 12px 10px;
+        gap: 10px;
+    }
+
+    .correios-meta-row {
+        padding: 8px 9px;
+        font-size: 0.83rem;
+    }
+
+    .correios-note {
+        font-size: 0.78rem;
     }
 }
