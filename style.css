@@ -1223,6 +1223,21 @@ body[data-page='upsell-correios'] .step {
     margin: 0 auto;
 }
 
+.correios-hero-banner {
+    margin: 0 0 12px;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid #d0d8e3;
+    background: #edf2f8;
+    box-shadow: 0 8px 24px rgba(8, 39, 73, 0.08);
+}
+
+.correios-hero-banner img {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
 .correios-card {
     background: #e7ecf2;
     border: 1px solid #d2d9e3;
@@ -4398,6 +4413,11 @@ body.modal-open {
     .correios-card {
         padding: 12px 10px;
         gap: 10px;
+    }
+
+    .correios-hero-banner {
+        margin-bottom: 10px;
+        border-radius: 12px;
     }
 
     .correios-meta-row {
