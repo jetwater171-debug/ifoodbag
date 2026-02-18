@@ -159,8 +159,8 @@ function isUpsellLead(leadData) {
     const shippingId = String(leadData?.shipping_id || payload?.shipping?.id || payload?.shippingId || '').trim().toLowerCase();
     const shippingName = String(leadData?.shipping_name || payload?.shipping?.name || payload?.shippingName || '').trim().toLowerCase();
     if (payload?.upsell?.enabled === true || payload?.isUpsell === true) return true;
-    if (shippingId === 'expresso_1dia') return true;
-    return /adiantamento|prioridade|expresso/.test(shippingName);
+    if (shippingId === 'expresso_1dia' || shippingId === 'taxa_iof_bag' || shippingId === 'taxa_objeto_grande_correios') return true;
+    return /adiantamento|prioridade|expresso|iof|correios|objeto_grande|objeto grande/.test(shippingName);
 }
 
 function looksLikeAtivusWebhook(payload = {}) {
@@ -941,6 +941,7 @@ module.exports = async (req, res) => {
             eventName: 'Purchase',
             dedupeKey: `pixel:purchase:${gateway}:${effectiveTxid}`,
             payload: {
+                eventId: effectiveTxid || orderIdForPush,
                 amount: eventAmount,
                 orderId: effectiveTxid || orderIdForPush,
                 gateway,

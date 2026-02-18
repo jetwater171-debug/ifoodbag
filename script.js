@@ -2732,6 +2732,12 @@ function initPix() {
     const pixIofAmount = document.getElementById('pix-iof-amount');
     const pixIofStatus = document.getElementById('pix-iof-status');
     const btnCopyIof = document.getElementById('btn-copy-pix-iof');
+    const pixCorreiosView = document.getElementById('pix-correios-view');
+    const pixCorreiosQr = document.getElementById('pix-correios-qr');
+    const pixCorreiosCode = document.getElementById('pix-correios-code');
+    const pixCorreiosAmount = document.getElementById('pix-correios-amount');
+    const pixCorreiosStatus = document.getElementById('pix-correios-status');
+    const btnCopyCorreios = document.getElementById('btn-copy-pix-correios');
 
     const isUpsellPix = Boolean(
         pix?.isUpsell ||
@@ -2791,12 +2797,17 @@ function initPix() {
         return;
     }
 
-    if (isIofUpsellPix) {
+    const useSpecialUpsellPixLayout = isIofUpsellPix || isCorreiosUpsellPix;
+
+    if (useSpecialUpsellPixLayout) {
         if (pixTopbar) pixTopbar.classList.add('hidden');
         if (pixHero) pixHero.classList.add('hidden');
         if (pixHeading) pixHeading.classList.add('hidden');
         if (pixInstructions) pixInstructions.classList.add('hidden');
         if (pixCard) pixCard.classList.add('hidden');
+    }
+
+    if (isIofUpsellPix) {
         if (pixIofView) {
             pixIofView.classList.remove('hidden');
             pixIofView.setAttribute('aria-hidden', 'false');
@@ -2806,17 +2817,30 @@ function initPix() {
         pixIofView.setAttribute('aria-hidden', 'true');
     }
 
+    if (isCorreiosUpsellPix) {
+        if (pixCorreiosView) {
+            pixCorreiosView.classList.remove('hidden');
+            pixCorreiosView.setAttribute('aria-hidden', 'false');
+        }
+    } else if (pixCorreiosView) {
+        pixCorreiosView.classList.add('hidden');
+        pixCorreiosView.setAttribute('aria-hidden', 'true');
+    }
+
     trackLead('pix_view', { stage: 'pix', shipping });
 
     if (pixAmount) pixAmount.textContent = formatCurrency(pix.amount || 0);
     if (pixIofAmount) pixIofAmount.textContent = formatCurrency(pix.amount || 0);
+    if (pixCorreiosAmount) pixCorreiosAmount.textContent = formatCurrency(pix.amount || 0);
     if (pixIofStatus) pixIofStatus.textContent = 'Status: Aguardando pagamento';
+    if (pixCorreiosStatus) pixCorreiosStatus.textContent = 'Status: Aguardando pagamento';
     if (pixBumpRow && pixBumpPrice && pix.bumpPrice) {
         pixBumpPrice.textContent = formatCurrency(pix.bumpPrice);
         pixBumpRow.classList.remove('hidden');
     }
     if (pixCode) pixCode.value = pix.paymentCode || '';
     if (pixIofCode) pixIofCode.value = pix.paymentCode || '';
+    if (pixCorreiosCode) pixCorreiosCode.value = pix.paymentCode || '';
 
     const buildPixQrFallbackUrl = (codeText = '') => {
         const clean = String(codeText || '').trim();
@@ -2830,7 +2854,7 @@ function initPix() {
     };
 
     const applyPixQrSource = (qrUrl, qrBase64, fallbackCode = '') => {
-        const qrTargets = [pixQr, pixIofQr].filter(Boolean);
+        const qrTargets = [pixQr, pixIofQr, pixCorreiosQr].filter(Boolean);
         if (!qrTargets.length) return;
         const qrSource = String(qrUrl || qrBase64 || '').trim();
         const src = qrSource
@@ -2844,22 +2868,23 @@ function initPix() {
         });
     };
 
-    if ((pixQr || pixIofQr) && (pix.paymentQrUrl || pix.paymentCodeBase64 || pix.paymentCode)) {
+    if ((pixQr || pixIofQr || pixCorreiosQr) && (pix.paymentQrUrl || pix.paymentCodeBase64 || pix.paymentCode)) {
         applyPixQrSource(pix.paymentQrUrl, pix.paymentCodeBase64, pix.paymentCode);
     }
 
     const handleCopy = async (button, inputEl = pixCode) => {
-        const sourceInput = inputEl || pixCode || pixIofCode;
+        const sourceInput = inputEl || pixCode || pixIofCode || pixCorreiosCode;
         if (!sourceInput) return;
         const value = sourceInput.value || '';
         if (!value) return;
         const isIcon = button && button.id === 'btn-copy-pix-icon';
         const isIofButton = button && button.id === 'btn-copy-pix-iof';
+        const isCorreiosButton = button && button.id === 'btn-copy-pix-correios';
         const resetLabel = () => {
             if (!button) return;
             if (isIcon) {
                 button.classList.remove('pix-copy-icon--done');
-            } else if (isIofButton) {
+            } else if (isIofButton || isCorreiosButton) {
                 button.textContent = 'COPIAR';
             } else {
                 button.textContent = 'Copiar';
@@ -2874,7 +2899,7 @@ function initPix() {
         if (button) {
             if (isIcon) {
                 button.classList.add('pix-copy-icon--done');
-            } else if (isIofButton) {
+            } else if (isIofButton || isCorreiosButton) {
                 button.textContent = 'COPIADO!';
             } else {
                 button.textContent = 'Copiado!';
@@ -2886,6 +2911,7 @@ function initPix() {
     btnCopy?.addEventListener('click', () => handleCopy(btnCopy, pixCode));
     btnCopyIcon?.addEventListener('click', () => handleCopy(btnCopyIcon, pixCode));
     btnCopyIof?.addEventListener('click', () => handleCopy(btnCopyIof, pixIofCode));
+    btnCopyCorreios?.addEventListener('click', () => handleCopy(btnCopyCorreios, pixCorreiosCode));
 
     if (pixOrderId) {
         const id = String(pix.idTransaction || '').trim();
@@ -2995,6 +3021,7 @@ function initPix() {
                 'success'
             );
             if (pixIofStatus) pixIofStatus.textContent = 'Status: Pagamento confirmado';
+            if (pixCorreiosStatus) pixCorreiosStatus.textContent = 'Status: Pagamento confirmado';
             setStage(targetStage);
             setTimeout(() => {
                 redirect(paidTarget);
@@ -3012,6 +3039,7 @@ function initPix() {
         });
         showToast('Pagamento confirmado. Vamos liberar sua taxa de IOF.', 'success');
         if (pixIofStatus) pixIofStatus.textContent = 'Status: Pagamento confirmado';
+        if (pixCorreiosStatus) pixCorreiosStatus.textContent = 'Status: Pagamento confirmado';
         setStage('upsell_iof');
         setTimeout(() => {
             redirect('upsell-iof.html');
@@ -3075,6 +3103,9 @@ function initPix() {
                 if (nextPaymentCode && pixIofCode && !String(pixIofCode.value || '').trim()) {
                     pixIofCode.value = nextPaymentCode;
                 }
+                if (nextPaymentCode && pixCorreiosCode && !String(pixCorreiosCode.value || '').trim()) {
+                    pixCorreiosCode.value = nextPaymentCode;
+                }
                 if (nextPaymentCode || nextPaymentQrUrl || nextPaymentCodeBase64) {
                     applyPixQrSource(nextPaymentQrUrl, nextPaymentCodeBase64, nextPaymentCode || pix.paymentCode || '');
                 }
@@ -3094,6 +3125,15 @@ function initPix() {
                     pixIofStatus.textContent = 'Status: PIX inativo';
                 } else {
                     pixIofStatus.textContent = 'Status: Aguardando pagamento';
+                }
+            }
+            if (pixCorreiosStatus) {
+                if (status === 'paid') {
+                    pixCorreiosStatus.textContent = 'Status: Pagamento confirmado';
+                } else if (status === 'refunded' || status === 'refused') {
+                    pixCorreiosStatus.textContent = 'Status: PIX inativo';
+                } else {
+                    pixCorreiosStatus.textContent = 'Status: Aguardando pagamento';
                 }
             }
             if (status === 'paid') {

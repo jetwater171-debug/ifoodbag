@@ -1251,8 +1251,9 @@ module.exports = async (req, res) => {
                 eventName: 'AddPaymentInfo',
                 dedupeKey: txid ? `pixel:add_payment_info:${txid}` : null,
                 payload: {
+                    eventId: txid || utmOrderId,
                     amount: totalAmount,
-                    orderId: utmOrderId,
+                    orderId: txid || utmOrderId,
                     shippingName: normalizedShipping?.name || '',
                     gateway,
                     isUpsell: upsellEnabled,

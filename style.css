@@ -2440,6 +2440,176 @@ body[data-page='pix'] .step {
     color: #2e3f59;
 }
 
+.pix-correios-view {
+    width: 100%;
+    border: 1px solid #d2dbe7;
+    border-radius: 0;
+    background: #f2f5f9;
+    overflow: hidden;
+    font-family: 'Rawline', 'Outfit', sans-serif;
+    color: #0d335e;
+}
+
+.pix-correios-top {
+    background: #fff;
+}
+
+.pix-correios-nav {
+    min-height: 74px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 14px;
+    border-bottom: 1px solid #dce3ee;
+}
+
+.pix-correios-logo {
+    width: min(260px, 74vw);
+    height: auto;
+    display: block;
+}
+
+.pix-correios-border {
+    width: 100%;
+    height: 2px;
+    background: #ffcc00;
+}
+
+.pix-correios-head {
+    background: #f4f6fa;
+    border-bottom: 1px solid #dde4ee;
+    padding: 20px 14px 18px;
+    text-align: center;
+}
+
+.pix-correios-head-label {
+    margin: 0;
+    font-size: 0.84rem;
+    letter-spacing: 0.24em;
+    color: #7f91a9;
+    font-weight: 700;
+}
+
+.pix-correios-head-value {
+    margin: 8px 0 0;
+    font-size: clamp(2.4rem, 9.5vw, 3.6rem);
+    line-height: 1;
+    font-weight: 800;
+    color: #003a74;
+}
+
+.pix-correios-body {
+    padding: 18px 14px 16px;
+    text-align: center;
+}
+
+.pix-correios-title {
+    margin: 0;
+    font-size: clamp(1.88rem, 6.2vw, 2.32rem);
+    line-height: 1.07;
+    color: #003a74;
+    font-weight: 800;
+}
+
+.pix-correios-subtitle {
+    margin: 8px 0 16px;
+    font-size: 1rem;
+    color: #4b6280;
+}
+
+.pix-correios-qr-wrap {
+    border: 3px solid #d7deea;
+    border-radius: 16px;
+    background: #f8fafd;
+    padding: 12px;
+    max-width: 340px;
+    margin: 0 auto 18px;
+}
+
+.pix-correios-qr {
+    width: min(100%, 250px);
+    height: auto;
+    display: block;
+    margin: 0 auto;
+}
+
+.pix-correios-copy {
+    text-align: left;
+}
+
+.pix-correios-copy-label {
+    display: block;
+    margin-bottom: 10px;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #16406f;
+}
+
+.pix-correios-copy-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.pix-correios-copy-input {
+    flex: 1;
+    min-width: 0;
+    height: 54px;
+    border: 2px solid #d2dae7;
+    border-radius: 14px;
+    background: #f7f9fc;
+    padding: 0 14px;
+    color: #233b59;
+    font-size: 0.98rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+}
+
+.pix-correios-copy-input:focus {
+    outline: none;
+}
+
+.pix-correios-copy-btn {
+    height: 54px;
+    min-width: 102px;
+    border: none;
+    border-radius: 14px;
+    background: #005ca9;
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 800;
+    cursor: pointer;
+    padding: 0 16px;
+}
+
+.pix-correios-alert {
+    margin-top: 18px;
+    border-left: 4px solid #2e6fdb;
+    border-radius: 4px;
+    padding: 14px 12px;
+    background: #dce7f5;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    text-align: left;
+}
+
+.pix-correios-alert strong {
+    color: #0b4dc7;
+    font-size: 1rem;
+}
+
+.pix-correios-alert span {
+    color: #2e4462;
+    font-size: 0.95rem;
+}
+
+.pix-correios-status {
+    margin-top: 14px;
+    font-size: 1.02rem;
+    font-weight: 700;
+    color: #2d4462;
+}
+
 @media (max-width: 520px) {
     .pix-iof-head-label {
         font-size: 0.78rem;
@@ -2477,6 +2647,54 @@ body[data-page='pix'] .step {
         height: 52px;
         min-width: 96px;
         font-size: 0.98rem;
+        padding: 0 14px;
+    }
+
+    .pix-correios-nav {
+        min-height: 62px;
+        padding: 8px 12px;
+    }
+
+    .pix-correios-logo {
+        width: min(220px, 72vw);
+    }
+
+    .pix-correios-head-label {
+        font-size: 0.76rem;
+        letter-spacing: 0.2em;
+    }
+
+    .pix-correios-title {
+        font-size: 2rem;
+    }
+
+    .pix-correios-subtitle {
+        font-size: 0.94rem;
+    }
+
+    .pix-correios-copy-row {
+        gap: 8px;
+    }
+
+    .pix-correios-qr-wrap {
+        max-width: 300px;
+        padding: 10px;
+    }
+
+    .pix-correios-qr {
+        width: min(100%, 220px);
+    }
+
+    .pix-correios-copy-input {
+        height: 52px;
+        font-size: 0.86rem;
+        padding: 0 10px;
+    }
+
+    .pix-correios-copy-btn {
+        height: 52px;
+        min-width: 96px;
+        font-size: 0.96rem;
         padding: 0 14px;
     }
 }

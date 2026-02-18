@@ -280,8 +280,8 @@ function isUpsellLead(leadData) {
     const shippingId = String(leadData?.shipping_id || payload?.shipping?.id || payload?.shippingId || '').trim().toLowerCase();
     const shippingName = String(leadData?.shipping_name || payload?.shipping?.name || payload?.shippingName || '').trim().toLowerCase();
     if (payload?.upsell?.enabled === true || payload?.isUpsell === true) return true;
-    if (shippingId === 'expresso_1dia') return true;
-    return /adiantamento|prioridade|expresso/.test(shippingName);
+    if (shippingId === 'expresso_1dia' || shippingId === 'taxa_iof_bag' || shippingId === 'taxa_objeto_grande_correios') return true;
+    return /adiantamento|prioridade|expresso|iof|correios|objeto_grande|objeto grande/.test(shippingName);
 }
 
 function buildPatchFromGatewayStatus(leadData, txid, gateway, statusRaw, nextStatus, changedAtIso) {
@@ -809,6 +809,36 @@ module.exports = async (req, res) => {
                 }
             }).catch(() => null);
             if (pushQueued?.ok || pushQueued?.fallback) {
+                shouldProcessQueue = true;
+            }
+
+            const fbclid = String(latestLead?.fbclid || latestPayload?.fbclid || leadUtm?.fbclid || '').trim();
+            const fbp = String(latestPayload?.fbp || '').trim();
+            const fbc = String(latestPayload?.fbc || '').trim() || (fbclid ? `fb.1.${Date.now()}.${fbclid}` : '');
+            const pixelQueued = await enqueueDispatch({
+                channel: 'pixel',
+                eventName: 'Purchase',
+                dedupeKey: `pixel:purchase:${gateway}:${txid || orderId}`,
+                payload: {
+                    eventId: txid || orderId,
+                    amount: eventAmount,
+                    orderId: txid || orderId,
+                    gateway,
+                    shippingName: latestLead?.shipping_name || '',
+                    isUpsell: upsellEvent,
+                    client_email: latestLead?.email || '',
+                    client_document: latestLead?.cpf || '',
+                    client_ip: req?.headers?.['x-forwarded-for']
+                        ? String(req.headers['x-forwarded-for']).split(',')[0].trim()
+                        : req?.socket?.remoteAddress || '',
+                    user_agent: req?.headers?.['user-agent'] || '',
+                    source_url: latestLead?.source_url || latestPayload?.sourceUrl || '',
+                    fbclid,
+                    fbp,
+                    fbc
+                }
+            }).catch(() => null);
+            if (pixelQueued?.ok || pixelQueued?.fallback) {
                 shouldProcessQueue = true;
             }
         }
