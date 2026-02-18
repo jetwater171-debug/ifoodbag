@@ -2437,7 +2437,7 @@ function initUpsellCorreios() {
     const shippingStored = loadShipping();
     const shipping = isShippingSelectionComplete(shippingStored) ? shippingStored : null;
     const pix = loadPix();
-    const offerPrice = 12.96;
+    const offerPrice = 15.96;
 
     trackLead('upsell_correios_view', { stage: 'upsell_correios', shipping, pix, offerPrice });
 
@@ -2451,7 +2451,7 @@ function initUpsellCorreios() {
     const priceLabels = Array.from(
         document.querySelectorAll('[data-upsell-correios-price], #upsell-correios-price')
     );
-    const acceptIdleLabel = btnAccept?.textContent || 'Pagar taxa de objeto grande R$ 12,96';
+    const acceptIdleLabel = btnAccept?.textContent || 'Pagar taxa de objeto grande R$ 15,96';
     let submitInFlight = false;
 
     if (leadName && personal?.name) {
@@ -5333,7 +5333,7 @@ function maybeTrackPixel(eventName, payload = {}) {
         firePixelEvent('AddToCart', {
             content_name: 'upsell_taxa_objeto_grande_correios',
             currency: 'BRL',
-            value: totalValue > 0 ? totalValue : 12.96
+            value: totalValue > 0 ? totalValue : 15.96
         });
     }
 

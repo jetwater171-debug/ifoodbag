@@ -1178,8 +1178,10 @@ body[data-page='upsell-correios'] {
 
 body[data-page='upsell-correios'] .container {
     max-width: 760px;
-    padding-top: 18px;
-    padding-bottom: 28px;
+    min-height: calc(100dvh - 96px);
+    justify-content: center;
+    padding-top: 26px;
+    padding-bottom: 32px;
 }
 
 body[data-page='upsell-correios'] .step {
@@ -4165,8 +4167,10 @@ body.modal-open {
     }
 
     body[data-page='upsell-correios'] .container {
-        padding-top: 14px;
-        padding-bottom: 18px;
+        min-height: calc(100dvh - 84px);
+        justify-content: center;
+        padding-top: 20px;
+        padding-bottom: 20px;
     }
 
     .upsell-correios-step {
