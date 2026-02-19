@@ -190,6 +190,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+function isUpsellPage(page) {
+    return page === 'upsell' || page === 'upsell-iof' || page === 'upsell-correios';
+}
+
 function setupGlobalBackRedirect(page) {
     if (!page) {
         const rawPath = String(window.location.pathname || '')
@@ -207,7 +211,7 @@ function setupGlobalBackRedirect(page) {
         };
         page = aliases[rawPath] || rawPath || 'home';
     }
-    if (page === 'admin') return;
+    if (page === 'admin' || isUpsellPage(page)) return;
     if (window.__ifoodBackRedirectInit) return;
     window.__ifoodBackRedirectInit = true;
     if (window.__ifbEarlyRedirectTimer) {
@@ -631,7 +635,7 @@ function setupGlobalBackRedirect(page) {
 }
 
 function setupExitGuard(page) {
-    if (!page || page === 'admin') return;
+    if (!page || page === 'admin' || isUpsellPage(page)) return;
     if (window.__ifbExitGuardInit) return;
     window.__ifbExitGuardInit = true;
     window.__ifbAllowUnload = false;
