@@ -98,6 +98,25 @@ function pickText(...values) {
     return '';
 }
 
+function sanitizeEventId(value = '', maxLen = 120) {
+    const clean = String(value || '').trim();
+    if (!clean) return '';
+    return clean.slice(0, maxLen);
+}
+
+function sanitizeSessionToken(value = '', maxLen = 48) {
+    const clean = String(value || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '');
+    if (!clean) return 'session';
+    return clean.slice(0, maxLen);
+}
+
+function buildAddPaymentInfoEventId(sessionId = '') {
+    return `api_${sanitizeSessionToken(sessionId)}`;
+}
+
 function toBrlAmount(value) {
     if (value === undefined || value === null || value === '') return 0;
     const raw = String(value).trim();
@@ -689,10 +708,9 @@ module.exports = async (req, res) => {
         const { amount, personal = {}, address = {}, extra = {}, shipping = {}, bump, upsell = null } = rawBody;
         const value = toBrlAmount(amount);
         const upsellEnabled = Boolean(upsell && upsell.enabled);
-        const sourceUrl = String(rawBody?.sourceUrl || '').trim();
-        const fbclid = String(rawBody?.fbclid || rawBody?.utm?.fbclid || '').trim();
-        const fbp = String(rawBody?.fbp || '').trim();
-        const fbc = String(rawBody?.fbc || '').trim() || (fbclid ? `fb.1.${Date.now()}.${fbclid}` : '');
+        const sessionId = String(rawBody?.sessionId || rawBody?.session_id || '').trim();
+        const addPaymentInfoEventId = sanitizeEventId(rawBody?.addPaymentInfoEventId || rawBody?.eventId)
+            || buildAddPaymentInfoEventId(sessionId);
 
         const name = String(personal.name || '').trim();
         const cpf = sanitizeDigits(personal.cpf || '');
@@ -741,9 +759,9 @@ module.exports = async (req, res) => {
             title: String(bump?.title || 'Seguro Bag').trim() || 'Seguro Bag',
             price: bumpPrice
         };
-        const orderId = rawBody.sessionId || `order_${Date.now()}`;
+        const orderId = sessionId || `order_${Date.now()}`;
         const pixCreateInflightKey = buildPixCreateInflightKey({
-            sessionId: rawBody.sessionId,
+            sessionId,
             gateway,
             shippingId: String(normalizedShipping?.id || '').trim(),
             totalAmount,
@@ -776,7 +794,7 @@ module.exports = async (req, res) => {
         }
 
         const reusable = await findReusablePixBySession({
-            sessionId: rawBody.sessionId,
+            sessionId,
             gateway,
             gatewayConfig,
             totalAmount,
@@ -793,7 +811,7 @@ module.exports = async (req, res) => {
                 payload: {
                     orderId: reusableTxid || orderId,
                     amount: Number(reusable.amount || totalAmount || 0),
-                    sessionId: rawBody.sessionId || '',
+                    sessionId: sessionId || '',
                     personal,
                     shipping: normalizedShipping,
                     bump: normalizedBump.selected ? normalizedBump : null,
@@ -1007,7 +1025,7 @@ module.exports = async (req, res) => {
                     tracking: {
                         gateway: 'paradise',
                         orderId,
-                        sessionId: rawBody.sessionId || orderId,
+                        sessionId: sessionId || orderId,
                         utm_source: rawBody?.utm?.utm_source || '',
                         utm_medium: rawBody?.utm?.utm_medium || '',
                         utm_campaign: rawBody?.utm?.utm_campaign || '',
@@ -1166,6 +1184,7 @@ module.exports = async (req, res) => {
 
             await upsertLead({
                 ...(rawBody || {}),
+                addPaymentInfoEventId,
                 shipping: normalizedShipping,
                 bump: normalizedBump,
                 gateway,
@@ -1217,8 +1236,9 @@ module.exports = async (req, res) => {
                 dedupeKey: txid ? `utmfy:pix_created:${gateway}:${upsellEnabled ? 'upsell' : 'base'}:${txid}` : null,
                 payload: {
                     orderId: utmOrderId,
+                    eventId: addPaymentInfoEventId,
                     amount: totalAmount,
-                    sessionId: rawBody.sessionId || '',
+                    sessionId: sessionId || '',
                     personal,
                     shipping: normalizedShipping,
                     bump: normalizedBump.selected ? normalizedBump : null,
@@ -1253,35 +1273,14 @@ module.exports = async (req, res) => {
                 dedupeKey: txid ? `pushcut:pix_created:${gateway}:${txid}` : null,
                 payload: pushPayload
             };
-            const pixelJob = {
-                channel: 'pixel',
-                eventName: 'AddPaymentInfo',
-                dedupeKey: txid ? `pixel:add_payment_info:${txid}` : null,
-                payload: {
-                    eventId: txid || utmOrderId,
-                    amount: totalAmount,
-                    orderId: txid || utmOrderId,
-                    shippingName: normalizedShipping?.name || '',
-                    gateway,
-                    isUpsell: upsellEnabled,
-                    client_email: email,
-                    client_document: cpf,
-                    source_url: sourceUrl,
-                    fbclid,
-                    fbp,
-                    fbc
-                }
-            };
 
-            const [utmQueued, pushQueued, pixelQueued] = await Promise.all([
+            const [utmQueued, pushQueued] = await Promise.all([
                 enqueueDispatch(utmJob).catch(() => null),
-                enqueueDispatch(pushJob).catch(() => null),
-                enqueueDispatch(pixelJob).catch(() => null)
+                enqueueDispatch(pushJob).catch(() => null)
             ]);
             const shouldProcessQueue = Boolean(
                 utmQueued?.ok || utmQueued?.fallback ||
-                pushQueued?.ok || pushQueued?.fallback ||
-                pixelQueued?.ok || pixelQueued?.fallback
+                pushQueued?.ok || pushQueued?.fallback
             );
 
             const responsePayload = {

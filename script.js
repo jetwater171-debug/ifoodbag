@@ -106,7 +106,8 @@ const STORAGE_KEYS = {
     directCheckout: 'ifoodbag.directCheckout',
     vslCompleted: 'ifoodbag.vslCompleted',
     orderbumpBackAutoPix: 'ifoodbag.orderbumpBackAutoPix',
-    pixCreateLock: 'ifoodbag.pixCreateLock'
+    pixCreateLock: 'ifoodbag.pixCreateLock',
+    pixelEventDedupe: 'ifoodbag.pixelEventDedupe'
 };
 
 const state = {
@@ -3393,9 +3394,6 @@ function initAdmin() {
     const pixelEventLead = document.getElementById('pixel-event-lead');
     const pixelEventCheckout = document.getElementById('pixel-event-checkout');
     const pixelEventPurchase = document.getElementById('pixel-event-purchase');
-    const pixelCapiEnabled = document.getElementById('pixel-capi-enabled');
-    const pixelCapiToken = document.getElementById('pixel-capi-token');
-    const pixelCapiTestCode = document.getElementById('pixel-capi-test-code');
 
     const utmfyEnabled = document.getElementById('utmfy-enabled');
     const utmfyEndpoint = document.getElementById('utmfy-endpoint');
@@ -3528,8 +3526,7 @@ function initAdmin() {
     let currentSettings = null;
 
     const hasPixelForm = !!(
-        pixelEnabled || pixelId || pixelEventPage || pixelEventQuiz || pixelEventLead || pixelEventCheckout || pixelEventPurchase ||
-        pixelCapiEnabled || pixelCapiToken || pixelCapiTestCode
+        pixelEnabled || pixelId || pixelEventPage || pixelEventQuiz || pixelEventLead || pixelEventCheckout || pixelEventPurchase
     );
     const hasUtmfyForm = !!(
         utmfyEnabled ||
@@ -3676,9 +3673,6 @@ function initAdmin() {
             if (pixelEventLead) pixelEventLead.checked = data.pixel?.events?.lead !== false;
             if (pixelEventCheckout) pixelEventCheckout.checked = data.pixel?.events?.checkout !== false;
             if (pixelEventPurchase) pixelEventPurchase.checked = data.pixel?.events?.purchase !== false;
-            if (pixelCapiEnabled) pixelCapiEnabled.checked = !!data.pixel?.capi?.enabled;
-            if (pixelCapiToken) pixelCapiToken.value = data.pixel?.capi?.accessToken || '';
-            if (pixelCapiTestCode) pixelCapiTestCode.value = data.pixel?.capi?.testEventCode || '';
         }
 
         if (hasUtmfyForm) {
@@ -3754,22 +3748,14 @@ function initAdmin() {
 
         if (hasPixelForm) {
             payload.pixel = {
-                ...(currentSettings?.pixel || {}),
                 enabled: !!pixelEnabled?.checked,
                 id: pixelId?.value?.trim() || '',
                 events: {
-                    ...(currentSettings?.pixel?.events || {}),
                     page_view: pixelEventPage?.checked !== false,
                     quiz_view: pixelEventQuiz?.checked !== false,
                     lead: pixelEventLead?.checked !== false,
                     purchase: pixelEventPurchase?.checked !== false,
                     checkout: pixelEventCheckout?.checked !== false
-                },
-                capi: {
-                    ...(currentSettings?.pixel?.capi || {}),
-                    enabled: !!pixelCapiEnabled?.checked,
-                    accessToken: pixelCapiToken?.value?.trim() || '',
-                    testEventCode: pixelCapiTestCode?.value?.trim() || ''
                 }
             };
         }
@@ -5016,6 +5002,10 @@ async function createPixCharge(shipping, bumpPrice, options = {}) {
 
         const trackEventRequested = isUpsell ? 'upsell_pix_create_requested' : 'pix_create_requested';
         const trackEventCreated = isUpsell ? 'upsell_pix_created_front' : 'pix_created_front';
+        const sourceStage = String(options?.sourceStage || getStage() || document.body?.dataset?.page || '')
+            .trim()
+            .toLowerCase();
+        const addPaymentInfoEventId = buildAddPaymentInfoEventId(sessionId);
         const payload = {
             sessionId,
             amount,
@@ -5028,7 +5018,8 @@ async function createPixCharge(shipping, bumpPrice, options = {}) {
             personal: getPixPersonalPayload(),
             address: getPixAddressPayload(),
             extra: loadAddressExtra(),
-            sourceStage: String(options?.sourceStage || ''),
+            sourceStage,
+            addPaymentInfoEventId,
             upsell: isUpsell ? {
                 enabled: true,
                 kind: String(options?.upsell?.kind || 'frete_1dia'),
@@ -5260,6 +5251,8 @@ function loadFacebookPixel(pixelId) {
 
     if (window.__ifoodPixelInits[id]) return;
     try {
+        // Disable Meta automatic events (e.g. SubscribedButtonClick auto-detected).
+        window.fbq('set', 'autoConfig', false, id);
         window.fbq('init', id);
         window.__ifoodPixelInits[id] = true;
     } catch (_error) {}
@@ -5284,6 +5277,79 @@ function getPixelBrowserContext(utm = {}) {
     return { fbclid, fbp, fbc };
 }
 
+function sanitizeEventIdToken(value, maxLen = 48) {
+    const clean = String(value || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '');
+    if (!clean) return 'session';
+    return clean.slice(0, maxLen);
+}
+
+function buildLeadEventId(sessionId = '') {
+    const token = sanitizeEventIdToken(sessionId || getLeadSessionId());
+    return `lead_${token}`;
+}
+
+function buildAddPaymentInfoEventId(sessionId = '') {
+    const token = sanitizeEventIdToken(sessionId || getLeadSessionId());
+    return `api_${token}`;
+}
+
+function buildPurchaseEventId(payload = {}) {
+    const txid = String(payload?.pix?.idTransaction || payload?.pix?.idtransaction || payload?.pix?.txid || '').trim();
+    if (txid) return txid;
+    const sessionId = String(payload?.sessionId || getLeadSessionId()).trim();
+    if (sessionId) return sessionId;
+    const token = sanitizeEventIdToken(getLeadSessionId());
+    return `purchase_${token}`;
+}
+
+function shouldDedupePixelByEventId(eventName = '') {
+    return eventName === 'Lead' || eventName === 'AddPaymentInfo' || eventName === 'Purchase';
+}
+
+function loadPixelEventDedupe() {
+    try {
+        const raw = sessionStorage.getItem(STORAGE_KEYS.pixelEventDedupe);
+        if (!raw) return {};
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+        return parsed;
+    } catch (_error) {
+        return {};
+    }
+}
+
+function savePixelEventDedupe(map = {}) {
+    try {
+        const entries = Object.entries(map || {});
+        const capped = entries
+            .sort((a, b) => Number(b[1] || 0) - Number(a[1] || 0))
+            .slice(0, 200);
+        const compact = {};
+        capped.forEach(([key, value]) => {
+            compact[key] = Number(value || 0) || Date.now();
+        });
+        sessionStorage.setItem(STORAGE_KEYS.pixelEventDedupe, JSON.stringify(compact));
+    } catch (_error) {}
+}
+
+function hasSentPixelEvent(eventName = '', eventId = '') {
+    const key = `${String(eventName || '').trim()}:${String(eventId || '').trim()}`;
+    if (!key || key === ':') return false;
+    const map = loadPixelEventDedupe();
+    return Boolean(map[key]);
+}
+
+function markPixelEventSent(eventName = '', eventId = '') {
+    const key = `${String(eventName || '').trim()}:${String(eventId || '').trim()}`;
+    if (!key || key === ':') return;
+    const map = loadPixelEventDedupe();
+    map[key] = Date.now();
+    savePixelEventDedupe(map);
+}
+
 async function initMarketing() {
     const pixel = await ensurePixelConfig();
     if (!pixel?.enabled || !pixel.id) {
@@ -5291,21 +5357,6 @@ async function initMarketing() {
     }
 
     loadFacebookPixel(pixel.id);
-
-    const page = String(document.body?.dataset?.page || '').trim();
-    if (page === 'pix') {
-        if (pixel.events?.checkout !== false) {
-            const pixData = loadPix();
-            const pixAmount = Number(pixData?.amount || 0);
-            const txid = String(pixData?.idTransaction || pixData?.txid || '').trim();
-            firePixelEvent('AddPaymentInfo', {
-                currency: 'BRL',
-                ...(Number.isFinite(pixAmount) && pixAmount > 0 ? { value: Number(pixAmount.toFixed(2)) } : {}),
-                content_name: 'pix_copia_e_cola'
-            }, txid ? { eventID: txid } : {});
-        }
-        return;
-    }
 
     if (pixel.events?.page_view !== false) {
         firePixelEvent('PageView');
@@ -5316,6 +5367,12 @@ function firePixelEvent(eventName, data = {}, options = {}) {
     if (!window.fbq) return;
     const pixelId = String(state.pixelConfig?.id || '').trim();
     const hasOptions = options && Object.keys(options).length > 0;
+    const eventId = String(options?.eventID || options?.eventId || '').trim();
+    const shouldDedupe = shouldDedupePixelByEventId(eventName) && !!eventId;
+    if (shouldDedupe && hasSentPixelEvent(eventName, eventId)) {
+        return;
+    }
+    let sent = false;
     try {
         if (pixelId) {
             if (hasOptions) {
@@ -5323,6 +5380,8 @@ function firePixelEvent(eventName, data = {}, options = {}) {
             } else {
                 window.fbq('trackSingle', pixelId, eventName, data);
             }
+            sent = true;
+            if (shouldDedupe) markPixelEventSent(eventName, eventId);
             return;
         }
 
@@ -5331,6 +5390,7 @@ function firePixelEvent(eventName, data = {}, options = {}) {
         } else {
             window.fbq('track', eventName, data);
         }
+        sent = true;
     } catch (_error) {
         try {
             if (hasOptions) {
@@ -5338,7 +5398,11 @@ function firePixelEvent(eventName, data = {}, options = {}) {
             } else {
                 window.fbq('track', eventName, data);
             }
+            sent = true;
         } catch (_error2) {}
+    }
+    if (sent && shouldDedupe) {
+        markPixelEventSent(eventName, eventId);
     }
 }
 
@@ -5352,85 +5416,38 @@ function maybeTrackPixel(eventName, payload = {}) {
         ? Number((shippingValue + bumpValue).toFixed(2))
         : 0;
     const totalValue = Number.isFinite(explicitValue) && explicitValue > 0 ? explicitValue : computedValue;
-    const txid = String(payload?.pix?.idTransaction || payload?.pix?.idtransaction || '').trim();
-
-    if (eventName === 'quiz_view' && pixel.events?.quiz_view !== false) {
-        firePixelEvent('ViewContent', {
-            content_name: 'quiz_ifood'
-        });
+    if (eventName === 'personal_submitted' && pixel.events?.lead !== false) {
+        const leadEventId = String(payload?.eventId || buildLeadEventId(payload?.sessionId)).trim();
+        payload.eventId = leadEventId;
+        firePixelEvent('Lead', {}, { eventID: leadEventId });
     }
 
-    if (eventName === 'personal_submitted' && pixel.events?.lead !== false) {
-        firePixelEvent('Lead');
+    if (eventName === 'processing_view' && pixel.events?.quiz_view !== false) {
+        firePixelEvent('ViewContent', {
+            content_name: 'processando'
+        });
     }
 
     if (eventName === 'checkout_view' && pixel.events?.checkout !== false) {
-        firePixelEvent('InitiateCheckout', {
-            currency: 'BRL',
-            ...(totalValue > 0 ? { value: totalValue } : {})
-        });
-    }
-
-    if (eventName === 'upsell_view' && pixel.events?.checkout !== false) {
-        firePixelEvent('ViewContent', {
-            content_name: 'upsell_frete_1dia',
-            content_category: 'upsell'
-        });
-    }
-
-    if (eventName === 'upsell_accept' && pixel.events?.checkout !== false) {
-        firePixelEvent('AddToCart', {
-            content_name: 'upsell_frete_1dia',
-            currency: 'BRL',
-            value: totalValue > 0 ? totalValue : 18.98
-        });
-    }
-
-    if (eventName === 'upsell_iof_view' && pixel.events?.checkout !== false) {
-        firePixelEvent('ViewContent', {
-            content_name: 'upsell_taxa_iof_bag',
-            content_category: 'upsell'
-        });
-    }
-
-    if (eventName === 'upsell_iof_accept' && pixel.events?.checkout !== false) {
-        firePixelEvent('AddToCart', {
-            content_name: 'upsell_taxa_iof_bag',
-            currency: 'BRL',
-            value: totalValue > 0 ? totalValue : 11.73
-        });
-    }
-
-    if (eventName === 'upsell_correios_view' && pixel.events?.checkout !== false) {
-        firePixelEvent('ViewContent', {
-            content_name: 'upsell_taxa_objeto_grande_correios',
-            content_category: 'upsell'
-        });
-    }
-
-    if (eventName === 'upsell_correios_accept' && pixel.events?.checkout !== false) {
-        firePixelEvent('AddToCart', {
-            content_name: 'upsell_taxa_objeto_grande_correios',
-            currency: 'BRL',
-            value: totalValue > 0 ? totalValue : 15.96
-        });
-    }
-
-    if ((eventName === 'pix_created_front' || eventName === 'upsell_pix_created_front') && pixel.events?.checkout !== false) {
+        const addPaymentInfoEventId = String(
+            payload?.addPaymentInfoEventId || payload?.eventId || buildAddPaymentInfoEventId(payload?.sessionId)
+        ).trim();
+        payload.addPaymentInfoEventId = addPaymentInfoEventId;
         firePixelEvent('AddPaymentInfo', {
             currency: 'BRL',
-            ...(totalValue > 0 ? { value: totalValue } : {}),
-            content_name: String(payload?.shipping?.name || '')
-        }, txid ? { eventID: txid } : {});
+            ...(totalValue > 0 ? { value: totalValue } : {})
+        }, { eventID: addPaymentInfoEventId });
     }
 
     if (eventName === 'pix_paid' && pixel.events?.purchase !== false) {
+        const purchaseEventId = String(payload?.purchaseEventId || buildPurchaseEventId(payload)).trim();
+        payload.purchaseEventId = purchaseEventId;
         firePixelEvent('Purchase', {
             currency: 'BRL',
             ...(totalValue > 0 ? { value: totalValue } : {}),
             content_name: String(payload?.shipping?.name || ''),
             content_category: payload?.isUpsell ? 'upsell' : 'checkout'
-        }, txid ? { eventID: txid } : {});
+        }, { eventID: purchaseEventId });
     }
 }
 
@@ -5457,7 +5474,10 @@ function trackLead(eventName, extra = {}) {
         pix: extra.pix || loadPix() || {},
         quiz: extra.quiz || {},
         amount: Number.isFinite(Number(extra.amount)) ? Number(extra.amount) : undefined,
-        isUpsell: extra.isUpsell === true
+        isUpsell: extra.isUpsell === true,
+        eventId: extra.eventId || undefined,
+        addPaymentInfoEventId: extra.addPaymentInfoEventId || undefined,
+        purchaseEventId: extra.purchaseEventId || undefined
     };
 
     maybeTrackPixel(eventName, payload);

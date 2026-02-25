@@ -43,7 +43,7 @@
       <header class="admin-topbar">
         <div>
           <h1>Tracking</h1>
-          <p>Configure o Pixel do Facebook, selecione eventos e salve com seguranca.</p>
+          <p>Configure o Pixel do Facebook no navegador (somente Pixel ID), selecione eventos e salve.</p>
         </div>
         <div class="admin-topbar-actions">
           <button id="admin-save" class="btn-primary" type="button">Salvar configuracoes</button>
@@ -68,7 +68,7 @@
             <h2>Pixel do Facebook</h2>
             <span class="admin-chip">Tracking</span>
           </div>
-          <p class="admin-hint">Controle quais eventos sao enviados e valide rapidamente o Pixel ID.</p>
+          <p class="admin-hint">Tracking 100% browser-side. Informe apenas o Pixel ID e escolha os eventos.</p>
           <div class="admin-grid">
             <label class="admin-switch">
               <input type="checkbox" id="pixel-enabled" />
@@ -80,32 +80,10 @@
             </div>
             <div class="admin-checkboxes">
               <label><input type="checkbox" id="pixel-event-page" /> PageView</label>
-              <label><input type="checkbox" id="pixel-event-quiz" /> ViewContent (Quiz)</label>
+              <label><input type="checkbox" id="pixel-event-quiz" /> ViewContent (/processando)</label>
               <label><input type="checkbox" id="pixel-event-lead" /> Lead</label>
-              <label><input type="checkbox" id="pixel-event-checkout" /> InitiateCheckout</label>
-              <label><input type="checkbox" id="pixel-event-purchase" /> Purchase (Aprovado via webhook)</label>
-            </div>
-          </div>
-        </section>
-
-        <section class="admin-section admin-section--card">
-          <div class="admin-section-header">
-            <h2>Pixel CAPI (server-side)</h2>
-            <span class="admin-chip">Webhook</span>
-          </div>
-          <p class="admin-hint">Dispara Purchase no servidor quando o gateway confirmar pagamento.</p>
-          <div class="admin-grid">
-            <label class="admin-switch">
-              <input type="checkbox" id="pixel-capi-enabled" />
-              <span>Ativar CAPI</span>
-            </label>
-            <div class="input-group">
-              <input type="password" id="pixel-capi-token" class="floating-input" placeholder=" " />
-              <label for="pixel-capi-token" class="floating-label">Access Token (Meta)</label>
-            </div>
-            <div class="input-group">
-              <input type="text" id="pixel-capi-test-code" class="floating-input" placeholder=" " />
-              <label for="pixel-capi-test-code" class="floating-label">Test Event Code (opcional)</label>
+              <label><input type="checkbox" id="pixel-event-checkout" /> AddPaymentInfo (/checkout)</label>
+              <label><input type="checkbox" id="pixel-event-purchase" /> Purchase (PIX pago)</label>
             </div>
           </div>
         </section>
@@ -127,8 +105,9 @@
 
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
-  <script src="/script.js?v=7.3" defer></script>
+  <script src="/script.js?v=8.1" defer></script>
 </body>
 </html>
+
 
 

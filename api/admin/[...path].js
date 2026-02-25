@@ -166,8 +166,15 @@ function maskSecret(value) {
 function sanitizeSettingsForAdmin(settingsData = {}) {
     const source = settingsData && typeof settingsData === 'object' ? settingsData : {};
     const payload = JSON.parse(JSON.stringify(source));
-    payload.pixel = payload.pixel || {};
-    payload.pixel.capi = payload.pixel.capi || {};
+    const safePixel = payload.pixel && typeof payload.pixel === 'object' ? payload.pixel : {};
+    payload.pixel = {
+        enabled: !!safePixel.enabled,
+        id: String(safePixel.id || '').trim(),
+        events: {
+            ...defaultSettings.pixel.events,
+            ...asObject(safePixel.events)
+        }
+    };
     payload.utmfy = payload.utmfy || {};
     payload.payments = payload.payments || {};
     payload.payments.gateways = payload.payments.gateways || {};
@@ -176,7 +183,6 @@ function sanitizeSettingsForAdmin(settingsData = {}) {
     payload.payments.gateways.sunize = payload.payments.gateways.sunize || {};
     payload.payments.gateways.paradise = payload.payments.gateways.paradise || {};
 
-    payload.pixel.capi.accessToken = maskSecret(payload.pixel.capi.accessToken);
     payload.utmfy.apiKey = maskSecret(payload.utmfy.apiKey);
 
     payload.payments.gateways.ativushub.apiKey = maskSecret(
@@ -884,9 +890,6 @@ async function settings(req, res) {
         };
 
         const bodyPixel = body.pixel && typeof body.pixel === 'object' ? body.pixel : {};
-        const bodyPixelCapi = bodyPixel.capi && typeof bodyPixel.capi === 'object' ? bodyPixel.capi : {};
-        const currentPixel = currentSaved?.pixel || {};
-        const currentPixelCapi = currentPixel.capi || {};
         const currentUtmfy = currentSaved?.utmfy || {};
         const currentPushcut = currentSaved?.pushcut || {};
         const bodyUtmfy = body.utmfy && typeof body.utmfy === 'object' ? body.utmfy : {};
@@ -896,13 +899,8 @@ async function settings(req, res) {
             ...defaultSettings,
             ...body,
             pixel: {
-                ...defaultSettings.pixel,
-                ...bodyPixel,
-                capi: {
-                    ...defaultSettings.pixel.capi,
-                    ...bodyPixelCapi,
-                    accessToken: pickSecretInput(bodyPixelCapi.accessToken, currentPixelCapi.accessToken || '')
-                },
+                enabled: !!bodyPixel.enabled,
+                id: String(bodyPixel.id || '').trim(),
                 events: {
                     ...defaultSettings.pixel.events,
                     ...(bodyPixel?.events || {})
@@ -1489,37 +1487,6 @@ async function pixReconcile(req, res) {
                     cep: leadData?.cep || '',
                     shippingName: leadData?.shipping_name || '',
                     isUpsell
-                }
-            }).catch(() => null);
-            await processDispatchQueue(8).catch(() => null);
-
-            const forwarded = req?.headers?.['x-forwarded-for'];
-            const clientIp = typeof forwarded === 'string' && forwarded
-                ? forwarded.split(',')[0].trim()
-                : req?.socket?.remoteAddress || '';
-            const userAgent = req?.headers?.['user-agent'] || '';
-            const leadPayload = asObject(leadData?.payload);
-            const fbclid = String(leadData?.fbclid || leadPayload?.fbclid || leadUtm?.fbclid || '').trim();
-            const fbp = String(leadPayload?.fbp || '').trim();
-            const fbc = String(leadPayload?.fbc || '').trim() || (fbclid ? `fb.1.${Date.now()}.${fbclid}` : '');
-            await enqueueDispatch({
-                channel: 'pixel',
-                eventName: 'Purchase',
-                dedupeKey: `pixel:purchase:${gateway}:${txid}`,
-                payload: {
-                    amount,
-                    orderId: txid || leadData?.session_id || sessionIdFallback || '',
-                    gateway,
-                    shippingName: leadData?.shipping_name || '',
-                    isUpsell,
-                    client_email: leadData?.email || '',
-                    client_document: leadData?.cpf || '',
-                    client_ip: clientIp,
-                    user_agent: userAgent,
-                    source_url: leadData?.source_url || leadPayload?.sourceUrl || '',
-                    fbclid,
-                    fbp,
-                    fbc
                 }
             }).catch(() => null);
             await processDispatchQueue(8).catch(() => null);

@@ -21,34 +21,6 @@ module.exports = async (req, res) => {
     }
 
     try {
-        const forwarded = req.headers['x-forwarded-for'];
-        const clientIp = typeof forwarded === 'string' && forwarded
-            ? forwarded.split(',')[0].trim()
-            : req.socket?.remoteAddress || '';
-
-        const fullPayload = {
-            event: body.event || 'lead_event',
-            stage: body.stage || '',
-            page: body.page || '',
-            sessionId: body.sessionId || body.session_id || '',
-            sourceUrl: body.sourceUrl || '',
-            utm: body.utm || {},
-            personal: body.personal || {},
-            address: body.address || {},
-            extra: body.extra || {},
-            shipping: body.shipping || {},
-            bump: body.bump || {},
-            pix: body.pix || {},
-            amount: body.amount,
-            metadata: {
-                received_at: new Date().toISOString(),
-                user_agent: req.headers['user-agent'] || '',
-                referrer: req.headers['referer'] || '',
-                client_ip: clientIp
-            },
-            raw: body
-        };
-
         const result = await upsertLead(body, req);
 
         if (!result.ok && (result.reason === 'missing_supabase_config' || result.reason === 'skipped_no_data')) {

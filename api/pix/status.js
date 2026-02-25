@@ -824,36 +824,6 @@ module.exports = async (req, res) => {
             if (pushQueued?.ok || pushQueued?.fallback) {
                 shouldProcessQueue = true;
             }
-
-            const fbclid = String(latestLead?.fbclid || latestPayload?.fbclid || leadUtm?.fbclid || '').trim();
-            const fbp = String(latestPayload?.fbp || '').trim();
-            const fbc = String(latestPayload?.fbc || '').trim() || (fbclid ? `fb.1.${Date.now()}.${fbclid}` : '');
-            const pixelQueued = await enqueueDispatch({
-                channel: 'pixel',
-                eventName: 'Purchase',
-                dedupeKey: `pixel:purchase:${gateway}:${txid || orderId}`,
-                payload: {
-                    eventId: txid || orderId,
-                    amount: eventAmount,
-                    orderId: txid || orderId,
-                    gateway,
-                    shippingName: latestLead?.shipping_name || '',
-                    isUpsell: upsellEvent,
-                    client_email: latestLead?.email || '',
-                    client_document: latestLead?.cpf || '',
-                    client_ip: req?.headers?.['x-forwarded-for']
-                        ? String(req.headers['x-forwarded-for']).split(',')[0].trim()
-                        : req?.socket?.remoteAddress || '',
-                    user_agent: req?.headers?.['user-agent'] || '',
-                    source_url: latestLead?.source_url || latestPayload?.sourceUrl || '',
-                    fbclid,
-                    fbp,
-                    fbc
-                }
-            }).catch(() => null);
-            if (pixelQueued?.ok || pixelQueued?.fallback) {
-                shouldProcessQueue = true;
-            }
         }
 
         if (shouldProcessQueue) {

@@ -10,6 +10,7 @@
     const ensureInit = () => {
         if (typeof window.fbq !== 'function') return;
         try {
+            window.fbq('set', 'autoConfig', false, pixelId);
             window.fbq('init', pixelId);
             window.__ifbLegacyPixelInits[pixelId] = true;
         } catch (_error) {}
