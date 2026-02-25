@@ -5357,9 +5357,17 @@ async function initMarketing() {
     }
 
     loadFacebookPixel(pixel.id);
+    const page = String(document.body?.dataset?.page || '').trim();
 
     if (pixel.events?.page_view !== false) {
         firePixelEvent('PageView');
+    }
+
+    // Ensure /processando always sends ViewContent after pixel config is ready.
+    if (page === 'processing' && pixel.events?.quiz_view !== false) {
+        firePixelEvent('ViewContent', {
+            content_name: 'processando'
+        });
     }
 }
 
