@@ -3002,6 +3002,7 @@ body[data-page='admin'][data-admin='leads'] {
     flex-direction: column;
     gap: 20px;
     position: relative;
+    min-width: 0;
 }
 
 .admin-main::before {
@@ -3088,6 +3089,7 @@ body[data-page='admin'][data-admin='leads'] .admin-topbar {
     padding: 20px;
     box-shadow: var(--shadow-soft);
     border: 1px solid #eceff3;
+    min-width: 0;
 }
 
 .admin-section--overview {
@@ -3417,19 +3419,28 @@ body[data-page='admin'][data-admin='leads'] .admin-topbar {
 
 .admin-range-toolbar {
     margin-bottom: 14px;
-    display: grid;
-    grid-template-columns: minmax(160px, 190px) minmax(140px, 170px) minmax(140px, 170px) auto auto 1fr;
+    display: flex;
+    flex-wrap: wrap;
     gap: 10px;
-    align-items: center;
+    align-items: flex-end;
 }
 
 .admin-range-toolbar .input-group {
     margin-bottom: 0;
+    flex: 1 1 170px;
+    min-width: 150px;
 }
 
 .admin-range-toolbar .btn-secondary {
     min-height: 42px;
     padding: 10px 14px;
+    flex: 0 0 auto;
+}
+
+.admin-range-toolbar .admin-muted {
+    flex: 1 1 280px;
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .admin-kpi {
@@ -3521,10 +3532,9 @@ body[data-page='admin'][data-admin='leads'] .admin-topbar {
 
 .admin-native-funnel-track {
     display: grid;
-    grid-auto-flow: column;
-    grid-auto-columns: minmax(180px, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
     gap: 12px;
-    overflow-x: auto;
+    overflow: visible;
     padding-bottom: 6px;
 }
 
@@ -3543,18 +3553,6 @@ body[data-page='admin'][data-admin='leads'] .admin-topbar {
 }
 
 .admin-native-stage::after {
-    content: '';
-    position: absolute;
-    right: -10px;
-    top: 50%;
-    width: 10px;
-    height: 2px;
-    border-radius: 2px;
-    background: rgba(189, 205, 255, 0.6);
-    transform: translateY(-50%);
-}
-
-.admin-native-stage:last-child::after {
     display: none;
 }
 
@@ -4150,25 +4148,14 @@ body.modal-open {
         padding: 14px;
     }
     .admin-native-funnel-track {
-        grid-auto-columns: minmax(165px, 1fr);
+        grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
         gap: 10px;
     }
     .admin-native-stage {
         min-height: 126px;
     }
-    .admin-native-stage::after {
-        right: -8px;
-        width: 8px;
-    }
     .admin-range-toolbar {
-        grid-template-columns: 1fr 1fr;
-    }
-    .admin-range-toolbar .btn-secondary,
-    .admin-range-toolbar .admin-muted {
-        grid-column: span 1;
-    }
-    .admin-range-toolbar .admin-muted {
-        grid-column: 1 / -1;
+        align-items: stretch;
     }
     .gateway-top-row {
         grid-template-columns: 1fr;
