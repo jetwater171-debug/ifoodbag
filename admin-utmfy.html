@@ -129,14 +129,6 @@
                 <input type="url" id="pushcut-pix-created" class="floating-input" placeholder=" " />
                 <label for="pushcut-pix-created" class="floating-label">URL PIX gerado</label>
               </div>
-              <div class="input-group">
-                <input type="text" id="pushcut-created-title" class="floating-input" placeholder=" " />
-                <label for="pushcut-created-title" class="floating-label">Titulo PIX gerado</label>
-              </div>
-              <div class="input-group">
-                <textarea id="pushcut-created-message" class="floating-input floating-input--textarea" placeholder=" "></textarea>
-                <label for="pushcut-created-message" class="floating-label">Mensagem PIX gerado</label>
-              </div>
             </article>
 
             <article class="pushcut-card">
@@ -146,15 +138,32 @@
                 <input type="url" id="pushcut-pix-confirmed" class="floating-input" placeholder=" " />
                 <label for="pushcut-pix-confirmed" class="floating-label">URL pagamento confirmado</label>
               </div>
+            </article>
+          </div>
+          <div class="pushcut-templates">
+            <div class="admin-section-header">
+              <h3>Mensagens Pushcut</h3>
+              <span class="admin-chip">Templates</span>
+            </div>
+            <p class="admin-hint">Defina titulo e texto para cada evento.</p>
+            <div class="pushcut-templates__grid">
+              <div class="input-group">
+                <input type="text" id="pushcut-created-title" class="floating-input" placeholder=" " />
+                <label for="pushcut-created-title" class="floating-label">Titulo PIX gerado</label>
+              </div>
               <div class="input-group">
                 <input type="text" id="pushcut-confirmed-title" class="floating-input" placeholder=" " />
                 <label for="pushcut-confirmed-title" class="floating-label">Titulo PIX pago</label>
               </div>
               <div class="input-group">
+                <textarea id="pushcut-created-message" class="floating-input floating-input--textarea" placeholder=" "></textarea>
+                <label for="pushcut-created-message" class="floating-label">Mensagem PIX gerado</label>
+              </div>
+              <div class="input-group">
                 <textarea id="pushcut-confirmed-message" class="floating-input floating-input--textarea" placeholder=" "></textarea>
                 <label for="pushcut-confirmed-message" class="floating-label">Mensagem PIX pago</label>
               </div>
-            </article>
+            </div>
           </div>
           <div class="pushcut-placeholders">
             <span class="pushcut-placeholders__item"><code>{amount}</code></span>

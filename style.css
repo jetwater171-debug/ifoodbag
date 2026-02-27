@@ -3676,6 +3676,32 @@ body[data-page='admin'][data-admin='leads'] .admin-topbar {
     margin-bottom: 0;
 }
 
+.pushcut-templates {
+    border: 1px solid #e7ebf2;
+    border-radius: 16px;
+    background: #fff;
+    padding: 14px;
+    margin-bottom: 10px;
+}
+
+.pushcut-templates .admin-section-header {
+    margin-bottom: 6px;
+}
+
+.pushcut-templates .admin-hint {
+    margin: 0 0 10px;
+}
+
+.pushcut-templates__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 12px;
+}
+
+.pushcut-templates__grid .input-group {
+    margin-bottom: 0;
+}
+
 .pushcut-placeholders {
     display: flex;
     flex-wrap: wrap;
@@ -3702,6 +3728,10 @@ body[data-page='admin'][data-admin='leads'] .admin-topbar {
     }
 
     .pushcut-settings__grid {
+        grid-template-columns: 1fr;
+    }
+
+    .pushcut-templates__grid {
         grid-template-columns: 1fr;
     }
 }
