@@ -3675,6 +3675,16 @@ body[data-page='admin'][data-admin='leads'] .admin-topbar {
     border-bottom: 1px solid #e6e8ee;
 }
 
+.admin-table th.lead-col--channel,
+.admin-table td.lead-cell--channel {
+    width: 72px;
+    min-width: 72px;
+    max-width: 72px;
+    text-align: center;
+    padding-left: 6px;
+    padding-right: 6px;
+}
+
 .admin-table tbody tr:nth-child(odd) {
     background: #fcfcfe;
 }
@@ -3712,6 +3722,10 @@ body[data-page='admin'][data-admin='leads'] .admin-topbar {
     white-space: normal;
 }
 
+.lead-cell--channel {
+    white-space: nowrap;
+}
+
 .lead-chip {
     display: inline-flex;
     align-items: center;
@@ -3727,6 +3741,14 @@ body[data-page='admin'][data-admin='leads'] .admin-topbar {
     background: #e8f0ff;
     color: #1d4fbf;
     border-color: #cfe0ff;
+}
+
+.lead-chip--channel {
+    background: #e8f0ff;
+    color: #1d4fbf;
+    border-color: #cfe0ff;
+    padding: 3px 9px;
+    font-size: 0.73rem;
 }
 
 .lead-chip--term {

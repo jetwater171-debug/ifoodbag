@@ -679,6 +679,18 @@ function mapLeadReadable(row) {
         payloadUtm?.term,
         payload?.term
     );
+    const utmAdset = resolveTrackingText(
+        row?.utm_content,
+        payloadUtm?.utm_content,
+        payload?.utm_content,
+        payloadUtm?.content,
+        payload?.content,
+        row?.utm_term,
+        payloadUtm?.utm_term,
+        payload?.utm_term,
+        payloadUtm?.term,
+        payload?.term
+    );
 
     return {
         session_id: row?.session_id || '',
@@ -707,6 +719,9 @@ function mapLeadReadable(row) {
         utm_campaign_name: sanitizeCampaignName(utmCampaign),
         utm_term: utmTerm,
         utm_term_label: prettifyTrafficLabel(utmTerm),
+        utm_adset: utmAdset,
+        utm_adset_label: prettifyTrafficLabel(utmAdset),
+        utm_adset_name: sanitizeCampaignName(utmAdset),
         fbclid: row?.fbclid || '-',
         gclid: row?.gclid || '-',
         status_funil: statusFunil,
@@ -813,7 +828,7 @@ async function getLeads(req, res) {
     const offset = Math.max(Number(req.query.offset) || 0, 0);
     const query = String(req.query.q || '').trim();
 
-    url.searchParams.set('select', 'session_id,name,cpf,email,phone,stage,last_event,cep,address_line,number,neighborhood,city,state,shipping_name,shipping_price,bump_selected,bump_price,pix_txid,pix_amount,utm_source,utm_campaign,utm_term,fbclid,gclid,payload,updated_at,created_at');
+    url.searchParams.set('select', 'session_id,name,cpf,email,phone,stage,last_event,cep,address_line,number,neighborhood,city,state,shipping_name,shipping_price,bump_selected,bump_price,pix_txid,pix_amount,utm_source,utm_campaign,utm_term,utm_content,fbclid,gclid,payload,updated_at,created_at');
     url.searchParams.set('order', 'updated_at.desc');
     url.searchParams.set('limit', String(limit));
     url.searchParams.set('offset', String(offset));
@@ -824,7 +839,7 @@ async function getLeads(req, res) {
         const ilike = `%${query.replace(/%/g, '')}%`;
         url.searchParams.set(
             'or',
-            `name.ilike.${ilike},email.ilike.${ilike},phone.ilike.${ilike},cpf.ilike.${ilike},utm_source.ilike.${ilike},utm_campaign.ilike.${ilike},utm_term.ilike.${ilike}`
+            `name.ilike.${ilike},email.ilike.${ilike},phone.ilike.${ilike},cpf.ilike.${ilike},utm_source.ilike.${ilike},utm_campaign.ilike.${ilike},utm_term.ilike.${ilike},utm_content.ilike.${ilike}`
         );
     }
 
@@ -923,7 +938,7 @@ async function getLeads(req, res) {
             const ilike = `%${query.replace(/%/g, '')}%`;
             u.searchParams.set(
                 'or',
-                `name.ilike.${ilike},email.ilike.${ilike},phone.ilike.${ilike},cpf.ilike.${ilike},utm_source.ilike.${ilike},utm_campaign.ilike.${ilike},utm_term.ilike.${ilike}`
+                `name.ilike.${ilike},email.ilike.${ilike},phone.ilike.${ilike},cpf.ilike.${ilike},utm_source.ilike.${ilike},utm_campaign.ilike.${ilike},utm_term.ilike.${ilike},utm_content.ilike.${ilike}`
             );
         }
 

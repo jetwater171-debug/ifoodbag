@@ -4027,16 +4027,19 @@ function initAdmin() {
             const campaignRaw = String(row.utm_campaign || '-').trim() || '-';
             const source = String(row.utm_source_label || row.utm_source || '-').trim() || '-';
             const term = String(row.utm_term_label || row.utm_term || '-').trim() || '-';
+            const adset = String(row.utm_adset_name || row.utm_adset_label || row.utm_adset || term || '-').trim() || '-';
+            const adsetRaw = String(row.utm_adset || row.utm_content || row.utm_term || '-').trim() || '-';
             tr.innerHTML = `
                 <td class="lead-cell lead-cell--name"><strong>${esc(row.nome || '-')}</strong></td>
                 <td class="lead-cell lead-cell--email">${esc(row.email || '-')}</td>
                 <td class="lead-cell">${esc(row.telefone || '-')}</td>
-                <td class="lead-cell lead-cell--source">
-                    <span class="lead-chip lead-chip--source">${esc(source)}</span>
+                <td class="lead-cell lead-cell--channel">
+                    <span class="lead-chip lead-chip--channel">${esc(source)}</span>
                 </td>
                 <td class="lead-cell lead-cell--source">
                     <span class="lead-chip lead-chip--term">${esc(term)}</span>
                 </td>
+                <td class="lead-cell lead-cell--campaign" title="${esc(adsetRaw)}">${esc(adset)}</td>
                 <td class="lead-cell lead-cell--campaign" title="${esc(campaignRaw)}">${esc(campaign)}</td>
                 <td class="lead-cell">${esc(row.etapa || '-')}</td>
                 <td class="lead-cell"><span class="status-pill ${statusClass}">${esc(statusLabel)}</span></td>
