@@ -3471,6 +3471,9 @@ function initAdmin() {
     const funnelPixValue = document.getElementById('funnel-pix-value');
     const funnelFreteValue = document.getElementById('funnel-frete-value');
     const funnelCepValue = document.getElementById('funnel-cep-value');
+    const nativeFunnelBase = document.getElementById('native-funnel-base');
+    const nativeFunnelEmpty = document.getElementById('native-funnel-empty');
+    const nativeFunnelTrack = document.getElementById('native-funnel-track');
     const navItems = document.querySelectorAll('.admin-nav-item');
     const pagesGrid = document.getElementById('pages-grid');
     const pagesInsights = document.getElementById('pages-insights');
@@ -3491,6 +3494,14 @@ function initAdmin() {
     const processDispatchBtn = document.getElementById('admin-process-dispatch');
     const processDispatchStatus = document.getElementById('admin-process-dispatch-status');
     const featureOrderbump = document.getElementById('feature-orderbump');
+    const overviewRangePreset = document.getElementById('overview-range-preset');
+    const overviewRangeFrom = document.getElementById('overview-range-from');
+    const overviewRangeTo = document.getElementById('overview-range-to');
+    const overviewRangeApply = document.getElementById('overview-range-apply');
+    const overviewRangeReset = document.getElementById('overview-range-reset');
+    const overviewRangeStatus = document.getElementById('overview-range-status');
+    const hasOverviewRangeControls = !!(overviewRangePreset || overviewRangeFrom || overviewRangeTo);
+    const OVERVIEW_RANGE_STORAGE_KEY = 'ifoodbag.admin.overview.range.v1';
 
     let offset = 0;
     const limit = 50;
@@ -3502,6 +3513,7 @@ function initAdmin() {
         cep: 0,
         paid: 0,
         lastUpdated: '',
+        funnel: null,
         gatewayStats: {
             ativushub: { leads: 0, pix: 0, paid: 0, refunded: 0, refused: 0, pending: 0 },
             ghostspay: { leads: 0, pix: 0, paid: 0, refunded: 0, refused: 0, pending: 0 },
@@ -3523,6 +3535,7 @@ function initAdmin() {
         'upsell-correios': { label: 'upsell-correios.html', desc: 'Upsell 2: taxa de objeto grande dos Correios' },
         upsell: { label: 'upsell.html', desc: 'Upsell 3: adiantamento do frete' }
     };
+    let overviewRange = { preset: 'all', from: '', to: '' };
     let currentSettings = null;
 
     const hasPixelForm = !!(
@@ -4021,6 +4034,208 @@ function initAdmin() {
         if (leadsCount) leadsCount.textContent = String(offset + rows.length);
     };
 
+    const formatPercentOneDecimal = (value) => {
+        const num = Number(value || 0);
+        if (!Number.isFinite(num)) return '0%';
+        const rounded = Math.round(num * 10) / 10;
+        return Number.isInteger(rounded) ? `${rounded.toFixed(0)}%` : `${rounded.toFixed(1)}%`;
+    };
+
+    const renderNativeFunnel = (funnelSummary = null) => {
+        if (!nativeFunnelTrack) return;
+
+        const funnel = funnelSummary && typeof funnelSummary === 'object' ? funnelSummary : null;
+        const stages = Array.isArray(funnel?.stages) ? funnel.stages : [];
+        const base = Number(funnel?.base || 0);
+        if (nativeFunnelBase) nativeFunnelBase.textContent = `Base: ${base}`;
+
+        nativeFunnelTrack.innerHTML = '';
+        if (nativeFunnelEmpty) nativeFunnelEmpty.classList.toggle('hidden', stages.length > 0);
+        if (!stages.length) return;
+
+        stages.forEach((stage, index) => {
+            const rawCount = Number(stage?.countRaw || 0);
+            const pctBase = Number(stage?.pctFromBase || 0);
+            const pctPrev = Number(stage?.pctFromPrev || 0);
+            const dropPct = Number(stage?.dropPct || 0);
+            const directEntries = Number(stage?.directEntries || 0);
+            const progress = Math.max(0, Math.min(100, pctBase));
+            const prevLabel = index === 0
+                ? 'Referencia da base'
+                : `${formatPercentOneDecimal(pctPrev)} vs etapa anterior`;
+            const dropLabel = index === 0 ? '' : `Queda: ${formatPercentOneDecimal(dropPct)}`;
+
+            const card = document.createElement('article');
+            card.className = 'admin-native-stage';
+            card.setAttribute('role', 'listitem');
+            card.innerHTML = `
+                <span class="admin-native-stage__title">${stage?.shortLabel || stage?.label || stage?.key || '-'}</span>
+                <strong class="admin-native-stage__count">${rawCount}</strong>
+                <div class="admin-native-stage__bar"><i style="width: ${progress}%"></i></div>
+                <span class="admin-native-stage__meta">${formatPercentOneDecimal(pctBase)} da base</span>
+                <span class="admin-native-stage__delta">${prevLabel}${dropLabel ? ` | ${dropLabel}` : ''}</span>
+                ${directEntries > 0 ? `<span class="admin-native-stage__direct">+${directEntries} entrada direta</span>` : ''}
+                <span class="admin-native-stage__description">${stage?.description || ''}</span>
+            `;
+            nativeFunnelTrack.appendChild(card);
+        });
+    };
+
+    const pad2 = (value) => String(value).padStart(2, '0');
+    const SIMPLE_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+    const toUtcDateInput = (dateObj) => {
+        if (!(dateObj instanceof Date) || Number.isNaN(dateObj.getTime())) return '';
+        return `${dateObj.getUTCFullYear()}-${pad2(dateObj.getUTCMonth() + 1)}-${pad2(dateObj.getUTCDate())}`;
+    };
+    const parseDateInputUtc = (value) => {
+        const raw = String(value || '').trim();
+        if (!SIMPLE_DATE_RE.test(raw)) return null;
+        const date = new Date(`${raw}T00:00:00.000Z`);
+        if (Number.isNaN(date.getTime())) return null;
+        return date;
+    };
+    const shiftDateInput = (dateInput, days) => {
+        const base = parseDateInputUtc(dateInput);
+        if (!base) return '';
+        base.setUTCDate(base.getUTCDate() + Number(days || 0));
+        return toUtcDateInput(base);
+    };
+    const formatDateInputLabel = (dateInput) => {
+        const date = parseDateInputUtc(dateInput);
+        if (!date) return '-';
+        return date.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+    };
+
+    const buildPresetRange = (preset) => {
+        const today = toUtcDateInput(new Date());
+        if (preset === 'today') {
+            return { preset: 'today', from: today, to: today };
+        }
+        if (preset === 'yesterday') {
+            const day = shiftDateInput(today, -1);
+            return { preset: 'yesterday', from: day, to: day };
+        }
+        if (preset === 'last7') {
+            return { preset: 'last7', from: shiftDateInput(today, -6), to: today };
+        }
+        if (preset === 'last30') {
+            return { preset: 'last30', from: shiftDateInput(today, -29), to: today };
+        }
+        if (preset === 'thisMonth') {
+            const now = new Date();
+            const from = `${now.getUTCFullYear()}-${pad2(now.getUTCMonth() + 1)}-01`;
+            return { preset: 'thisMonth', from, to: today };
+        }
+        if (preset === 'custom') {
+            return { preset: 'custom', from: '', to: '' };
+        }
+        return { preset: 'all', from: '', to: '' };
+    };
+
+    const sanitizeOverviewRange = (rangeInput = {}) => {
+        const preset = String(rangeInput?.preset || 'all').trim();
+        const from = SIMPLE_DATE_RE.test(String(rangeInput?.from || '').trim()) ? String(rangeInput.from).trim() : '';
+        const to = SIMPLE_DATE_RE.test(String(rangeInput?.to || '').trim()) ? String(rangeInput.to).trim() : '';
+        if (preset === 'custom') {
+            return { preset, from, to };
+        }
+        return buildPresetRange(preset);
+    };
+
+    const saveOverviewRange = () => {
+        try {
+            localStorage.setItem(OVERVIEW_RANGE_STORAGE_KEY, JSON.stringify(overviewRange));
+        } catch (_error) {}
+    };
+
+    const loadOverviewRange = () => {
+        try {
+            const raw = localStorage.getItem(OVERVIEW_RANGE_STORAGE_KEY);
+            if (!raw) return sanitizeOverviewRange({ preset: 'all' });
+            const parsed = JSON.parse(raw);
+            return sanitizeOverviewRange(parsed);
+        } catch (_error) {
+            return sanitizeOverviewRange({ preset: 'all' });
+        }
+    };
+
+    const describeOverviewRange = (range) => {
+        if (!range || range.preset === 'all') return 'Periodo: todo historico';
+        const from = String(range.from || '').trim();
+        const to = String(range.to || '').trim();
+        if (from && to && from === to) {
+            return `Periodo: ${formatDateInputLabel(from)} (UTC)`;
+        }
+        if (from && to) {
+            return `Periodo: ${formatDateInputLabel(from)} ate ${formatDateInputLabel(to)} (UTC)`;
+        }
+        if (from) {
+            return `Periodo: desde ${formatDateInputLabel(from)} (UTC)`;
+        }
+        if (to) {
+            return `Periodo: ate ${formatDateInputLabel(to)} (UTC)`;
+        }
+        return 'Periodo: personalizado';
+    };
+
+    const syncOverviewRangeUi = () => {
+        if (!hasOverviewRangeControls) return;
+        if (overviewRangePreset) overviewRangePreset.value = overviewRange.preset || 'all';
+        if (overviewRangeFrom) overviewRangeFrom.value = overviewRange.from || '';
+        if (overviewRangeTo) overviewRangeTo.value = overviewRange.to || '';
+        const isCustom = String(overviewRange.preset || '') === 'custom';
+        if (overviewRangeFrom) overviewRangeFrom.disabled = !isCustom;
+        if (overviewRangeTo) overviewRangeTo.disabled = !isCustom;
+        if (overviewRangeStatus) overviewRangeStatus.textContent = describeOverviewRange(overviewRange);
+    };
+
+    const getActiveOverviewRange = () => {
+        if (!hasOverviewRangeControls) return { from: '', to: '' };
+        if (overviewRange.preset === 'custom') {
+            return {
+                from: String(overviewRange.from || '').trim(),
+                to: String(overviewRange.to || '').trim()
+            };
+        }
+        const built = buildPresetRange(overviewRange.preset || 'all');
+        return { from: built.from || '', to: built.to || '' };
+    };
+
+    const applyOverviewRangeAndReload = async () => {
+        if (!hasOverviewRangeControls) return;
+        const selectedPreset = String(overviewRangePreset?.value || overviewRange.preset || 'all');
+
+        if (selectedPreset === 'custom') {
+            const from = String(overviewRangeFrom?.value || '').trim();
+            const to = String(overviewRangeTo?.value || '').trim();
+            if (from && !SIMPLE_DATE_RE.test(from)) {
+                showToast('Data inicial invalida.', 'error');
+                return;
+            }
+            if (to && !SIMPLE_DATE_RE.test(to)) {
+                showToast('Data final invalida.', 'error');
+                return;
+            }
+            if (from && to && from > to) {
+                showToast('Periodo invalido: data inicial maior que final.', 'error');
+                return;
+            }
+            overviewRange = { preset: 'custom', from, to };
+        } else {
+            overviewRange = buildPresetRange(selectedPreset);
+        }
+
+        saveOverviewRange();
+        syncOverviewRangeUi();
+        await loadLeads({ reset: true });
+    };
+
+    const initializeOverviewRange = () => {
+        if (!hasOverviewRangeControls) return;
+        overviewRange = loadOverviewRange();
+        syncOverviewRangeUi();
+    };
+
     const updateMetrics = (rows, reset = false, summary = null) => {
         const emptyGatewayStats = () => ({
             ativushub: { leads: 0, pix: 0, paid: 0, refunded: 0, refused: 0, pending: 0 },
@@ -4036,6 +4251,7 @@ function initAdmin() {
             metrics.cep = Number(summary.cep || 0);
             metrics.paid = Number(summary.paid || 0);
             metrics.lastUpdated = String(summary.lastUpdated || '');
+            metrics.funnel = summary.funnel && typeof summary.funnel === 'object' ? summary.funnel : null;
             const source = summary.gatewayStats || {};
             const base = emptyGatewayStats();
             metrics.gatewayStats = {
@@ -4064,6 +4280,7 @@ function initAdmin() {
             metrics.cep = 0;
             metrics.paid = 0;
             metrics.lastUpdated = '';
+            metrics.funnel = null;
             metrics.gatewayStats = emptyGatewayStats();
         }
 
@@ -4159,6 +4376,8 @@ function initAdmin() {
                 metricBestGateway.textContent = `${options[0].label} (${options[0].conv}%)`;
             }
         }
+
+        renderNativeFunnel(metrics.funnel);
     };
 
     const loadLeads = async ({ reset = false } = {}) => {
@@ -4174,6 +4393,10 @@ function initAdmin() {
         url.searchParams.set('offset', String(offset));
         if (query) url.searchParams.set('q', query);
         if (metricTotal) url.searchParams.set('summary', '1');
+        if (metricTotal) url.searchParams.set('summaryMax', '80000');
+        const activeRange = getActiveOverviewRange();
+        if (activeRange.from) url.searchParams.set('from', activeRange.from);
+        if (activeRange.to) url.searchParams.set('to', activeRange.to);
 
         const res = await adminFetch(url.toString());
         if (res.ok) {
@@ -4181,7 +4404,17 @@ function initAdmin() {
             const rows = data.data || [];
             renderLeads(rows, !reset);
             updateMetrics(rows, reset, data.summary || null);
+            if (overviewRangeStatus && data?.summary?.range && hasOverviewRangeControls) {
+                overviewRangeStatus.textContent = describeOverviewRange({
+                    preset: overviewRange.preset,
+                    from: activeRange.from || '',
+                    to: activeRange.to || ''
+                });
+            }
             offset += rows.length;
+        } else if (overviewRangeStatus && hasOverviewRangeControls) {
+            const detail = await res.json().catch(() => ({}));
+            overviewRangeStatus.textContent = detail?.error || 'Falha ao carregar periodo selecionado.';
         }
         loadingLeads = false;
     };
@@ -4360,6 +4593,44 @@ function initAdmin() {
     leadsRefresh?.addEventListener('click', () => loadLeads({ reset: true }));
     leadsMore?.addEventListener('click', () => loadLeads({ reset: false }));
     leadsSearch?.addEventListener('change', () => loadLeads({ reset: true }));
+    overviewRangePreset?.addEventListener('change', async () => {
+        const selected = String(overviewRangePreset.value || 'all');
+        if (selected === 'custom') {
+            overviewRange = {
+                preset: 'custom',
+                from: String(overviewRangeFrom?.value || '').trim(),
+                to: String(overviewRangeTo?.value || '').trim()
+            };
+            syncOverviewRangeUi();
+            saveOverviewRange();
+            return;
+        }
+        overviewRange = buildPresetRange(selected);
+        syncOverviewRangeUi();
+        saveOverviewRange();
+        await loadLeads({ reset: true });
+    });
+    overviewRangeApply?.addEventListener('click', () => {
+        applyOverviewRangeAndReload();
+    });
+    overviewRangeReset?.addEventListener('click', async () => {
+        overviewRange = { preset: 'all', from: '', to: '' };
+        syncOverviewRangeUi();
+        saveOverviewRange();
+        await loadLeads({ reset: true });
+    });
+    overviewRangeFrom?.addEventListener('change', () => {
+        if (overviewRange.preset !== 'custom') return;
+        overviewRange.from = String(overviewRangeFrom?.value || '').trim();
+        saveOverviewRange();
+        syncOverviewRangeUi();
+    });
+    overviewRangeTo?.addEventListener('change', () => {
+        if (overviewRange.preset !== 'custom') return;
+        overviewRange.to = String(overviewRangeTo?.value || '').trim();
+        saveOverviewRange();
+        syncOverviewRangeUi();
+    });
     leadsReconcile?.addEventListener('click', reconcilePix);
     testPixelBtn?.addEventListener('click', runPixelTest);
     testUtmfyBtn?.addEventListener('click', runUtmfyTest);
@@ -4407,6 +4678,7 @@ function initAdmin() {
         setCurrentGatewayCard(selected);
         setGatewayCardOpen(selected, true);
     }
+    initializeOverviewRange();
 
     checkAuth().then((ok) => {
         if (ok) {

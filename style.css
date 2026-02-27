@@ -3415,6 +3415,23 @@ body[data-page='admin'][data-admin='leads'] .admin-topbar {
     margin-bottom: 16px;
 }
 
+.admin-range-toolbar {
+    margin-bottom: 14px;
+    display: grid;
+    grid-template-columns: minmax(160px, 190px) minmax(140px, 170px) minmax(140px, 170px) auto auto 1fr;
+    gap: 10px;
+    align-items: center;
+}
+
+.admin-range-toolbar .input-group {
+    margin-bottom: 0;
+}
+
+.admin-range-toolbar .btn-secondary {
+    min-height: 42px;
+    padding: 10px 14px;
+}
+
 .admin-kpi {
     background: #f8f9fc;
     border-radius: 16px;
@@ -3469,6 +3486,129 @@ body[data-page='admin'][data-admin='leads'] .admin-topbar {
     width: 0%;
     background: linear-gradient(90deg, #ea1d2c 0%, #ff5460 100%);
     transition: width 0.4s ease;
+}
+
+.admin-native-funnel {
+    margin-top: 16px;
+    border-radius: 20px;
+    border: 1px solid #31456f;
+    background: linear-gradient(135deg, #1c2542 0%, #243058 52%, #2e1f49 100%);
+    padding: 16px;
+}
+
+.admin-native-funnel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 4px;
+}
+
+.admin-native-funnel-head h3 {
+    margin: 0;
+    font-size: 1.05rem;
+    color: #f2f5ff;
+}
+
+.admin-native-funnel .admin-hint {
+    margin: 0 0 12px;
+    color: #bcc8eb;
+}
+
+.admin-native-funnel .admin-muted {
+    color: #bcc8eb;
+}
+
+.admin-native-funnel-track {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(180px, 1fr);
+    gap: 12px;
+    overflow-x: auto;
+    padding-bottom: 6px;
+}
+
+.admin-native-stage {
+    position: relative;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(14, 20, 37, 0.5);
+    padding: 12px;
+    min-height: 132px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    color: #e7ecff;
+    box-shadow: 0 8px 20px rgba(5, 8, 20, 0.3);
+}
+
+.admin-native-stage::after {
+    content: '';
+    position: absolute;
+    right: -10px;
+    top: 50%;
+    width: 10px;
+    height: 2px;
+    border-radius: 2px;
+    background: rgba(189, 205, 255, 0.6);
+    transform: translateY(-50%);
+}
+
+.admin-native-stage:last-child::after {
+    display: none;
+}
+
+.admin-native-stage__title {
+    font-size: 0.79rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #b8c6f3;
+    font-weight: 700;
+}
+
+.admin-native-stage__count {
+    font-size: 1.45rem;
+    line-height: 1;
+    color: #fff;
+}
+
+.admin-native-stage__bar {
+    width: 100%;
+    height: 8px;
+    border-radius: 999px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.18);
+}
+
+.admin-native-stage__bar i {
+    display: block;
+    width: 0%;
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #3f8dff 0%, #8a5bff 56%, #ff3f86 100%);
+    transition: width 0.35s ease;
+}
+
+.admin-native-stage__meta {
+    font-size: 0.75rem;
+    color: #cfd8f6;
+}
+
+.admin-native-stage__delta {
+    font-size: 0.74rem;
+    color: #96a9e5;
+}
+
+.admin-native-stage__direct {
+    font-size: 0.73rem;
+    color: #ffce82;
+    font-weight: 700;
+}
+
+.admin-native-stage__description {
+    margin-top: auto;
+    font-size: 0.72rem;
+    color: #93a4d6;
 }
 
 .admin-hint {
@@ -4005,6 +4145,30 @@ body.modal-open {
     .admin-funnel-row {
         grid-template-columns: 1fr;
         gap: 6px;
+    }
+    .admin-native-funnel {
+        padding: 14px;
+    }
+    .admin-native-funnel-track {
+        grid-auto-columns: minmax(165px, 1fr);
+        gap: 10px;
+    }
+    .admin-native-stage {
+        min-height: 126px;
+    }
+    .admin-native-stage::after {
+        right: -8px;
+        width: 8px;
+    }
+    .admin-range-toolbar {
+        grid-template-columns: 1fr 1fr;
+    }
+    .admin-range-toolbar .btn-secondary,
+    .admin-range-toolbar .admin-muted {
+        grid-column: span 1;
+    }
+    .admin-range-toolbar .admin-muted {
+        grid-column: 1 / -1;
     }
     .gateway-top-row {
         grid-template-columns: 1fr;

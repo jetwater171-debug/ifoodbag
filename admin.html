@@ -87,6 +87,32 @@
             </div>
           </div>
 
+          <div class="admin-range-toolbar">
+            <div class="input-group">
+              <select id="overview-range-preset" class="floating-input">
+                <option value="all">Todo periodo</option>
+                <option value="today">Hoje</option>
+                <option value="yesterday">Ontem</option>
+                <option value="last7">Ultimos 7 dias</option>
+                <option value="last30">Ultimos 30 dias</option>
+                <option value="thisMonth">Este mes</option>
+                <option value="custom">Personalizado</option>
+              </select>
+              <label for="overview-range-preset" class="floating-label">Periodo</label>
+            </div>
+            <div class="input-group">
+              <input type="date" id="overview-range-from" class="floating-input" placeholder=" " />
+              <label for="overview-range-from" class="floating-label">De</label>
+            </div>
+            <div class="input-group">
+              <input type="date" id="overview-range-to" class="floating-input" placeholder=" " />
+              <label for="overview-range-to" class="floating-label">Ate</label>
+            </div>
+            <button id="overview-range-apply" class="btn-secondary" type="button">Aplicar</button>
+            <button id="overview-range-reset" class="btn-secondary" type="button">Limpar</button>
+            <span id="overview-range-status" class="admin-muted"></span>
+          </div>
+
           <div class="admin-kpi-grid">
             <div class="admin-kpi">
               <span>PIX pago</span>
@@ -136,6 +162,16 @@
               <div class="admin-funnel-bar"><i id="funnel-pix"></i></div>
               <strong id="funnel-pix-value">0%</strong>
             </div>
+          </div>
+
+          <div class="admin-native-funnel">
+            <div class="admin-native-funnel-head">
+              <h3>Funil de Conversao (Nativo)</h3>
+              <span id="native-funnel-base" class="admin-chip">Base: 0</span>
+            </div>
+            <p class="admin-hint">Sessoes unicas por etapa, consolidando pageviews + eventos de pagamento no proprio painel.</p>
+            <div id="native-funnel-empty" class="admin-muted">Aguardando dados do funil...</div>
+            <div id="native-funnel-track" class="admin-native-funnel-track" role="list"></div>
           </div>
         </section>
 
