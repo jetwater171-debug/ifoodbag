@@ -5363,6 +5363,15 @@ async function initMarketing() {
         firePixelEvent('PageView');
     }
 
+    if (page === 'pix' && pixel.events?.checkout !== false) {
+        const pixData = loadPix() || {};
+        const pixAmount = Number(pixData?.amount || 0);
+        firePixelEvent('InitiateCheckout', {
+            currency: 'BRL',
+            ...(Number.isFinite(pixAmount) && pixAmount > 0 ? { value: Number(pixAmount.toFixed(2)) } : {})
+        });
+    }
+
     // Ensure /processando always sends ViewContent after pixel config is ready.
     if (page === 'processing' && pixel.events?.quiz_view !== false) {
         firePixelEvent('ViewContent', {
