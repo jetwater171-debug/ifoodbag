@@ -3401,10 +3401,10 @@ function initAdmin() {
     const pushcutEnabled = document.getElementById('pushcut-enabled');
     const pushcutPixCreated = document.getElementById('pushcut-pix-created');
     const pushcutPixConfirmed = document.getElementById('pushcut-pix-confirmed');
-    const pushcutCreatedTitle = document.getElementById('pushcut-created-title');
-    const pushcutCreatedMessage = document.getElementById('pushcut-created-message');
-    const pushcutConfirmedTitle = document.getElementById('pushcut-confirmed-title');
-    const pushcutConfirmedMessage = document.getElementById('pushcut-confirmed-message');
+    let pushcutCreatedTitle = document.getElementById('pushcut-created-title');
+    let pushcutCreatedMessage = document.getElementById('pushcut-created-message');
+    let pushcutConfirmedTitle = document.getElementById('pushcut-confirmed-title');
+    let pushcutConfirmedMessage = document.getElementById('pushcut-confirmed-message');
     const paymentsActiveGateway = document.getElementById('payments-active-gateway');
     const gatewayAtivushubEnabled = document.getElementById('gateway-ativushub-enabled');
     const gatewayAtivushubBaseUrl = document.getElementById('gateway-ativushub-base-url');
@@ -3535,6 +3535,96 @@ function initAdmin() {
     };
     let overviewRange = { preset: 'all', from: '', to: '' };
     let currentSettings = null;
+
+    const ensurePushcutTemplateFields = () => {
+        const pushcutSection = document.querySelector('.pushcut-settings');
+        if (!pushcutSection) return;
+        const pushcutGrid = pushcutSection.querySelector('.pushcut-settings__grid');
+        if (!pushcutGrid) return;
+
+        const ensureTemplateShell = () => {
+            let shell = pushcutSection.querySelector('.pushcut-templates');
+            if (!shell) {
+                shell = document.createElement('div');
+                shell.className = 'pushcut-templates';
+                shell.innerHTML = `
+                    <div class="admin-section-header">
+                        <h3>Mensagens Pushcut</h3>
+                        <span class="admin-chip">Templates</span>
+                    </div>
+                    <p class="admin-hint">Defina titulo e texto para cada evento.</p>
+                    <div class="pushcut-templates__grid"></div>
+                `;
+                pushcutGrid.insertAdjacentElement('afterend', shell);
+            }
+            let grid = shell.querySelector('.pushcut-templates__grid');
+            if (!grid) {
+                grid = document.createElement('div');
+                grid.className = 'pushcut-templates__grid';
+                shell.appendChild(grid);
+            }
+            return grid;
+        };
+
+        const templateGrid = ensureTemplateShell();
+        templateGrid.style.display = 'grid';
+        templateGrid.style.gridTemplateColumns = 'repeat(auto-fit, minmax(260px, 1fr))';
+        templateGrid.style.gap = '12px';
+
+        const ensureField = ({ id, label, isTextarea = false }) => {
+            let input = document.getElementById(id);
+            let group = input?.closest('.input-group') || null;
+
+            if (!input) {
+                group = document.createElement('div');
+                group.className = 'input-group';
+                input = isTextarea ? document.createElement('textarea') : document.createElement('input');
+                input.id = id;
+                input.className = isTextarea
+                    ? 'floating-input floating-input--textarea'
+                    : 'floating-input';
+                input.placeholder = ' ';
+                if (!isTextarea) {
+                    input.type = 'text';
+                }
+                const lbl = document.createElement('label');
+                lbl.className = 'floating-label';
+                lbl.htmlFor = id;
+                lbl.textContent = label;
+                group.appendChild(input);
+                group.appendChild(lbl);
+            }
+
+            group.classList.remove('hidden');
+            group.style.display = '';
+            group.style.visibility = '';
+            group.style.opacity = '';
+            group.style.maxHeight = '';
+            templateGrid.appendChild(group);
+            return input;
+        };
+
+        pushcutCreatedTitle = ensureField({
+            id: 'pushcut-created-title',
+            label: 'Titulo PIX gerado'
+        });
+        pushcutConfirmedTitle = ensureField({
+            id: 'pushcut-confirmed-title',
+            label: 'Titulo PIX pago'
+        });
+        pushcutCreatedMessage = ensureField({
+            id: 'pushcut-created-message',
+            label: 'Mensagem PIX gerado',
+            isTextarea: true
+        });
+        pushcutConfirmedMessage = ensureField({
+            id: 'pushcut-confirmed-message',
+            label: 'Mensagem PIX pago',
+            isTextarea: true
+        });
+    };
+
+    ensurePushcutTemplateFields();
 
     const hasPixelForm = !!(
         pixelEnabled || pixelId || pixelEventPage || pixelEventQuiz || pixelEventLead || pixelEventCheckout || pixelEventPurchase

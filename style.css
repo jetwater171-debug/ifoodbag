@@ -3631,7 +3631,12 @@ body[data-page='admin'][data-admin='leads'] .admin-topbar {
 }
 
 .pushcut-settings {
-    overflow: hidden;
+    overflow: visible;
+    height: auto !important;
+}
+
+.pushcut-settings.admin-section--card {
+    height: auto;
 }
 
 .pushcut-settings__top {
