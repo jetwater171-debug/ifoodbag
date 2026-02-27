@@ -4000,6 +4000,12 @@ function initAdmin() {
     const renderLeads = (rows, append = false) => {
         if (!leadsBody) return;
         if (!append) leadsBody.innerHTML = '';
+        const esc = (value) => String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
 
         rows.forEach((row) => {
             const tr = document.createElement('tr');
@@ -4017,17 +4023,26 @@ function initAdmin() {
             const statusClass = isPaid
                 ? 'status-pill--paid'
                 : (isPixGenerated ? 'status-pill--pix-created' : 'status-pill--neutral');
+            const campaign = String(row.utm_campaign_name || row.utm_campaign || '-').trim() || '-';
+            const campaignRaw = String(row.utm_campaign || '-').trim() || '-';
+            const source = String(row.utm_source_label || row.utm_source || '-').trim() || '-';
+            const term = String(row.utm_term_label || row.utm_term || '-').trim() || '-';
             tr.innerHTML = `
-                <td>${row.nome || '-'}</td>
-                <td>${row.email || '-'}</td>
-                <td>${row.telefone || '-'}</td>
-                <td>${row.utm_source || '-'}</td>
-                <td>${row.utm_campaign || '-'}</td>
-                <td>${row.etapa || '-'}</td>
-                <td><span class="status-pill ${statusClass}">${statusLabel}</span></td>
-                <td>${row.frete || '-'}</td>
-                <td>${row.valor_total ? formatCurrency(row.valor_total) : '-'}</td>
-                <td>${formatDateTime(row.event_time || row.updated_at)}</td>
+                <td class="lead-cell lead-cell--name"><strong>${esc(row.nome || '-')}</strong></td>
+                <td class="lead-cell lead-cell--email">${esc(row.email || '-')}</td>
+                <td class="lead-cell">${esc(row.telefone || '-')}</td>
+                <td class="lead-cell lead-cell--source">
+                    <span class="lead-chip lead-chip--source">${esc(source)}</span>
+                </td>
+                <td class="lead-cell lead-cell--source">
+                    <span class="lead-chip lead-chip--term">${esc(term)}</span>
+                </td>
+                <td class="lead-cell lead-cell--campaign" title="${esc(campaignRaw)}">${esc(campaign)}</td>
+                <td class="lead-cell">${esc(row.etapa || '-')}</td>
+                <td class="lead-cell"><span class="status-pill ${statusClass}">${esc(statusLabel)}</span></td>
+                <td class="lead-cell">${esc(row.frete || '-')}</td>
+                <td class="lead-cell">${row.valor_total ? esc(formatCurrency(row.valor_total)) : '-'}</td>
+                <td class="lead-cell">${esc(formatDateTime(row.event_time || row.updated_at))}</td>
             `;
             leadsBody.appendChild(tr);
         });

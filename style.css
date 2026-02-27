@@ -3650,6 +3650,7 @@ body[data-page='admin'][data-admin='leads'] .admin-topbar {
     width: 100%;
     border-collapse: collapse;
     font-size: 0.9rem;
+    table-layout: fixed;
 }
 
 .admin-table th,
@@ -3658,6 +3659,8 @@ body[data-page='admin'][data-admin='leads'] .admin-topbar {
     border-bottom: 1px solid #f2f2f2;
     text-align: left;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .admin-table th {
@@ -3669,10 +3672,73 @@ body[data-page='admin'][data-admin='leads'] .admin-topbar {
     position: sticky;
     top: 0;
     z-index: 1;
+    border-bottom: 1px solid #e6e8ee;
+}
+
+.admin-table tbody tr:nth-child(odd) {
+    background: #fcfcfe;
+}
+
+.admin-table tbody tr:nth-child(even) {
+    background: #ffffff;
 }
 
 .admin-table tbody tr:hover {
-    background: #fff5f6;
+    background: #f5f8ff;
+}
+
+.lead-cell {
+    vertical-align: middle;
+}
+
+.lead-cell--name,
+.lead-cell--email,
+.lead-cell--campaign {
+    white-space: normal;
+    line-height: 1.35;
+}
+
+.lead-cell--name strong {
+    font-weight: 700;
+    color: #20242d;
+}
+
+.lead-cell--email {
+    color: #2b3240;
+    word-break: break-word;
+}
+
+.lead-cell--source {
+    white-space: normal;
+}
+
+.lead-chip {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    border: 1px solid transparent;
+}
+
+.lead-chip--source {
+    background: #e8f0ff;
+    color: #1d4fbf;
+    border-color: #cfe0ff;
+}
+
+.lead-chip--term {
+    background: #f0faf5;
+    color: #18764b;
+    border-color: #d4f0e2;
+}
+
+.lead-cell--campaign {
+    font-weight: 600;
+    color: #20242d;
+    word-break: break-word;
 }
 
 .status-pill {

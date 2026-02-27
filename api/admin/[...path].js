@@ -595,6 +595,42 @@ function resolveTrackingText(...values) {
     return '-';
 }
 
+function decodeTrackingValue(value = '') {
+    const raw = String(value || '').trim();
+    if (!raw || raw === '-') return '-';
+    try {
+        return decodeURIComponent(raw).replace(/\+/g, ' ').trim() || '-';
+    } catch (_error) {
+        return raw;
+    }
+}
+
+function sanitizeCampaignName(value = '') {
+    let text = decodeTrackingValue(value);
+    if (!text || text === '-') return '-';
+
+    text = text
+        .replace(/^\s*\d{6,}\s*[:|>\-_/]+\s*/i, '')
+        .replace(/^\s*(?:campaignid|campanhaid|id)\s*[:#-]?\s*\d{5,}\s*[-:|]\s*/i, '')
+        .replace(/\s*[\(\[\{]\s*(?:id[:\s-]*)?\d{5,}\s*[\)\]\}]\s*$/i, '')
+        .replace(/\s*(?:\||-|\/|:)\s*(?:id[:\s-]*)?\d{5,}\s*$/i, '')
+        .replace(/\s*__\s*(?:id[:\s-]*)?\d{5,}\s*$/i, '')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+
+    if (!text || /^\d{5,}$/.test(text)) return '-';
+    return text;
+}
+
+function prettifyTrafficLabel(value = '') {
+    const text = decodeTrackingValue(value);
+    if (!text || text === '-') return '-';
+    return text
+        .replace(/[_|]+/g, ' ')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+}
+
 function mapLeadReadable(row) {
     const payload = asObject(row?.payload);
     const payloadUtm = asObject(payload?.utm);
@@ -636,6 +672,13 @@ function mapLeadReadable(row) {
         payload?.campaign,
         payloadUtm?.sck
     );
+    const utmTerm = resolveTrackingText(
+        row?.utm_term,
+        payloadUtm?.utm_term,
+        payload?.utm_term,
+        payloadUtm?.term,
+        payload?.term
+    );
 
     return {
         session_id: row?.session_id || '',
@@ -659,7 +702,11 @@ function mapLeadReadable(row) {
         gateway,
         gateway_label: gatewayLabel(gateway),
         utm_source: utmSource,
+        utm_source_label: prettifyTrafficLabel(utmSource),
         utm_campaign: utmCampaign,
+        utm_campaign_name: sanitizeCampaignName(utmCampaign),
+        utm_term: utmTerm,
+        utm_term_label: prettifyTrafficLabel(utmTerm),
         fbclid: row?.fbclid || '-',
         gclid: row?.gclid || '-',
         status_funil: statusFunil,
@@ -766,7 +813,7 @@ async function getLeads(req, res) {
     const offset = Math.max(Number(req.query.offset) || 0, 0);
     const query = String(req.query.q || '').trim();
 
-    url.searchParams.set('select', 'session_id,name,cpf,email,phone,stage,last_event,cep,address_line,number,neighborhood,city,state,shipping_name,shipping_price,bump_selected,bump_price,pix_txid,pix_amount,utm_source,utm_campaign,fbclid,gclid,payload,updated_at,created_at');
+    url.searchParams.set('select', 'session_id,name,cpf,email,phone,stage,last_event,cep,address_line,number,neighborhood,city,state,shipping_name,shipping_price,bump_selected,bump_price,pix_txid,pix_amount,utm_source,utm_campaign,utm_term,fbclid,gclid,payload,updated_at,created_at');
     url.searchParams.set('order', 'updated_at.desc');
     url.searchParams.set('limit', String(limit));
     url.searchParams.set('offset', String(offset));
@@ -777,7 +824,7 @@ async function getLeads(req, res) {
         const ilike = `%${query.replace(/%/g, '')}%`;
         url.searchParams.set(
             'or',
-            `name.ilike.${ilike},email.ilike.${ilike},phone.ilike.${ilike},cpf.ilike.${ilike},utm_source.ilike.${ilike},utm_campaign.ilike.${ilike}`
+            `name.ilike.${ilike},email.ilike.${ilike},phone.ilike.${ilike},cpf.ilike.${ilike},utm_source.ilike.${ilike},utm_campaign.ilike.${ilike},utm_term.ilike.${ilike}`
         );
     }
 
@@ -876,7 +923,7 @@ async function getLeads(req, res) {
             const ilike = `%${query.replace(/%/g, '')}%`;
             u.searchParams.set(
                 'or',
-                `name.ilike.${ilike},email.ilike.${ilike},phone.ilike.${ilike},cpf.ilike.${ilike},utm_source.ilike.${ilike},utm_campaign.ilike.${ilike}`
+                `name.ilike.${ilike},email.ilike.${ilike},phone.ilike.${ilike},cpf.ilike.${ilike},utm_source.ilike.${ilike},utm_campaign.ilike.${ilike},utm_term.ilike.${ilike}`
             );
         }
 
