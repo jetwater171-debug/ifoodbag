@@ -685,11 +685,12 @@ function mapLeadReadable(row) {
         payload?.utm_content,
         payloadUtm?.content,
         payload?.content,
-        row?.utm_term,
-        payloadUtm?.utm_term,
-        payload?.utm_term,
-        payloadUtm?.term,
-        payload?.term
+        payloadUtm?.utm_adset,
+        payload?.utm_adset,
+        payloadUtm?.adset,
+        payload?.adset,
+        payloadUtm?.adset_name,
+        payload?.adset_name
     );
 
     return {
@@ -721,7 +722,7 @@ function mapLeadReadable(row) {
         utm_term_label: prettifyTrafficLabel(utmTerm),
         utm_adset: utmAdset,
         utm_adset_label: prettifyTrafficLabel(utmAdset),
-        utm_adset_name: sanitizeCampaignName(utmAdset),
+        utm_adset_name: prettifyTrafficLabel(utmAdset),
         fbclid: row?.fbclid || '-',
         gclid: row?.gclid || '-',
         status_funil: statusFunil,
