@@ -622,6 +622,23 @@ function sanitizeCampaignName(value = '') {
     return text;
 }
 
+function sanitizeAdsetName(value = '') {
+    let text = prettifyTrafficLabel(value);
+    if (!text || text === '-') return '-';
+
+    text = text
+        .replace(/^\s*\d{6,}\s*[:|>\-_/]+\s*/i, '')
+        .replace(/^\s*(?:adsetid|adset_id|conjuntoid|conjunto_id|id)\s*[:#-]?\s*\d{5,}\s*[-:|]\s*/i, '')
+        .replace(/\s*[\(\[\{]\s*(?:id[:\s-]*)?\d{5,}\s*[\)\]\}]\s*$/i, '')
+        .replace(/\s*(?:\||-|\/|:)\s*(?:id[:\s-]*)?\d{5,}\s*$/i, '')
+        .replace(/\s*__\s*(?:id[:\s-]*)?\d{5,}\s*$/i, '')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+
+    if (!text || /^\d{5,}$/.test(text)) return '-';
+    return text;
+}
+
 function prettifyTrafficLabel(value = '') {
     const text = decodeTrackingValue(value);
     if (!text || text === '-') return '-';
@@ -721,8 +738,8 @@ function mapLeadReadable(row) {
         utm_term: utmTerm,
         utm_term_label: prettifyTrafficLabel(utmTerm),
         utm_adset: utmAdset,
-        utm_adset_label: prettifyTrafficLabel(utmAdset),
-        utm_adset_name: prettifyTrafficLabel(utmAdset),
+        utm_adset_label: sanitizeAdsetName(utmAdset),
+        utm_adset_name: sanitizeAdsetName(utmAdset),
         fbclid: row?.fbclid || '-',
         gclid: row?.gclid || '-',
         status_funil: statusFunil,

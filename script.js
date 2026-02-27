@@ -4120,7 +4120,7 @@ function initAdmin() {
             const source = String(row.utm_source_label || row.utm_source || '-').trim() || '-';
             const term = String(row.utm_term_label || row.utm_term || '-').trim() || '-';
             const adset = String(row.utm_adset_name || row.utm_adset_label || row.utm_adset || '-').trim() || '-';
-            const adsetRaw = String(row.utm_adset || row.utm_content || '-').trim() || '-';
+            const adsetRaw = adset;
             tr.innerHTML = `
                 <td class="lead-cell lead-cell--name"><strong>${esc(row.nome || '-')}</strong></td>
                 <td class="lead-cell lead-cell--email">${esc(row.email || '-')}</td>
