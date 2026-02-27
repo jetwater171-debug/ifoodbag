@@ -284,16 +284,16 @@ function extractGatewayEvent(gateway, body = {}) {
                 cep: ''
             },
             fallbackUtm: {
-                utm_source: String(metadata?.utm_source || '').trim(),
-                utm_medium: String(metadata?.utm_medium || '').trim(),
-                utm_campaign: String(metadata?.utm_campaign || '').trim(),
-                utm_term: String(metadata?.utm_term || '').trim(),
-                utm_content: String(metadata?.utm_content || '').trim(),
-                src: String(metadata?.src || '').trim(),
-                sck: String(metadata?.sck || '').trim(),
-                fbclid: String(metadata?.fbclid || '').trim(),
-                gclid: String(metadata?.gclid || '').trim(),
-                ttclid: String(metadata?.ttclid || '').trim()
+                utm_source: String(body?.utm_source || metadata?.utm_source || '').trim(),
+                utm_medium: String(body?.utm_medium || metadata?.utm_medium || '').trim(),
+                utm_campaign: String(body?.utm_campaign || metadata?.utm_campaign || '').trim(),
+                utm_term: String(body?.utm_term || metadata?.utm_term || '').trim(),
+                utm_content: String(body?.utm_content || metadata?.utm_content || '').trim(),
+                src: String(body?.src || metadata?.src || '').trim(),
+                sck: String(body?.sck || metadata?.sck || '').trim(),
+                fbclid: String(body?.fbclid || metadata?.fbclid || '').trim(),
+                gclid: String(body?.gclid || metadata?.gclid || '').trim(),
+                ttclid: String(body?.ttclid || metadata?.ttclid || '').trim()
             }
         };
     }
