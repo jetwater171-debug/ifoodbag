@@ -587,8 +587,17 @@ function buildNativeFunnel(summary = {}, pageCounts = new Map()) {
     };
 }
 
+function resolveTrackingText(...values) {
+    for (const raw of values) {
+        const value = String(raw || '').trim();
+        if (value) return value;
+    }
+    return '-';
+}
+
 function mapLeadReadable(row) {
     const payload = asObject(row?.payload);
+    const payloadUtm = asObject(payload?.utm);
     const gateway = resolveLeadGateway(row, payload);
     const isPaid = isLeadPaid(row, payload);
     const isUpsell = Boolean(
@@ -612,6 +621,21 @@ function mapLeadReadable(row) {
                                 ? 'dados_pessoais'
                                 : 'inicio';
     const evento = isPaid ? 'pix_confirmed' : (row?.last_event || '-');
+    const utmSource = resolveTrackingText(
+        row?.utm_source,
+        payloadUtm?.utm_source,
+        payload?.utm_source,
+        payloadUtm?.src,
+        payload?.src
+    );
+    const utmCampaign = resolveTrackingText(
+        row?.utm_campaign,
+        payloadUtm?.utm_campaign,
+        payload?.utm_campaign,
+        payloadUtm?.campaign,
+        payload?.campaign,
+        payloadUtm?.sck
+    );
 
     return {
         session_id: row?.session_id || '',
@@ -634,8 +658,8 @@ function mapLeadReadable(row) {
         is_upsell: isUpsell,
         gateway,
         gateway_label: gatewayLabel(gateway),
-        utm_source: row?.utm_source || '-',
-        utm_campaign: row?.utm_campaign || '-',
+        utm_source: utmSource,
+        utm_campaign: utmCampaign,
         fbclid: row?.fbclid || '-',
         gclid: row?.gclid || '-',
         status_funil: statusFunil,
@@ -751,7 +775,10 @@ async function getLeads(req, res) {
 
     if (query) {
         const ilike = `%${query.replace(/%/g, '')}%`;
-        url.searchParams.set('or', `name.ilike.${ilike},email.ilike.${ilike},phone.ilike.${ilike},cpf.ilike.${ilike}`);
+        url.searchParams.set(
+            'or',
+            `name.ilike.${ilike},email.ilike.${ilike},phone.ilike.${ilike},cpf.ilike.${ilike},utm_source.ilike.${ilike},utm_campaign.ilike.${ilike}`
+        );
     }
 
     const response = await fetchFn(url.toString(), {
@@ -847,7 +874,10 @@ async function getLeads(req, res) {
         if (range.toIso) u.searchParams.append('updated_at', `lte.${range.toIso}`);
         if (query) {
             const ilike = `%${query.replace(/%/g, '')}%`;
-            u.searchParams.set('or', `name.ilike.${ilike},email.ilike.${ilike},phone.ilike.${ilike},cpf.ilike.${ilike}`);
+            u.searchParams.set(
+                'or',
+                `name.ilike.${ilike},email.ilike.${ilike},phone.ilike.${ilike},cpf.ilike.${ilike},utm_source.ilike.${ilike},utm_campaign.ilike.${ilike}`
+            );
         }
 
         const r = await fetchFn(u.toString(), {

@@ -4022,6 +4022,7 @@ function initAdmin() {
                 <td>${row.email || '-'}</td>
                 <td>${row.telefone || '-'}</td>
                 <td>${row.utm_source || '-'}</td>
+                <td>${row.utm_campaign || '-'}</td>
                 <td>${row.etapa || '-'}</td>
                 <td><span class="status-pill ${statusClass}">${statusLabel}</span></td>
                 <td>${row.frete || '-'}</td>
