@@ -1182,30 +1182,30 @@ function normalizePushcutUrls(urls = []) {
         seen.add(url);
         out.push(url);
     }
-    return out.slice(0, 2);
+    return out.slice(0, 1);
 }
 
 function buildPushcutConfig(raw = {}) {
-    const createdUrls = normalizePushcutUrls([
+    const createdUrl = normalizePushcutUrls([
         ...(Array.isArray(raw.pixCreatedUrls) ? raw.pixCreatedUrls : []),
         raw.pixCreatedUrl,
         raw.pixCreatedUrl2
-    ]);
-    const confirmedUrls = normalizePushcutUrls([
+    ])[0] || '';
+    const confirmedUrl = normalizePushcutUrls([
         ...(Array.isArray(raw.pixConfirmedUrls) ? raw.pixConfirmedUrls : []),
         raw.pixConfirmedUrl,
         raw.pixConfirmedUrl2
-    ]);
+    ])[0] || '';
 
     return {
         ...defaultSettings.pushcut,
         ...raw,
-        pixCreatedUrl: createdUrls[0] || '',
-        pixCreatedUrl2: createdUrls[1] || '',
-        pixCreatedUrls: createdUrls,
-        pixConfirmedUrl: confirmedUrls[0] || '',
-        pixConfirmedUrl2: confirmedUrls[1] || '',
-        pixConfirmedUrls: confirmedUrls,
+        pixCreatedUrl: createdUrl,
+        pixCreatedUrl2: '',
+        pixCreatedUrls: createdUrl ? [createdUrl] : [],
+        pixConfirmedUrl: confirmedUrl,
+        pixConfirmedUrl2: '',
+        pixConfirmedUrls: confirmedUrl ? [confirmedUrl] : [],
         templates: {
             ...defaultSettings.pushcut.templates,
             ...(raw.templates || {})
@@ -1448,8 +1448,18 @@ async function pushcutTest(req, res) {
         customerName: 'Lead Teste',
         customerEmail: 'lead.teste@ifoodbag.app',
         cep: '08717630',
+        source: 'Meta Ads',
+        utm_source: 'meta',
+        campaign: 'Campanha Teste',
+        utm_campaign: 'Campanha Teste',
+        adset: 'Conjunto Teste',
+        utm_content: 'Conjunto Teste',
+        utm: {
+            utm_source: 'meta',
+            utm_campaign: 'Campanha Teste',
+            utm_content: 'Conjunto Teste'
+        },
         shippingName: 'Envio Padrao iFood',
-        source: 'admin_test',
         created_at: new Date().toISOString()
     };
 
@@ -1892,6 +1902,30 @@ async function pixReconcile(req, res) {
                     customerEmail: leadData?.email || '',
                     cep: leadData?.cep || '',
                     shippingName: leadData?.shipping_name || '',
+                    utm: {
+                        utm_source: leadData?.utm_source || leadUtm?.utm_source || leadUtm?.src || '',
+                        utm_medium: leadData?.utm_medium || leadUtm?.utm_medium || '',
+                        utm_campaign: leadData?.utm_campaign || leadUtm?.utm_campaign || leadUtm?.campaign || leadUtm?.sck || '',
+                        utm_term: leadData?.utm_term || leadUtm?.utm_term || leadUtm?.term || '',
+                        utm_content: (
+                            leadData?.utm_content ||
+                            leadUtm?.utm_content ||
+                            leadUtm?.utm_adset ||
+                            leadUtm?.adset ||
+                            leadUtm?.content ||
+                            ''
+                        )
+                    },
+                    source: leadData?.utm_source || leadUtm?.utm_source || leadUtm?.src || '',
+                    campaign: leadData?.utm_campaign || leadUtm?.utm_campaign || leadUtm?.campaign || leadUtm?.sck || '',
+                    adset: (
+                        leadData?.utm_content ||
+                        leadUtm?.utm_content ||
+                        leadUtm?.utm_adset ||
+                        leadUtm?.adset ||
+                        leadUtm?.content ||
+                        ''
+                    ),
                     isUpsell
                 }
             }).catch(() => null);

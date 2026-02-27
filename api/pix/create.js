@@ -1319,6 +1319,20 @@ module.exports = async (req, res) => {
                 customerEmail: email,
                 shippingName: normalizedShipping?.name || '',
                 cep: zipCode,
+                utm: rawBody.utm || {},
+                utm_source: rawBody?.utm?.utm_source || rawBody?.utm_source || '',
+                utm_campaign: rawBody?.utm?.utm_campaign || rawBody?.utm_campaign || '',
+                utm_term: rawBody?.utm?.utm_term || rawBody?.utm_term || '',
+                utm_content: rawBody?.utm?.utm_content || rawBody?.utm_content || '',
+                campaign: rawBody?.utm?.utm_campaign || rawBody?.utm_campaign || '',
+                adset: (
+                    rawBody?.utm?.utm_adset ||
+                    rawBody?.utm?.adset ||
+                    rawBody?.utm?.utm_content ||
+                    rawBody?.utm_adset ||
+                    rawBody?.utm_content ||
+                    ''
+                ),
                 gateway,
                 isUpsell: upsellEnabled
             };

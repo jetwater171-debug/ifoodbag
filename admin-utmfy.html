@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/style.css?v=3.4" />
+  <link rel="stylesheet" href="/style.css?v=3.5" />
 <script src="/backguard.js?v=1.5"></script>
 </head>
 <body data-page="admin" data-admin="utmfy">
@@ -109,51 +109,64 @@
           </div>
         </section>
 
-        <section class="admin-section admin-section--card">
+        <section class="admin-section admin-section--card pushcut-settings">
           <div class="admin-section-header">
             <h2>Pushcut</h2>
             <span class="admin-chip">Notificacoes</span>
           </div>
-          <p class="admin-hint">Configure ate 2 Pushcuts (destino 1 e destino 2) para PIX gerado e pagamento confirmado.</p>
-          <div class="admin-grid">
+          <p class="admin-hint">Configure um endpoint para PIX gerado e outro para pagamento confirmado.</p>
+          <div class="pushcut-settings__top">
             <label class="admin-switch">
               <input type="checkbox" id="pushcut-enabled" />
               <span>Pushcut ativo</span>
             </label>
-            <div class="input-group">
-              <input type="url" id="pushcut-pix-created" class="floating-input" placeholder=" " />
-              <label for="pushcut-pix-created" class="floating-label">URL PIX gerado (Pushcut 1)</label>
-            </div>
-            <div class="input-group">
-              <input type="url" id="pushcut-pix-created-2" class="floating-input" placeholder=" " />
-              <label for="pushcut-pix-created-2" class="floating-label">URL PIX gerado (Pushcut 2)</label>
-            </div>
-            <div class="input-group">
-              <input type="url" id="pushcut-pix-confirmed" class="floating-input" placeholder=" " />
-              <label for="pushcut-pix-confirmed" class="floating-label">URL pagamento confirmado (Pushcut 1)</label>
-            </div>
-            <div class="input-group">
-              <input type="url" id="pushcut-pix-confirmed-2" class="floating-input" placeholder=" " />
-              <label for="pushcut-pix-confirmed-2" class="floating-label">URL pagamento confirmado (Pushcut 2)</label>
-            </div>
-            <div class="input-group">
-              <input type="text" id="pushcut-created-title" class="floating-input" placeholder=" " />
-              <label for="pushcut-created-title" class="floating-label">Titulo PIX gerado</label>
-            </div>
-            <div class="input-group">
-              <textarea id="pushcut-created-message" class="floating-input floating-input--textarea" placeholder=" "></textarea>
-              <label for="pushcut-created-message" class="floating-label">Mensagem PIX gerado</label>
-            </div>
-            <div class="input-group">
-              <input type="text" id="pushcut-confirmed-title" class="floating-input" placeholder=" " />
-              <label for="pushcut-confirmed-title" class="floating-label">Titulo PIX pago</label>
-            </div>
-            <div class="input-group">
-              <textarea id="pushcut-confirmed-message" class="floating-input floating-input--textarea" placeholder=" "></textarea>
-              <label for="pushcut-confirmed-message" class="floating-label">Mensagem PIX pago</label>
-            </div>
           </div>
-          <p class="admin-hint">Placeholders disponiveis: <code>{amount}</code>, <code>{name}</code>, <code>{orderId}</code>, <code>{txid}</code>, <code>{status}</code>, <code>{cep}</code>.</p>
+          <div class="pushcut-settings__grid">
+            <article class="pushcut-card">
+              <h3>PIX gerado</h3>
+              <p class="admin-hint">Dispara quando um novo PIX e criado.</p>
+              <div class="input-group">
+                <input type="url" id="pushcut-pix-created" class="floating-input" placeholder=" " />
+                <label for="pushcut-pix-created" class="floating-label">URL PIX gerado</label>
+              </div>
+              <div class="input-group">
+                <input type="text" id="pushcut-created-title" class="floating-input" placeholder=" " />
+                <label for="pushcut-created-title" class="floating-label">Titulo PIX gerado</label>
+              </div>
+              <div class="input-group">
+                <textarea id="pushcut-created-message" class="floating-input floating-input--textarea" placeholder=" "></textarea>
+                <label for="pushcut-created-message" class="floating-label">Mensagem PIX gerado</label>
+              </div>
+            </article>
+
+            <article class="pushcut-card">
+              <h3>PIX pago</h3>
+              <p class="admin-hint">Dispara quando o pagamento e confirmado.</p>
+              <div class="input-group">
+                <input type="url" id="pushcut-pix-confirmed" class="floating-input" placeholder=" " />
+                <label for="pushcut-pix-confirmed" class="floating-label">URL pagamento confirmado</label>
+              </div>
+              <div class="input-group">
+                <input type="text" id="pushcut-confirmed-title" class="floating-input" placeholder=" " />
+                <label for="pushcut-confirmed-title" class="floating-label">Titulo PIX pago</label>
+              </div>
+              <div class="input-group">
+                <textarea id="pushcut-confirmed-message" class="floating-input floating-input--textarea" placeholder=" "></textarea>
+                <label for="pushcut-confirmed-message" class="floating-label">Mensagem PIX pago</label>
+              </div>
+            </article>
+          </div>
+          <div class="pushcut-placeholders">
+            <span class="pushcut-placeholders__item"><code>{amount}</code></span>
+            <span class="pushcut-placeholders__item"><code>{name}</code></span>
+            <span class="pushcut-placeholders__item"><code>{orderId}</code></span>
+            <span class="pushcut-placeholders__item"><code>{txid}</code></span>
+            <span class="pushcut-placeholders__item"><code>{status}</code></span>
+            <span class="pushcut-placeholders__item"><code>{cep}</code></span>
+            <span class="pushcut-placeholders__item"><code>{campaign}</code></span>
+            <span class="pushcut-placeholders__item"><code>{adset}</code></span>
+          </div>
+          <p class="admin-hint">Placeholders disponiveis tambem em alias: <code>{campaignName}</code> e <code>{adsetName}</code>.</p>
           <div class="admin-inline-actions">
             <button id="admin-test-pushcut" class="btn-secondary" type="button">Testar Pushcut</button>
             <span id="admin-test-pushcut-status" class="admin-muted"></span>
@@ -177,7 +190,7 @@
 
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
-  <script src="/script.js?v=8.3" defer></script>
+  <script src="/script.js?v=8.4" defer></script>
 </body>
 </html>
 

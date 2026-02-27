@@ -3400,9 +3400,7 @@ function initAdmin() {
     const utmfyApi = document.getElementById('utmfy-api');
     const pushcutEnabled = document.getElementById('pushcut-enabled');
     const pushcutPixCreated = document.getElementById('pushcut-pix-created');
-    const pushcutPixCreated2 = document.getElementById('pushcut-pix-created-2');
     const pushcutPixConfirmed = document.getElementById('pushcut-pix-confirmed');
-    const pushcutPixConfirmed2 = document.getElementById('pushcut-pix-confirmed-2');
     const pushcutCreatedTitle = document.getElementById('pushcut-created-title');
     const pushcutCreatedMessage = document.getElementById('pushcut-created-message');
     const pushcutConfirmedTitle = document.getElementById('pushcut-confirmed-title');
@@ -3547,9 +3545,7 @@ function initAdmin() {
         utmfyApi ||
         pushcutEnabled ||
         pushcutPixCreated ||
-        pushcutPixCreated2 ||
         pushcutPixConfirmed ||
-        pushcutPixConfirmed2 ||
         pushcutCreatedTitle ||
         pushcutCreatedMessage ||
         pushcutConfirmedTitle ||
@@ -3693,10 +3689,22 @@ function initAdmin() {
             if (utmfyEndpoint) utmfyEndpoint.value = data.utmfy?.endpoint || '';
             if (utmfyApi) utmfyApi.value = data.utmfy?.apiKey || '';
             if (pushcutEnabled) pushcutEnabled.checked = !!data.pushcut?.enabled;
-            if (pushcutPixCreated) pushcutPixCreated.value = data.pushcut?.pixCreatedUrl || data.pushcut?.pixCreatedUrls?.[0] || '';
-            if (pushcutPixCreated2) pushcutPixCreated2.value = data.pushcut?.pixCreatedUrl2 || data.pushcut?.pixCreatedUrls?.[1] || '';
-            if (pushcutPixConfirmed) pushcutPixConfirmed.value = data.pushcut?.pixConfirmedUrl || data.pushcut?.pixConfirmedUrls?.[0] || '';
-            if (pushcutPixConfirmed2) pushcutPixConfirmed2.value = data.pushcut?.pixConfirmedUrl2 || data.pushcut?.pixConfirmedUrls?.[1] || '';
+            if (pushcutPixCreated) {
+                pushcutPixCreated.value =
+                    data.pushcut?.pixCreatedUrl ||
+                    data.pushcut?.pixCreatedUrls?.[0] ||
+                    data.pushcut?.pixCreatedUrl2 ||
+                    data.pushcut?.pixCreatedUrls?.[1] ||
+                    '';
+            }
+            if (pushcutPixConfirmed) {
+                pushcutPixConfirmed.value =
+                    data.pushcut?.pixConfirmedUrl ||
+                    data.pushcut?.pixConfirmedUrls?.[0] ||
+                    data.pushcut?.pixConfirmedUrl2 ||
+                    data.pushcut?.pixConfirmedUrls?.[1] ||
+                    '';
+            }
             if (pushcutCreatedTitle) pushcutCreatedTitle.value = data.pushcut?.templates?.pixCreatedTitle || '';
             if (pushcutCreatedMessage) pushcutCreatedMessage.value = data.pushcut?.templates?.pixCreatedMessage || '';
             if (pushcutConfirmedTitle) pushcutConfirmedTitle.value = data.pushcut?.templates?.pixConfirmedTitle || '';
@@ -3780,23 +3788,17 @@ function initAdmin() {
                 endpoint: utmfyEndpoint?.value?.trim() || '',
                 apiKey: utmfyApi?.value?.trim() || ''
             };
-            const createdUrls = [
-                pushcutPixCreated?.value?.trim() || '',
-                pushcutPixCreated2?.value?.trim() || ''
-            ].filter(Boolean);
-            const confirmedUrls = [
-                pushcutPixConfirmed?.value?.trim() || '',
-                pushcutPixConfirmed2?.value?.trim() || ''
-            ].filter(Boolean);
+            const createdUrl = pushcutPixCreated?.value?.trim() || '';
+            const confirmedUrl = pushcutPixConfirmed?.value?.trim() || '';
             payload.pushcut = {
                 ...(currentSettings?.pushcut || {}),
                 enabled: !!pushcutEnabled?.checked,
-                pixCreatedUrl: createdUrls[0] || '',
-                pixCreatedUrl2: createdUrls[1] || '',
-                pixCreatedUrls: createdUrls,
-                pixConfirmedUrl: confirmedUrls[0] || '',
-                pixConfirmedUrl2: confirmedUrls[1] || '',
-                pixConfirmedUrls: confirmedUrls,
+                pixCreatedUrl: createdUrl,
+                pixCreatedUrl2: '',
+                pixCreatedUrls: createdUrl ? [createdUrl] : [],
+                pixConfirmedUrl: confirmedUrl,
+                pixConfirmedUrl2: '',
+                pixConfirmedUrls: confirmedUrl ? [confirmedUrl] : [],
                 templates: {
                     ...(currentSettings?.pushcut?.templates || {}),
                     pixCreatedTitle: pushcutCreatedTitle?.value?.trim() || '',
@@ -3950,8 +3952,8 @@ function initAdmin() {
             showToast('Ative o Pushcut e salve.', 'error');
             return;
         }
-        const hasCreated = !!(pushcutPixCreated?.value || '').trim() || !!(pushcutPixCreated2?.value || '').trim();
-        const hasConfirmed = !!(pushcutPixConfirmed?.value || '').trim() || !!(pushcutPixConfirmed2?.value || '').trim();
+        const hasCreated = !!(pushcutPixCreated?.value || '').trim();
+        const hasConfirmed = !!(pushcutPixConfirmed?.value || '').trim();
         if (!hasCreated && !hasConfirmed) {
             if (testPushcutStatus) testPushcutStatus.textContent = 'Informe ao menos uma URL de Pushcut.';
             showToast('Configure a URL de Pushcut.', 'error');
