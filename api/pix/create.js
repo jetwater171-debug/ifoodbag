@@ -1010,6 +1010,11 @@ module.exports = async (req, res) => {
                     hasSunizeUtmFields &&
                     (!response?.ok || data?.hasError === true)
                 );
+                const shouldRetryWithoutMetadata = (
+                    Number(response?.status || 0) === 400 &&
+                    (!response?.ok || data?.hasError === true)
+                );
+                let retriedWithoutMetadata = false;
                 if (shouldRetryWithoutTopLevelUtm) {
                     const metadataOnlyPayload = {
                         ...sunizePayloadBase,
@@ -1021,6 +1026,7 @@ module.exports = async (req, res) => {
                         data = metadataRetry.data;
                     } else if (Number(metadataRetry?.response?.status || 0) === 400) {
                         const fallbackRetry = await requestSunizeCreate(gatewayConfig, sunizePayloadBase);
+                        retriedWithoutMetadata = true;
                         if (fallbackRetry?.response?.ok && fallbackRetry?.data?.hasError !== true) {
                             response = fallbackRetry.response;
                             data = fallbackRetry.data;
@@ -1031,6 +1037,17 @@ module.exports = async (req, res) => {
                     } else {
                         response = metadataRetry?.response || response;
                         data = metadataRetry?.data || data;
+                    }
+                }
+                if (!retriedWithoutMetadata && shouldRetryWithoutMetadata && Number(response?.status || 0) === 400) {
+                    const fallbackRetry = await requestSunizeCreate(gatewayConfig, sunizePayloadBase);
+                    retriedWithoutMetadata = true;
+                    if (fallbackRetry?.response?.ok && fallbackRetry?.data?.hasError !== true) {
+                        response = fallbackRetry.response;
+                        data = fallbackRetry.data;
+                    } else {
+                        response = fallbackRetry?.response || response;
+                        data = fallbackRetry?.data || data;
                     }
                 }
                 if (!response?.ok) {
