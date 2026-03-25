@@ -4807,12 +4807,19 @@ body.modal-open {
 }
 
 .feedback-avatar {
-    width: 56px;
-    height: 56px;
+    width: 48px;
+    height: 48px;
     border-radius: 50%;
     object-fit: cover;
     flex-shrink: 0;
-    background: #eee;
+    background: #F5F5F5;
+    border: 1px solid #EBEBEB;
+}
+
+.avatar-fallback {
+    object-fit: contain;
+    padding: 6px;
+    background: #FFF;
 }
 
 .feedback-content {
@@ -4823,31 +4830,42 @@ body.modal-open {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-bottom: 6px;
+    margin-bottom: 2px;
     flex-wrap: wrap;
 }
 
 .feedback-name {
-    font-weight: 700;
-    font-size: 1.05rem;
+    font-weight: 600;
+    font-size: 1rem;
     color: #1F1F1F;
 }
 
 .feedback-badge {
-    background: linear-gradient(135deg, #FF9900 0%, #EA1D2C 100%);
+    background-color: var(--primary-color);
     color: #FFF;
-    font-family: 'Comic Sans MS', 'Pacifico', cursive, sans-serif;
-    font-size: 0.72rem;
-    padding: 3px 8px;
-    border-radius: 12px;
+    font-family: var(--font-family);
+    font-size: 0.65rem;
+    padding: 2px 6px;
+    border-radius: 4px;
     font-weight: 600;
+    text-transform: uppercase;
     letter-spacing: 0.5px;
+}
+
+.feedback-stars {
+    display: flex;
+    gap: 2px;
+    margin-bottom: 6px;
+}
+
+.feedback-stars svg {
+    display: block;
 }
 
 .feedback-text {
     font-size: 0.95rem;
     color: var(--text-light);
-    line-height: 1.5;
+    line-height: 1.45;
     margin: 0;
     font-style: italic;
 }
