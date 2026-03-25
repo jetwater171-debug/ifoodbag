@@ -1,4 +1,4 @@
-﻿:root {
+:root {
     --primary-color: #EA1D2C;
     --primary-hover: #C21320;
     --primary-soft: #FFE9EB;
@@ -4778,4 +4778,76 @@ body.modal-open {
         font-size: 0.83rem;
     }
 
+}
+
+/* Feedbacks Checkout */
+.checkout-feedbacks {
+    margin-top: 32px;
+    width: 100%;
+    text-align: left;
+}
+
+.feedback-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #1F1F1F;
+    margin-bottom: 16px;
+    text-align: center;
+}
+
+.feedback-card {
+    background: #FFF;
+    border-radius: var(--radius-lg);
+    padding: 18px;
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    box-shadow: var(--shadow-soft);
+    border: 1px solid var(--border-color);
+}
+
+.feedback-avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+    background: #eee;
+}
+
+.feedback-content {
+    flex: 1;
+}
+
+.feedback-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+}
+
+.feedback-name {
+    font-weight: 700;
+    font-size: 1.05rem;
+    color: #1F1F1F;
+}
+
+.feedback-badge {
+    background: linear-gradient(135deg, #FF9900 0%, #EA1D2C 100%);
+    color: #FFF;
+    font-family: 'Comic Sans MS', 'Pacifico', cursive, sans-serif;
+    font-size: 0.72rem;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.feedback-text {
+    font-size: 0.95rem;
+    color: var(--text-light);
+    line-height: 1.5;
+    margin: 0;
+    font-style: italic;
 }
