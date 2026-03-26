@@ -602,6 +602,101 @@ p {
     color: #8a8a8a;
 }
 
+body[data-page='success'] .step > p {
+    max-width: 38rem;
+}
+
+body[data-page='success'] .product-card {
+    padding: 18px;
+}
+
+body[data-page='success'] .success-offer-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+}
+
+body[data-page='success'] .success-reward-card {
+    appearance: none;
+    border: 1px solid #ececec;
+    border-radius: 18px;
+    background: #fff;
+    padding: 18px 14px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+}
+
+body[data-page='success'] .success-reward-card:hover {
+    border-color: #f3b4ba;
+    box-shadow: 0 12px 24px rgba(234, 29, 44, 0.08);
+}
+
+body[data-page='success'] .success-reward-card:focus-visible {
+    outline: 3px solid rgba(234, 29, 44, 0.18);
+    outline-offset: 2px;
+}
+
+body[data-page='success'] .success-reward-card.is-selected {
+    border-color: var(--primary-color);
+    box-shadow: 0 16px 30px rgba(234, 29, 44, 0.16);
+    transform: translateY(-2px);
+}
+
+body[data-page='success'] .success-reward-media {
+    width: 100%;
+    min-height: 150px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+body[data-page='success'] .success-reward-image {
+    max-width: 100%;
+    max-height: 150px;
+    object-fit: contain;
+    object-position: center;
+}
+
+body[data-page='success'] .success-reward-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+}
+
+body[data-page='success'] .success-reward-title {
+    font-size: 1.1rem;
+    line-height: 1.2;
+    font-weight: 700;
+    color: #1f1f1f;
+}
+
+body[data-page='success'] .price-row {
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+body[data-page='success'] .success-reward-card--paid .new-price {
+    color: var(--primary-color);
+}
+
+body[data-page='success'] #btn-checkout:disabled {
+    background: linear-gradient(180deg, #f7c6ca 0%, #efadb3 100%);
+    box-shadow: none;
+    color: rgba(255, 255, 255, 0.94);
+}
+
+@media (max-width: 640px) {
+    body[data-page='success'] .success-offer-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
 /* Animations */
 @keyframes fadeIn {
     from {
@@ -1729,6 +1824,32 @@ body[data-page='upsell-iof'] .action-stack {
     text-align: left;
 }
 
+.summary-total strong {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.summary-total--kit {
+    background: #fff8ef;
+    border-color: #f7dbaf;
+}
+
+.summary-total--kit strong {
+    color: #d16f08;
+}
+
+.summary-total--grand {
+    background: #f6fbf6;
+    border-color: #d7ead7;
+}
+
+.summary-total--grand strong {
+    color: var(--primary-color);
+    font-size: 1.06rem;
+}
+
 body[data-page='checkout'] .container {
     width: min(100%, 1080px);
 }
@@ -2293,6 +2414,10 @@ body[data-page='pix'] .step {
     justify-content: space-between;
     font-size: 0.9rem;
     color: #6f6f6f;
+}
+
+#pix-reward-row strong {
+    color: var(--primary-color);
 }
 
 .pix-empty {
@@ -4630,6 +4755,27 @@ body.modal-open {
 }
 
 @media (max-width: 480px) {
+    body[data-page='success'] .product-card {
+        padding: 14px;
+    }
+
+    body[data-page='success'] .success-reward-card {
+        padding: 14px 12px;
+        gap: 10px;
+    }
+
+    body[data-page='success'] .success-reward-media {
+        min-height: 120px;
+    }
+
+    body[data-page='success'] .success-reward-image {
+        max-height: 120px;
+    }
+
+    body[data-page='success'] .success-reward-title {
+        font-size: 1rem;
+    }
+
     .modal {
         padding: 16px;
     }

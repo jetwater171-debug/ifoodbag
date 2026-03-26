@@ -152,6 +152,36 @@ function asObject(input) {
     return input && typeof input === 'object' && !Array.isArray(input) ? input : {};
 }
 
+const REWARD_CATALOG = {
+    bau: {
+        id: 'bau',
+        name: 'Bau do iFood',
+        extraPrice: 0
+    },
+    bag: {
+        id: 'bag',
+        name: 'Bag do iFood',
+        extraPrice: 0
+    },
+    kit_entregador: {
+        id: 'kit_entregador',
+        name: 'Kit Entregador iFood',
+        extraPrice: 97.9
+    }
+};
+
+function resolveReward(rawReward = null) {
+    const source = rawReward && typeof rawReward === 'object' && !Array.isArray(rawReward)
+        ? rawReward
+        : { id: rawReward };
+    const id = pickText(source?.id, source).toLowerCase();
+    const reward = REWARD_CATALOG[id] || REWARD_CATALOG.bag;
+    return {
+        ...reward,
+        extraPrice: toBrlAmount(reward.extraPrice)
+    };
+}
+
 function looksLikePixCopyPaste(value = '') {
     const text = String(value || '').trim();
     if (!text) return false;
@@ -475,13 +505,14 @@ if (!globalThis.__ifbPixCreateInflightMap) {
 }
 const PIX_CREATE_INFLIGHT_TTL_MS = 25000;
 
-function buildPixCreateInflightKey({ sessionId, gateway, shippingId, totalAmount, upsellEnabled }) {
+function buildPixCreateInflightKey({ sessionId, gateway, shippingId, rewardId, totalAmount, upsellEnabled }) {
     const cleanSession = String(sessionId || '').trim();
     if (!cleanSession) return '';
     return [
         cleanSession,
         String(normalizeGatewayId(gateway) || 'ativushub'),
         String(shippingId || '').trim(),
+        String(rewardId || '').trim(),
         Number(totalAmount || 0).toFixed(2),
         upsellEnabled ? 'upsell' : 'base'
     ].join('|');
@@ -600,6 +631,7 @@ async function findReusablePixBySession({
     gatewayConfig,
     totalAmount,
     shippingId,
+    rewardId,
     upsellEnabled
 }) {
     const cleanSession = String(sessionId || '').trim();
@@ -667,8 +699,15 @@ async function findReusablePixBySession({
         return null;
     }
 
+    const storedRewardId = pickText(payload.reward?.id, payload.rewardId, lead.reward_id);
+    if (rewardId && String(storedRewardId || '') !== String(rewardId)) {
+        return null;
+    }
+
     const storedUpsell = Boolean(payload?.upsell?.enabled || payload?.isUpsell);
     if (storedUpsell !== Boolean(upsellEnabled)) return null;
+
+    const normalizedReward = resolveReward(storedRewardId || rewardId || 'bag');
 
     let paymentCode = pickText(payload?.pix?.paymentCode, payload.paymentCode);
     let paymentCodeBase64 = pickText(payload?.pix?.paymentCodeBase64, payload.paymentCodeBase64);
@@ -694,6 +733,9 @@ async function findReusablePixBySession({
         amount: totalAmount > 0 ? totalAmount : storedAmount,
         gateway,
         externalId,
+        rewardId: normalizedReward.id,
+        rewardName: normalizedReward.name,
+        rewardExtraPrice: normalizedReward.extraPrice,
         reused: true
     };
 }
@@ -721,9 +763,11 @@ module.exports = async (req, res) => {
         const gateway = resolveGateway(rawBody, payments);
         const gatewayConfig = payments?.gateways?.[gateway] || {};
 
-        const { amount, personal = {}, address = {}, extra = {}, shipping = {}, bump, upsell = null } = rawBody;
+        const { amount, personal = {}, address = {}, extra = {}, shipping = {}, reward: rawReward = null, bump, upsell = null } = rawBody;
         const value = toBrlAmount(amount);
         const upsellEnabled = Boolean(upsell && upsell.enabled);
+        const normalizedReward = resolveReward(rawReward);
+        const rewardExtraPrice = toBrlAmount(normalizedReward.extraPrice);
         const sessionId = String(rawBody?.sessionId || rawBody?.session_id || '').trim();
         const addPaymentInfoEventId = sanitizeEventId(rawBody?.addPaymentInfoEventId || rawBody?.eventId)
             || buildAddPaymentInfoEventId(sessionId);
@@ -752,11 +796,11 @@ module.exports = async (req, res) => {
         let shippingPrice = toBrlAmount(shipping?.price || 0);
         let bumpPrice = bump?.price ? toBrlAmount(bump.price) : 0;
         if (bump?.selected === false) bumpPrice = 0;
-        let totalAmount = Number((shippingPrice + bumpPrice).toFixed(2));
+        let totalAmount = Number((shippingPrice + rewardExtraPrice + bumpPrice).toFixed(2));
         if (totalAmount <= 0 && value > 0) {
             totalAmount = Number(value.toFixed(2));
             if (shippingPrice <= 0) {
-                shippingPrice = Number(Math.max(0, totalAmount - bumpPrice).toFixed(2));
+                shippingPrice = Number(Math.max(0, totalAmount - rewardExtraPrice - bumpPrice).toFixed(2));
             }
         }
         if (!totalAmount || totalAmount <= 0) {
@@ -780,6 +824,7 @@ module.exports = async (req, res) => {
             sessionId,
             gateway,
             shippingId: String(normalizedShipping?.id || '').trim(),
+            rewardId: String(normalizedReward?.id || '').trim(),
             totalAmount,
             upsellEnabled
         });
@@ -800,6 +845,15 @@ module.exports = async (req, res) => {
             }
         ];
 
+        if (rewardExtraPrice > 0) {
+            items.push({
+                title: normalizedReward.name,
+                quantity: 1,
+                unitPrice: Number(rewardExtraPrice.toFixed(2)),
+                tangible: false
+            });
+        }
+
         if (bumpPrice > 0) {
             items.push({
                 title: bump.title || 'Seguro Bag',
@@ -815,6 +869,7 @@ module.exports = async (req, res) => {
             gatewayConfig,
             totalAmount,
             shippingId: String(normalizedShipping?.id || '').trim(),
+            rewardId: String(normalizedReward?.id || '').trim(),
             upsellEnabled
         });
         if (reusable) {
@@ -830,6 +885,7 @@ module.exports = async (req, res) => {
                     sessionId: sessionId || '',
                     personal,
                     shipping: normalizedShipping,
+                    reward: normalizedReward,
                     bump: normalizedBump.selected ? normalizedBump : null,
                     utm: rawBody.utm || {},
                     txid: reusableTxid,
@@ -1259,7 +1315,11 @@ module.exports = async (req, res) => {
                 ...(rawBody || {}),
                 addPaymentInfoEventId,
                 shipping: normalizedShipping,
+                reward: normalizedReward,
                 bump: normalizedBump,
+                rewardId: normalizedReward.id,
+                rewardName: normalizedReward.name,
+                rewardExtraPrice,
                 gateway,
                 pixGateway: gateway,
                 paymentGateway: gateway,
@@ -1291,7 +1351,10 @@ module.exports = async (req, res) => {
                     paidAt: null,
                     refundedAt: null,
                     refusedAt: null,
-                    externalId: externalId || undefined
+                    externalId: externalId || undefined,
+                    rewardId: normalizedReward.id,
+                    rewardName: normalizedReward.name,
+                    rewardExtraPrice
                 },
                 upsell: upsellEnabled ? {
                     enabled: true,
@@ -1314,6 +1377,7 @@ module.exports = async (req, res) => {
                     sessionId: sessionId || '',
                     personal,
                     shipping: normalizedShipping,
+                    reward: normalizedReward,
                     bump: normalizedBump.selected ? normalizedBump : null,
                     utm: rawBody.utm || {},
                     txid,
@@ -1335,6 +1399,9 @@ module.exports = async (req, res) => {
                 customerName: name,
                 customerEmail: email,
                 shippingName: normalizedShipping?.name || '',
+                rewardId: normalizedReward.id,
+                rewardName: normalizedReward.name,
+                rewardExtraPrice,
                 cep: zipCode,
                 utm: rawBody.utm || {},
                 utm_source: rawBody?.utm?.utm_source || rawBody?.utm_source || '',
@@ -1378,7 +1445,10 @@ module.exports = async (req, res) => {
                 status: statusRaw || '',
                 amount: totalAmount,
                 gateway,
-                externalId
+                externalId,
+                rewardId: normalizedReward.id,
+                rewardName: normalizedReward.name,
+                rewardExtraPrice
             };
             createInflightResult = responsePayload;
             res.status(200).json(responsePayload);

