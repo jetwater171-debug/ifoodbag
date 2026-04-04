@@ -134,36 +134,95 @@
   <div id="lead-detail-modal" class="admin-modal hidden" role="dialog" aria-modal="true" aria-labelledby="lead-detail-title">
     <div class="admin-modal-card admin-modal-card--lead">
       <button id="lead-detail-close" class="admin-modal-close" type="button" aria-label="Fechar detalhes do lead">&times;</button>
-      <div class="admin-modal-head">
-        <h3 id="lead-detail-title">Detalhes do lead</h3>
-        <p id="lead-detail-subtitle">Carregando...</p>
-      </div>
-      <div id="lead-detail-meta" class="admin-quiz-meta"></div>
-      <div id="lead-detail-block-state" class="admin-detail-alert hidden"></div>
-      <div class="lead-detail-actions">
-        <button id="lead-detail-block-ip" class="btn-secondary btn-secondary--danger" type="button">Bloquear IP</button>
-        <button id="lead-detail-unblock-ip" class="btn-secondary hidden" type="button">Remover da blacklist</button>
-      </div>
-      <div id="lead-detail-grid" class="lead-detail-grid"></div>
-      <section class="lead-detail-section">
-        <div class="admin-section-header">
-          <h4>Paginas registradas</h4>
+      <div class="lead-detail-shell">
+        <aside class="lead-detail-rail">
+          <div class="lead-detail-hero">
+            <span class="lead-detail-kicker">Lead completo</span>
+            <h3 id="lead-detail-title">Detalhes do lead</h3>
+            <p id="lead-detail-subtitle">Carregando...</p>
+          </div>
+          <div id="lead-detail-meta" class="lead-detail-tags"></div>
+          <div id="lead-detail-block-state" class="admin-detail-alert hidden"></div>
+          <div id="lead-detail-summary" class="lead-detail-summary"></div>
+          <div class="lead-detail-actions">
+            <button id="lead-detail-block-ip" class="btn-secondary btn-secondary--danger" type="button">Bloquear IP</button>
+            <button id="lead-detail-unblock-ip" class="btn-secondary hidden" type="button">Remover blacklist</button>
+          </div>
+        </aside>
+
+        <div class="lead-detail-main">
+          <section class="lead-detail-section lead-detail-section--wide">
+            <div class="admin-section-header">
+              <h4>Visao geral</h4>
+            </div>
+            <div id="lead-detail-overview" class="lead-detail-stat-grid"></div>
+          </section>
+
+          <section class="lead-detail-section">
+            <div class="admin-section-header">
+              <h4>Identidade e contato</h4>
+            </div>
+            <div id="lead-detail-identity" class="lead-detail-data-grid"></div>
+          </section>
+
+          <section class="lead-detail-section">
+            <div class="admin-section-header">
+              <h4>Endereco e entrega</h4>
+            </div>
+            <div id="lead-detail-address" class="lead-detail-data-grid"></div>
+          </section>
+
+          <section class="lead-detail-section">
+            <div class="admin-section-header">
+              <h4>Pagamento e oferta</h4>
+            </div>
+            <div id="lead-detail-payment" class="lead-detail-data-grid"></div>
+          </section>
+
+          <section class="lead-detail-section">
+            <div class="admin-section-header">
+              <h4>Origem e tracking</h4>
+            </div>
+            <div id="lead-detail-tracking" class="lead-detail-data-grid"></div>
+          </section>
+
+          <section class="lead-detail-section">
+            <div class="admin-section-header">
+              <h4>Dispositivo e rede</h4>
+            </div>
+            <div id="lead-detail-device" class="lead-detail-data-grid"></div>
+          </section>
+
+          <section class="lead-detail-section">
+            <div class="admin-section-header">
+              <h4>Contexto tecnico</h4>
+            </div>
+            <div id="lead-detail-technical" class="lead-detail-data-grid"></div>
+          </section>
+
+          <section class="lead-detail-section lead-detail-section--wide">
+            <div class="admin-section-header">
+              <h4>Jornada registrada</h4>
+            </div>
+            <p class="admin-muted lead-detail-hint">Mostra as paginas unicas registradas para a sessao. O sistema antigo nao salvava tempo exato em cada pagina.</p>
+            <div id="lead-detail-pages" class="lead-detail-pages"></div>
+          </section>
+
+          <section class="lead-detail-section lead-detail-section--wide">
+            <div class="admin-section-header">
+              <h4>Payload bruto completo</h4>
+              <button id="lead-detail-copy-payload" class="admin-quiz-btn" type="button">Copiar JSON</button>
+            </div>
+            <pre id="lead-detail-payload" class="lead-detail-payload"></pre>
+          </section>
         </div>
-        <p class="admin-muted lead-detail-hint">Mostra as paginas unicas que essa sessao visitou. O tempo em cada pagina nao era salvo no historico antigo.</p>
-        <div id="lead-detail-pages" class="lead-detail-pages"></div>
-      </section>
-      <section class="lead-detail-section">
-        <div class="admin-section-header">
-          <h4>Payload bruto</h4>
-        </div>
-        <pre id="lead-detail-payload" class="lead-detail-payload"></pre>
-      </section>
+      </div>
     </div>
   </div>
 
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
-  <script src="/script.js?v=9.0" defer></script>
+  <script src="/script.js?v=9.2" defer></script>
 </body>
 </html>
 

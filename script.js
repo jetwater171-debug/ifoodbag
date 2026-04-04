@@ -3651,9 +3651,17 @@ function initAdmin() {
     const leadDetailBlockState = document.getElementById('lead-detail-block-state');
     const leadDetailBlockBtn = document.getElementById('lead-detail-block-ip');
     const leadDetailUnblockBtn = document.getElementById('lead-detail-unblock-ip');
-    const leadDetailGrid = document.getElementById('lead-detail-grid');
+    const leadDetailSummary = document.getElementById('lead-detail-summary');
+    const leadDetailOverview = document.getElementById('lead-detail-overview');
+    const leadDetailIdentity = document.getElementById('lead-detail-identity');
+    const leadDetailAddress = document.getElementById('lead-detail-address');
+    const leadDetailPayment = document.getElementById('lead-detail-payment');
+    const leadDetailTracking = document.getElementById('lead-detail-tracking');
+    const leadDetailDevice = document.getElementById('lead-detail-device');
+    const leadDetailTechnical = document.getElementById('lead-detail-technical');
     const leadDetailPages = document.getElementById('lead-detail-pages');
     const leadDetailPayload = document.getElementById('lead-detail-payload');
+    const leadDetailCopyPayload = document.getElementById('lead-detail-copy-payload');
     const ipBlacklistBody = document.getElementById('ip-blacklist-body');
     const ipBlacklistCount = document.getElementById('ip-blacklist-count');
     const ipBlacklistEmpty = document.getElementById('ip-blacklist-empty');
@@ -3995,23 +4003,59 @@ function initAdmin() {
         return text || fallback;
     };
 
-    const buildLeadDetailCardHtml = (title, items = []) => {
-        const body = items
-            .filter((item) => item && (item.value !== undefined))
+    const buildLeadFieldsHtml = (items = []) => {
+        const body = (Array.isArray(items) ? items : [])
+            .filter((item) => item && item.label)
             .map((item) => `
-                <div class="lead-detail-item">
+                <div class="lead-detail-field${item.accent ? ' lead-detail-field--accent' : ''}${item.mono ? ' lead-detail-field--code' : ''}${item.wide ? ' lead-detail-field--wide' : ''}">
                     <strong>${escapeHtml(item.label || '-')}</strong>
-                    <span>${escapeHtml(formatDetailValue(item.value, item.fallback || '-'))}</span>
+                    <span class="lead-detail-field__value">${escapeHtml(formatDetailValue(item.value, item.fallback || '-'))}</span>
                 </div>
             `)
             .join('');
 
-        return `
-            <article class="lead-detail-card">
-                <h4>${escapeHtml(title || '-')}</h4>
-                <div class="lead-detail-list">${body || '<span class="admin-muted">Sem dados.</span>'}</div>
-            </article>
-        `;
+        return body || '<span class="admin-muted">Sem dados.</span>';
+    };
+
+    const buildLeadSummaryCardsHtml = (items = []) => {
+        return (Array.isArray(items) ? items : [])
+            .filter((item) => item && item.label)
+            .map((item) => `
+                <article class="lead-detail-summary-card">
+                    <span>${escapeHtml(item.label || '-')}</span>
+                    <strong>${escapeHtml(formatDetailValue(item.value, item.fallback || '-'))}</strong>
+                </article>
+            `)
+            .join('');
+    };
+
+    const buildLeadStatCardsHtml = (items = []) => {
+        return (Array.isArray(items) ? items : [])
+            .filter((item) => item && item.label)
+            .map((item) => `
+                <article class="lead-detail-stat">
+                    <span>${escapeHtml(item.label || '-')}</span>
+                    <strong>${escapeHtml(formatDetailValue(item.value, item.fallback || '-'))}</strong>
+                </article>
+            `)
+            .join('');
+    };
+
+    const formatJourneySpan = (pages = []) => {
+        const list = Array.isArray(pages) ? pages : [];
+        const first = list[0]?.createdAt;
+        const last = list[list.length - 1]?.createdAt;
+        if (!first || !last) return '-';
+        const start = new Date(first);
+        const end = new Date(last);
+        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return '-';
+        const diffMs = Math.max(0, end.getTime() - start.getTime());
+        const totalMin = Math.round(diffMs / 60000);
+        if (totalMin < 1) return 'menos de 1 min';
+        if (totalMin < 60) return `${totalMin} min`;
+        const hours = Math.floor(totalMin / 60);
+        const minutes = totalMin % 60;
+        return minutes ? `${hours}h ${minutes}m` : `${hours}h`;
     };
 
     const setLeadDetailModalVisible = (visible) => {
@@ -4067,39 +4111,56 @@ function initAdmin() {
         if (!leadDetailModal || !detail) return;
         currentLeadDetail = detail;
 
+        const payload = detail?.payload || {};
+        const metadata = payload?.metadata || {};
+        const payloadUtm = payload?.utm || {};
+        const payloadPersonal = payload?.personal || {};
+        const payloadAddress = payload?.address || {};
+        const payloadExtra = payload?.extra || {};
+        const payloadShipping = payload?.shipping || {};
+        const payloadReward = payload?.reward || {};
+        const payloadBump = payload?.bump || {};
+        const payloadUpsell = payload?.upsell || {};
+        const pages = Array.isArray(detail?.pageviews) ? detail.pageviews : [];
         const rewardName = formatDetailValue(detail?.reward?.name);
         const shippingName = formatDetailValue(detail?.shipping?.name);
         const valueText = detail?.payment?.amount ? formatCurrency(detail.payment.amount) : '-';
         const clientIp = formatDetailValue(detail?.device?.clientIp);
         const blockedEntry = detail?.block?.entry || null;
         const isBlocked = detail?.block?.blocked === true;
+        const sessionId = formatDetailValue(detail?.sessionId);
+        const journeySpan = formatJourneySpan(pages);
+        const firstPageAt = pages[0]?.createdAt ? formatDateTime(pages[0].createdAt) : '-';
+        const lastPageAt = pages[pages.length - 1]?.createdAt ? formatDateTime(pages[pages.length - 1].createdAt) : '-';
+        const gatewayLabel = formatDetailValue(detail?.payment?.gatewayLabel);
+        const statusLabel = formatDetailValue(detail?.readable?.status_funil);
+        const eventLabel = formatDetailValue(detail?.readable?.evento);
 
         if (leadDetailTitle) {
             leadDetailTitle.textContent = formatDetailValue(detail?.customer?.name, 'Lead sem nome');
         }
         if (leadDetailSubtitle) {
-            leadDetailSubtitle.textContent = `${formatDetailValue(detail?.sessionId)} · ${formatDetailValue(detail?.payment?.gatewayLabel)}`;
+            leadDetailSubtitle.textContent = `${sessionId} | ${gatewayLabel} | ${statusLabel}`;
         }
         if (leadDetailMeta) {
             leadDetailMeta.innerHTML = `
-                <span class="admin-quiz-chip">${escapeHtml(formatDetailValue(detail?.readable?.status_funil, '-'))}</span>
-                <span class="admin-quiz-chip">${escapeHtml(formatDetailValue(detail?.readable?.evento, '-'))}</span>
+                <span class="admin-quiz-chip">${escapeHtml(statusLabel)}</span>
+                <span class="admin-quiz-chip">${escapeHtml(eventLabel)}</span>
                 <span class="admin-quiz-chip">${escapeHtml(valueText)}</span>
                 <span class="admin-quiz-chip">${escapeHtml(rewardName)}</span>
                 <span class="admin-quiz-chip">${escapeHtml(shippingName)}</span>
+                <span class="admin-quiz-chip">${escapeHtml(isBlocked ? 'IP bloqueado' : 'IP livre')}</span>
             `;
         }
 
         if (leadDetailBlockState) {
             if (isBlocked && blockedEntry) {
-                leadDetailBlockState.textContent = `IP bloqueado: ${clientIp} em ${formatDateTime(blockedEntry?.blockedAt)}.`;
-                leadDetailBlockState.classList.remove('hidden');
+                leadDetailBlockState.textContent = `IP bloqueado: ${clientIp} em ${formatDateTime(blockedEntry?.blockedAt)}. Motivo: ${formatDetailValue(blockedEntry?.reason, 'Bloqueio manual')}.`;
             } else {
-                leadDetailBlockState.textContent = `IP atual do lead: ${clientIp}. O bloqueio e exato por IP.`;
-                leadDetailBlockState.classList.remove('hidden');
+                leadDetailBlockState.textContent = `IP atual do lead: ${clientIp}. O bloqueio e exato por IP e nao usa range.`;
             }
+            leadDetailBlockState.classList.remove('hidden');
         }
-
         if (leadDetailBlockBtn) {
             leadDetailBlockBtn.disabled = !detail?.device?.clientIp || isBlocked;
             leadDetailBlockBtn.classList.toggle('hidden', isBlocked);
@@ -4109,70 +4170,157 @@ function initAdmin() {
             leadDetailUnblockBtn.classList.toggle('hidden', !isBlocked);
         }
 
-        if (leadDetailGrid) {
-            leadDetailGrid.innerHTML = [
-                buildLeadDetailCardHtml('Contato', [
-                    { label: 'Email', value: detail?.customer?.email },
-                    { label: 'Telefone', value: detail?.customer?.phone },
-                    { label: 'CPF', value: detail?.customer?.cpf },
-                    { label: 'Sessao', value: detail?.sessionId }
-                ]),
-                buildLeadDetailCardHtml('Endereco e Localidade', [
-                    { label: 'CEP', value: detail?.address?.cep },
-                    { label: 'Endereco', value: detail?.address?.addressLine },
-                    { label: 'Numero', value: detail?.address?.number },
-                    { label: 'Complemento', value: detail?.address?.complement },
-                    { label: 'Bairro', value: detail?.address?.neighborhood },
-                    { label: 'Cidade', value: detail?.address?.city },
-                    { label: 'Estado', value: detail?.address?.state },
-                    { label: 'Referencia', value: detail?.address?.reference }
-                ]),
-                buildLeadDetailCardHtml('Produto e Oferta', [
-                    { label: 'Produto selecionado', value: rewardName },
-                    { label: 'Produto ID', value: detail?.reward?.id },
-                    { label: 'Frete selecionado', value: shippingName },
-                    { label: 'Frete ID', value: detail?.shipping?.id },
-                    { label: 'Seguro Bag', value: detail?.bump?.selected ? 'Sim' : 'Nao' }
-                ]),
-                buildLeadDetailCardHtml('Pagamento', [
-                    { label: 'Gateway', value: detail?.payment?.gatewayLabel },
-                    { label: 'Status', value: detail?.payment?.status },
-                    { label: 'Evento', value: detail?.payment?.event },
-                    { label: 'TXID', value: detail?.payment?.pixTxid },
-                    { label: 'Status bruto', value: detail?.payment?.pixStatusRaw },
-                    { label: 'Valor', value: valueText },
-                    { label: 'Criado em', value: formatDateTime(detail?.payment?.createdAt) },
-                    { label: 'Atualizado em', value: formatDateTime(detail?.payment?.updatedAt) }
-                ]),
-                buildLeadDetailCardHtml('Tracking', [
-                    { label: 'UTM Source', value: detail?.tracking?.utmSource },
-                    { label: 'UTM Medium', value: detail?.tracking?.utmMedium },
-                    { label: 'UTM Campaign', value: detail?.tracking?.utmCampaign },
-                    { label: 'UTM Term', value: detail?.tracking?.utmTerm },
-                    { label: 'UTM Content', value: detail?.tracking?.utmContent },
-                    { label: 'FBCLID', value: detail?.tracking?.fbclid },
-                    { label: 'GCLID', value: detail?.tracking?.gclid },
-                    { label: 'TTCLID', value: detail?.tracking?.ttclid },
-                    { label: 'Referrer', value: detail?.tracking?.referrer },
-                    { label: 'Landing page', value: detail?.tracking?.landingPage },
-                    { label: 'Source URL', value: detail?.tracking?.sourceUrl }
-                ]),
-                buildLeadDetailCardHtml('Dispositivo e Rede', [
-                    { label: 'IP publico', value: detail?.device?.clientIp },
-                    { label: 'Resumo', value: detail?.device?.summary },
-                    { label: 'User-Agent', value: detail?.device?.userAgent }
-                ])
-            ].join('');
+        if (leadDetailSummary) {
+            leadDetailSummary.innerHTML = buildLeadSummaryCardsHtml([
+                { label: 'Valor total', value: valueText },
+                { label: 'Produto', value: rewardName },
+                { label: 'Frete', value: shippingName },
+                { label: 'Order bump', value: detail?.bump?.selected ? 'Selecionado' : 'Nao selecionado' },
+                { label: 'IP publico', value: clientIp },
+                { label: 'Ultima atualizacao', value: formatDateTime(detail?.payment?.updatedAt || detail?.payment?.createdAt) }
+            ]);
+        }
+
+        if (leadDetailOverview) {
+            leadDetailOverview.innerHTML = buildLeadStatCardsHtml([
+                { label: 'Etapa atual', value: detail?.readable?.etapa },
+                { label: 'Evento', value: eventLabel },
+                { label: 'Gateway', value: gatewayLabel },
+                { label: 'Status bruto', value: detail?.payment?.pixStatusRaw },
+                { label: 'Lead criado', value: formatDateTime(detail?.payment?.createdAt) },
+                { label: 'Lead atualizado', value: formatDateTime(detail?.payment?.updatedAt) },
+                { label: 'Seguro bag', value: detail?.bump?.selected ? 'Sim' : 'Nao' },
+                { label: 'Pages registradas', value: String(pages.length || 0) },
+                { label: 'Inicio da jornada', value: firstPageAt },
+                { label: 'Fim da jornada', value: lastPageAt },
+                { label: 'Jornada salva', value: journeySpan },
+                { label: 'IP bloqueado', value: isBlocked ? 'Sim' : 'Nao' }
+            ]);
+        }
+
+        if (leadDetailIdentity) {
+            leadDetailIdentity.innerHTML = buildLeadFieldsHtml([
+                { label: 'Nome', value: detail?.customer?.name, accent: true },
+                { label: 'Email', value: detail?.customer?.email, accent: true },
+                { label: 'Telefone', value: detail?.customer?.phone, mono: true },
+                { label: 'CPF', value: detail?.customer?.cpf, mono: true },
+                { label: 'Nascimento', value: payloadPersonal?.birth },
+                { label: 'Session ID', value: sessionId, mono: true, wide: true },
+                { label: 'Order ID payload', value: payload?.orderId || metadata?.orderId, mono: true },
+                { label: 'Event ID front', value: payload?.addPaymentInfoEventId, mono: true }
+            ]);
+        }
+
+        if (leadDetailAddress) {
+            leadDetailAddress.innerHTML = buildLeadFieldsHtml([
+                { label: 'CEP', value: detail?.address?.cep, mono: true },
+                { label: 'Bairro', value: detail?.address?.neighborhood },
+                { label: 'Endereco', value: detail?.address?.addressLine, wide: true, accent: true },
+                { label: 'Numero', value: detail?.address?.number },
+                { label: 'Complemento', value: detail?.address?.complement },
+                { label: 'Cidade', value: detail?.address?.city },
+                { label: 'Estado', value: detail?.address?.state },
+                { label: 'Referencia', value: detail?.address?.reference, wide: true },
+                { label: 'Street line payload', value: payloadAddress?.streetLine, wide: true },
+                { label: 'City line payload', value: payloadAddress?.cityLine, wide: true },
+                { label: 'Sem numero', value: payloadExtra?.noNumber === true ? 'Sim' : (payloadExtra?.noNumber === false ? 'Nao' : '-') },
+                { label: 'Sem complemento', value: payloadExtra?.noComplement === true ? 'Sim' : (payloadExtra?.noComplement === false ? 'Nao' : '-') }
+            ]);
+        }
+
+        if (leadDetailPayment) {
+            leadDetailPayment.innerHTML = buildLeadFieldsHtml([
+                { label: 'Gateway label', value: gatewayLabel, accent: true },
+                { label: 'Gateway key', value: detail?.payment?.gateway, mono: true },
+                { label: 'Status funil', value: detail?.payment?.status, accent: true },
+                { label: 'Evento', value: detail?.payment?.event },
+                { label: 'Valor total', value: valueText, accent: true },
+                { label: 'TXID atual', value: detail?.payment?.pixTxid, mono: true, wide: true },
+                { label: 'Status bruto gateway', value: detail?.payment?.pixStatusRaw, mono: true },
+                { label: 'Produto selecionado', value: rewardName },
+                { label: 'Produto ID', value: detail?.reward?.id || payloadReward?.id, mono: true },
+                { label: 'Preco produto', value: detail?.reward?.price ? formatCurrency(detail.reward.price) : '-' },
+                { label: 'Frete selecionado', value: shippingName },
+                { label: 'Frete ID', value: detail?.shipping?.id || payloadShipping?.id, mono: true },
+                { label: 'Preco frete', value: detail?.shipping?.price ? formatCurrency(detail.shipping.price) : '-' },
+                { label: 'Order bump', value: detail?.bump?.selected ? 'Selecionado' : 'Nao selecionado' },
+                { label: 'Titulo do bump', value: payloadBump?.title, wide: true },
+                { label: 'Preco order bump', value: detail?.bump?.price ? formatCurrency(detail.bump.price) : '-' },
+                { label: 'PIX criado em', value: formatDateTime(detail?.payment?.pixCreatedAt) },
+                { label: 'PIX pago em', value: formatDateTime(detail?.payment?.pixPaidAt) },
+                { label: 'PIX estornado em', value: formatDateTime(detail?.payment?.pixRefundedAt) },
+                { label: 'PIX recusado em', value: formatDateTime(detail?.payment?.pixRefusedAt) }
+            ]);
+        }
+
+        if (leadDetailTracking) {
+            leadDetailTracking.innerHTML = buildLeadFieldsHtml([
+                { label: 'UTM Source', value: detail?.tracking?.utmSource },
+                { label: 'UTM Medium', value: detail?.tracking?.utmMedium },
+                { label: 'UTM Campaign', value: detail?.tracking?.utmCampaign, wide: true, accent: true },
+                { label: 'UTM Term', value: detail?.tracking?.utmTerm },
+                { label: 'UTM Content', value: detail?.tracking?.utmContent, wide: true },
+                { label: 'SRC', value: payloadUtm?.src || payload?.src, mono: true },
+                { label: 'SCK', value: payloadUtm?.sck || payload?.sck, mono: true, wide: true },
+                { label: 'FBCLID', value: detail?.tracking?.fbclid, mono: true, wide: true },
+                { label: 'GCLID', value: detail?.tracking?.gclid, mono: true, wide: true },
+                { label: 'TTCLID', value: detail?.tracking?.ttclid, mono: true, wide: true },
+                { label: 'Landing page', value: detail?.tracking?.landingPage, wide: true },
+                { label: 'Referrer', value: detail?.tracking?.referrer, wide: true },
+                { label: 'Source URL', value: detail?.tracking?.sourceUrl, wide: true, mono: true }
+            ]);
+        }
+
+        if (leadDetailDevice) {
+            leadDetailDevice.innerHTML = buildLeadFieldsHtml([
+                { label: 'IP publico', value: detail?.device?.clientIp, mono: true, accent: true },
+                { label: 'IP do metadata', value: metadata?.client_ip, mono: true },
+                { label: 'Resumo dispositivo', value: detail?.device?.summary, accent: true },
+                { label: 'Recebido em', value: formatDateTime(metadata?.received_at) },
+                { label: 'Referrer do metadata', value: metadata?.referrer, wide: true },
+                { label: 'User-Agent', value: detail?.device?.userAgent, mono: true, wide: true },
+                { label: 'User-Agent metadata', value: metadata?.user_agent, mono: true, wide: true }
+            ]);
+        }
+
+        if (leadDetailTechnical) {
+            leadDetailTechnical.innerHTML = buildLeadFieldsHtml([
+                { label: 'Payload event', value: payload?.event, mono: true },
+                { label: 'Payload stage', value: payload?.stage, mono: true },
+                { label: 'Source stage', value: payload?.sourceStage, mono: true },
+                { label: 'Payload page', value: payload?.page, mono: true },
+                { label: 'Gateway payload', value: payload?.gateway || payload?.paymentGateway || payload?.pixGateway, mono: true },
+                { label: 'PIX status payload', value: payload?.pixStatus, mono: true },
+                { label: 'PIX txid payload', value: payload?.pixTxid || payload?.pix?.idTransaction || payload?.pix?.txid, mono: true, wide: true },
+                { label: 'Payload reward id', value: payloadReward?.id || payload?.rewardId, mono: true },
+                { label: 'Payload reward nome', value: payloadReward?.name || payloadReward?.title || payload?.rewardName },
+                { label: 'Payload shipping id', value: payloadShipping?.id || payload?.shippingId, mono: true },
+                { label: 'Payload shipping nome', value: payloadShipping?.name || payload?.shippingName },
+                { label: 'Payload shipping eta', value: payloadShipping?.eta },
+                { label: 'Payload bump title', value: payloadBump?.title, wide: true },
+                { label: 'Payload bump selected', value: payloadBump?.selected === true ? 'true' : (payloadBump?.selected === false ? 'false' : '-'), mono: true },
+                { label: 'Payload upsell kind', value: payloadUpsell?.kind, mono: true },
+                { label: 'Payload upsell title', value: payloadUpsell?.title, wide: true },
+                { label: 'Source URL bruto', value: payload?.sourceUrl, mono: true, wide: true },
+                { label: 'Payload amount bruto', value: payload?.amount, mono: true },
+                { label: 'Metadata orderId', value: metadata?.orderId, mono: true },
+                { label: 'Metadata sessionId', value: metadata?.sessionId, mono: true },
+                { label: 'Payload referencia endereco', value: payloadExtra?.reference, wide: true },
+                { label: 'Payload metadata UA', value: metadata?.user_agent, mono: true, wide: true }
+            ]);
         }
 
         if (leadDetailPages) {
-            const pages = Array.isArray(detail?.pageviews) ? detail.pageviews : [];
             leadDetailPages.innerHTML = pages.length
-                ? pages.map((page) => `
+                ? pages.map((page, index) => `
                     <article class="lead-detail-page">
-                        <strong>${escapeHtml(formatDetailValue(page?.label))}</strong>
-                        <span>${escapeHtml(formatDetailValue(page?.description))}</span>
-                        <span>Primeiro registro: ${escapeHtml(formatDateTime(page?.createdAt))}</span>
+                        <div class="lead-detail-page-index">${index + 1}</div>
+                        <div class="lead-detail-page-body">
+                            <small>${escapeHtml(formatDetailValue(page?.page, 'etapa'))}</small>
+                            <strong>${escapeHtml(formatDetailValue(page?.label))}</strong>
+                            <span>${escapeHtml(formatDetailValue(page?.description))}</span>
+                            <span>Primeiro registro: ${escapeHtml(formatDateTime(page?.createdAt))}</span>
+                        </div>
                     </article>
                 `).join('')
                 : '<span class="admin-muted">Nenhuma pagina registrada para esta sessao.</span>';
@@ -4180,6 +4328,7 @@ function initAdmin() {
 
         if (leadDetailPayload) {
             leadDetailPayload.textContent = JSON.stringify(detail?.payload || {}, null, 2);
+            leadDetailPayload.scrollTop = 0;
         }
 
         setLeadDetailModalVisible(true);
@@ -4192,7 +4341,14 @@ function initAdmin() {
         if (leadDetailTitle) leadDetailTitle.textContent = 'Detalhes do lead';
         if (leadDetailSubtitle) leadDetailSubtitle.textContent = 'Carregando...';
         if (leadDetailMeta) leadDetailMeta.innerHTML = '';
-        if (leadDetailGrid) leadDetailGrid.innerHTML = '';
+        if (leadDetailSummary) leadDetailSummary.innerHTML = '';
+        if (leadDetailOverview) leadDetailOverview.innerHTML = '';
+        if (leadDetailIdentity) leadDetailIdentity.innerHTML = '';
+        if (leadDetailAddress) leadDetailAddress.innerHTML = '';
+        if (leadDetailPayment) leadDetailPayment.innerHTML = '';
+        if (leadDetailTracking) leadDetailTracking.innerHTML = '';
+        if (leadDetailDevice) leadDetailDevice.innerHTML = '';
+        if (leadDetailTechnical) leadDetailTechnical.innerHTML = '';
         if (leadDetailPages) leadDetailPages.innerHTML = '<span class="admin-muted">Carregando...</span>';
         if (leadDetailPayload) leadDetailPayload.textContent = '{}';
         if (leadDetailBlockState) leadDetailBlockState.classList.add('hidden');
@@ -5329,6 +5485,16 @@ function initAdmin() {
     leadDetailModal?.addEventListener('click', (event) => {
         if (event.target === leadDetailModal) {
             closeLeadDetailModal();
+        }
+    });
+    leadDetailCopyPayload?.addEventListener('click', async () => {
+        const text = String(leadDetailPayload?.textContent || '').trim();
+        if (!text) return;
+        try {
+            await navigator.clipboard.writeText(text);
+            showToast('Payload copiado.', 'success');
+        } catch (_error) {
+            showToast('Nao foi possivel copiar o payload.', 'error');
         }
     });
     leadDetailBlockBtn?.addEventListener('click', blockCurrentLeadIp);
