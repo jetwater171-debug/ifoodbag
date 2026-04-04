@@ -227,6 +227,16 @@ const LEADS_SELECT_FIELDS = [
     'updated_at',
     'created_at'
 ].join(',');
+const SALES_INSIGHTS_SELECT_FIELDS = [
+    'last_event',
+    'city',
+    'utm_term',
+    'pix_amount',
+    'user_agent',
+    'payload',
+    'updated_at',
+    'created_at'
+].join(',');
 const MAX_LEADS_EXPORT_ROWS = 200000;
 const LEAD_EXPORT_SEGMENTS = {
     all: {
@@ -1087,6 +1097,70 @@ function summarizeUserAgent(userAgent = '') {
     return `${browser} · ${os} · ${device}`;
 }
 
+function normalizeSalesLabel(value = '', fallback = '-') {
+    const text = String(value || '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    if (!text || text === '-') return fallback;
+    return text;
+}
+
+function normalizeCityLabel(row, payload = {}) {
+    const payloadAddress = asObject(payload?.address);
+    const cityLine = String(payloadAddress?.cityLine || '').trim();
+    const cityFromLine = cityLine.includes('-') ? cityLine.split('-')[0]?.trim() : cityLine;
+    const raw = normalizeSalesLabel(row?.city || payloadAddress?.city || cityFromLine || '', '');
+    if (!raw) return '-';
+    return raw
+        .toLowerCase()
+        .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function resolveSalesDeviceLabel(userAgent = '', payload = {}) {
+    const metadata = asObject(payload?.metadata);
+    const ua = String(userAgent || metadata?.user_agent || '')
+        .toLowerCase()
+        .trim();
+    if (!ua) return 'PC';
+    if (ua.includes('iphone') || ua.includes('ipad') || ua.includes('ios')) return 'iPhone';
+    if (ua.includes('android')) return 'Android';
+    return 'PC';
+}
+
+function accumulateSalesBucket(map, key, label, amount = 0) {
+    const safeKey = String(key || '').trim();
+    if (!safeKey) return;
+    const current = map.get(safeKey) || {
+        key: safeKey,
+        label: label || safeKey,
+        count: 0,
+        amount: 0
+    };
+    current.count += 1;
+    current.amount = Number((Number(current.amount || 0) + Number(amount || 0)).toFixed(2));
+    map.set(safeKey, current);
+}
+
+function buildSalesRanking(map, totalPaid = 0, { limit = 10, includeZero = false } = {}) {
+    const rows = Array.from(map.values())
+        .filter((item) => includeZero || Number(item?.count || 0) > 0)
+        .map((item) => ({
+            key: String(item?.key || '').trim(),
+            label: normalizeSalesLabel(item?.label),
+            count: Number(item?.count || 0),
+            amount: Number(item?.amount || 0),
+            share: totalPaid > 0 ? Math.round((Number(item?.count || 0) / totalPaid) * 1000) / 10 : 0
+        }));
+
+    rows.sort((a, b) => {
+        if (b.count !== a.count) return b.count - a.count;
+        if (b.amount !== a.amount) return b.amount - a.amount;
+        return a.label.localeCompare(b.label, 'pt-BR');
+    });
+
+    return rows.slice(0, Math.max(1, Number(limit) || 10));
+}
+
 function resolveLeadRewardInfo(row, payload) {
     const rewardId = String(
         payload?.reward?.id ||
@@ -1330,7 +1404,7 @@ async function fetchLeadsPage({ range = null, query = '', limit = 50, offset = 0
     };
 }
 
-async function fetchAllLeadsForExport({ range = null, query = '', maxRows = MAX_LEADS_EXPORT_ROWS, pageSize = 1000 } = {}) {
+async function fetchAllLeadsForExport({ range = null, query = '', maxRows = MAX_LEADS_EXPORT_ROWS, pageSize = 1000, select = LEADS_SELECT_FIELDS } = {}) {
     const rows = [];
     let offset = 0;
     let truncated = false;
@@ -1342,7 +1416,7 @@ async function fetchAllLeadsForExport({ range = null, query = '', maxRows = MAX_
             query,
             limit: take,
             offset,
-            select: LEADS_SELECT_FIELDS
+            select
         });
 
         if (!page.ok) {
@@ -2137,6 +2211,114 @@ async function getBackredirects(req, res) {
             totalBack,
             totalViews,
             avgRate
+        }
+    });
+}
+
+async function getSalesInsights(req, res) {
+    if (req.method !== 'GET') {
+        res.status(405).json({ error: 'Method not allowed' });
+        return;
+    }
+    if (!requireAdmin(req, res)) return;
+
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+        res.status(500).json({ error: 'Supabase nao configurado.' });
+        return;
+    }
+
+    const range = parseLeadsDateRange(req.query || {});
+    if (!range.ok) {
+        res.status(400).json({ error: range.error || 'Filtro de data invalido.' });
+        return;
+    }
+
+    const maxRows = clamp(firstQueryValue(req.query?.max) || 80000, 1, MAX_LEADS_EXPORT_ROWS);
+    const result = await fetchAllLeadsForExport({
+        range,
+        maxRows,
+        pageSize: 1000,
+        select: SALES_INSIGHTS_SELECT_FIELDS
+    });
+
+    if (!result.ok) {
+        res.status(502).json({ error: 'Falha ao montar insights de vendas.', detail: result.detail || '' });
+        return;
+    }
+
+    const positioningMap = new Map();
+    const cityMap = new Map();
+    const deviceMap = new Map([
+        ['iphone', { key: 'iphone', label: 'iPhone', count: 0, amount: 0 }],
+        ['android', { key: 'android', label: 'Android', count: 0, amount: 0 }],
+        ['pc', { key: 'pc', label: 'PC', count: 0, amount: 0 }]
+    ]);
+
+    let totalPaid = 0;
+    let totalRevenue = 0;
+    let lastSaleAt = null;
+
+    (Array.isArray(result.rows) ? result.rows : []).forEach((row) => {
+        const payload = asObject(row?.payload);
+        if (!isLeadPaid(row, payload)) return;
+
+        totalPaid += 1;
+        const amount = Number.isFinite(Number(row?.pix_amount)) ? Number(row.pix_amount) : 0;
+        totalRevenue = Number((totalRevenue + amount).toFixed(2));
+
+        const mapped = mapLeadReadable(row);
+        const positioningLabel = normalizeSalesLabel(mapped?.utm_term_label || mapped?.utm_term || row?.utm_term || '', '');
+        if (positioningLabel) {
+            const positioningKey = positioningLabel.toLowerCase();
+            accumulateSalesBucket(positioningMap, positioningKey, positioningLabel, amount);
+        }
+
+        const cityLabel = normalizeCityLabel(row, payload);
+        if (cityLabel && cityLabel !== '-') {
+            const cityKey = cityLabel.toLowerCase();
+            accumulateSalesBucket(cityMap, cityKey, cityLabel, amount);
+        }
+
+        const deviceLabel = resolveSalesDeviceLabel(row?.user_agent, payload);
+        const deviceKey = deviceLabel.toLowerCase() === 'iphone'
+            ? 'iphone'
+            : deviceLabel.toLowerCase() === 'android'
+                ? 'android'
+                : 'pc';
+        accumulateSalesBucket(deviceMap, deviceKey, deviceLabel, amount);
+
+        const eventTime = mapped?.event_time || row?.updated_at || row?.created_at || null;
+        const currentTs = lastSaleAt ? Date.parse(lastSaleAt) : 0;
+        const nextTs = eventTime ? Date.parse(eventTime) : 0;
+        if (!lastSaleAt || (nextTs && nextTs > currentTs)) {
+            lastSaleAt = eventTime;
+        }
+    });
+
+    const positionings = buildSalesRanking(positioningMap, totalPaid, { limit: 8 });
+    const cities = buildSalesRanking(cityMap, totalPaid, { limit: 10 });
+    const devices = buildSalesRanking(deviceMap, totalPaid, { limit: 3, includeZero: true });
+
+    res.status(200).json({
+        ok: true,
+        summary: {
+            totalPaid,
+            totalRevenue,
+            lastSaleAt,
+            scannedRows: Number(result.rows?.length || 0),
+            truncated: result.truncated === true,
+            range: {
+                from: range.fromDate || '',
+                to: range.toDate || ''
+            },
+            topPositioning: positionings[0] || null,
+            topCity: cities[0] || null,
+            topDevice: totalPaid > 0 ? (devices[0] || null) : null
+        },
+        data: {
+            positionings,
+            cities,
+            devices
         }
     });
 }
@@ -3044,6 +3226,8 @@ module.exports = async (req, res) => {
             return getPages(req, res);
         case 'backredirects':
             return getBackredirects(req, res);
+        case 'sales-insights':
+            return getSalesInsights(req, res);
         case 'utmfy-test':
             return utmfyTest(req, res);
         case 'utmfy-sale':

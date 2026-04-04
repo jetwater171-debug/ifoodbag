@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#111111" />
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#111111" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <title>iFood Entregadores - Vendas</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/style.css?v=3.7" />
+<script src="/backguard.js?v=1.5"></script>
+</head>
+<body data-page="admin" data-admin="sales">
+  <div class="admin-shell">
+    <aside class="admin-sidebar">
+      <div class="admin-brand">
+        <img src="/assets/ifoodentregadores.webp" alt="iFood" />
+        <div>
+          <strong>Dashboard</strong>
+          <span>Entregadores</span>
+        </div>
+      </div>
+      <nav class="admin-nav">
+        <a class="admin-nav-item" data-admin="overview" href="/admin">Visao geral</a>
+        <a class="admin-nav-item" data-admin="tracking" href="/admin/tracking">Tracking</a>
+        <a class="admin-nav-item" data-admin="utmfy" href="/admin/utmfy">UTMfy</a>
+        <a class="admin-nav-item" data-admin="gateways" href="/admin/gateways">Gateways</a>
+        <a class="admin-nav-item" data-admin="pages" href="/admin/pages">Paginas</a>
+        <a class="admin-nav-item" data-admin="sales" href="/admin/vendas">Vendas</a>
+        <a class="admin-nav-item" data-admin="backredirects" href="/admin/backredirects">Backredirects</a>
+        <a class="admin-nav-item" data-admin="leads" href="/admin/leads">Leads</a>
+      </nav>
+      <div class="admin-sidebar-foot">
+        <span class="admin-pill">Seguro</span>
+        <span class="admin-muted">Painel privado</span>
+      </div>
+    </aside>
+
+    <main class="admin-main">
+      <header class="admin-topbar">
+        <div>
+          <h1>Inteligencia de vendas</h1>
+          <p>Descubra o que mais vende por posicionamento, cidade e tipo de aparelho.</p>
+        </div>
+      </header>
+
+      <section id="admin-login" class="admin-login-card">
+        <h2>Acesso restrito</h2>
+        <p class="admin-muted">Digite sua senha para acessar o painel.</p>
+        <div class="input-group">
+          <input type="password" id="admin-password" class="floating-input" placeholder=" " autocomplete="current-password" />
+          <label for="admin-password" class="floating-label">Senha do admin</label>
+        </div>
+        <button id="admin-login-btn" class="btn-primary" type="button">Entrar</button>
+        <div id="admin-login-error" class="form-error hidden"></div>
+      </section>
+
+      <div id="admin-panel" class="admin-panel hidden">
+        <section class="admin-section admin-section--overview">
+          <div class="admin-section-header">
+            <h2>Radar de vendas</h2>
+            <span id="sales-base" class="admin-chip">Base: 0 vendas</span>
+          </div>
+
+          <div class="admin-hero">
+            <div class="admin-hero-info">
+              <h3>O que mais converte agora</h3>
+              <p>O ranking considera apenas vendas aprovadas e usa os dados que ja estao salvos no lead.</p>
+              <div class="admin-hero-tags">
+                <span class="admin-tag">Ultima venda: <strong id="sales-updated">-</strong></span>
+                <span class="admin-tag">Posicionamento lider: <strong id="sales-top-positioning-label">-</strong></span>
+                <span class="admin-tag">Cidade lider: <strong id="sales-top-city-label">-</strong></span>
+                <span class="admin-tag">Aparelho lider: <strong id="sales-top-device-label">-</strong></span>
+              </div>
+            </div>
+            <div class="admin-hero-highlight">
+              <span>Vendas aprovadas</span>
+              <strong id="sales-paid-total">0</strong>
+              <em id="sales-revenue-total">R$ 0,00</em>
+            </div>
+          </div>
+
+          <div class="admin-range-toolbar">
+            <div class="input-group">
+              <select id="overview-range-preset" class="floating-input">
+                <option value="all">Todo periodo</option>
+                <option value="today">Hoje</option>
+                <option value="yesterday">Ontem</option>
+                <option value="last7">Ultimos 7 dias</option>
+                <option value="last30">Ultimos 30 dias</option>
+                <option value="thisMonth">Este mes</option>
+                <option value="custom">Personalizado</option>
+              </select>
+              <label for="overview-range-preset" class="floating-label">Periodo</label>
+            </div>
+            <div class="input-group">
+              <input type="date" id="overview-range-from" class="floating-input" placeholder=" " />
+              <label for="overview-range-from" class="floating-label">De</label>
+            </div>
+            <div class="input-group">
+              <input type="date" id="overview-range-to" class="floating-input" placeholder=" " />
+              <label for="overview-range-to" class="floating-label">Ate</label>
+            </div>
+            <button id="overview-range-apply" class="btn-secondary" type="button">Aplicar</button>
+            <button id="overview-range-reset" class="btn-secondary" type="button">Limpar</button>
+            <span id="overview-range-status" class="admin-muted"></span>
+          </div>
+
+          <div class="admin-kpi-grid">
+            <div class="admin-kpi admin-kpi--accent">
+              <span>Melhor posicionamento</span>
+              <strong id="sales-positioning-winner">-</strong>
+              <em id="sales-positioning-detail">Sem vendas ainda</em>
+            </div>
+            <div class="admin-kpi admin-kpi--accent">
+              <span>Melhor cidade</span>
+              <strong id="sales-city-winner">-</strong>
+              <em id="sales-city-detail">Sem vendas ainda</em>
+            </div>
+            <div class="admin-kpi admin-kpi--accent">
+              <span>Aparelho lider</span>
+              <strong id="sales-device-winner">-</strong>
+              <em id="sales-device-detail">Sem vendas ainda</em>
+            </div>
+          </div>
+        </section>
+
+        <section class="admin-section admin-section--card">
+          <div class="admin-section-header">
+            <h2>Ranking detalhado</h2>
+            <span class="admin-chip">Aprovadas</span>
+          </div>
+          <p class="admin-hint">Posicionamento usa `utm_term`. O tipo de aparelho consolida tudo em iPhone, Android ou PC.</p>
+
+          <div class="sales-ranking-grid">
+            <article class="sales-ranking-card">
+              <div class="admin-section-header">
+                <h3>Posicionamentos</h3>
+                <span class="admin-chip">UTM term</span>
+              </div>
+              <div id="sales-positioning-list" class="sales-ranking-list"></div>
+            </article>
+
+            <article class="sales-ranking-card">
+              <div class="admin-section-header">
+                <h3>Cidades</h3>
+                <span class="admin-chip">Geo</span>
+              </div>
+              <div id="sales-city-list" class="sales-ranking-list"></div>
+            </article>
+
+            <article class="sales-ranking-card">
+              <div class="admin-section-header">
+                <h3>Aparelhos</h3>
+                <span class="admin-chip">Device</span>
+              </div>
+              <div id="sales-device-list" class="sales-ranking-list"></div>
+            </article>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+  <script src="/script.js?v=9.3" defer></script>
+</body>
+</html>

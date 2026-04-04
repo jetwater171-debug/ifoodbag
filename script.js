@@ -3701,6 +3701,22 @@ function initAdmin() {
     const backredirectTotal = document.getElementById('backredirect-total');
     const backredirectTopPage = document.getElementById('backredirect-top-page');
     const backredirectTopRate = document.getElementById('backredirect-top-rate');
+    const salesBase = document.getElementById('sales-base');
+    const salesUpdated = document.getElementById('sales-updated');
+    const salesPaidTotal = document.getElementById('sales-paid-total');
+    const salesRevenueTotal = document.getElementById('sales-revenue-total');
+    const salesTopPositioningLabel = document.getElementById('sales-top-positioning-label');
+    const salesTopCityLabel = document.getElementById('sales-top-city-label');
+    const salesTopDeviceLabel = document.getElementById('sales-top-device-label');
+    const salesPositioningWinner = document.getElementById('sales-positioning-winner');
+    const salesPositioningDetail = document.getElementById('sales-positioning-detail');
+    const salesCityWinner = document.getElementById('sales-city-winner');
+    const salesCityDetail = document.getElementById('sales-city-detail');
+    const salesDeviceWinner = document.getElementById('sales-device-winner');
+    const salesDeviceDetail = document.getElementById('sales-device-detail');
+    const salesPositioningList = document.getElementById('sales-positioning-list');
+    const salesCityList = document.getElementById('sales-city-list');
+    const salesDeviceList = document.getElementById('sales-device-list');
     const adminPage = document.body.getAttribute('data-admin') || '';
     const testPixelBtn = document.getElementById('admin-test-pixel');
     const testPixelStatus = document.getElementById('admin-test-pixel-status');
@@ -3907,6 +3923,7 @@ function initAdmin() {
     const wantsLeads = !!(leadsBody || metricTotal || metricPix || metricFrete || metricCep);
     const wantsPages = !!pagesGrid;
     const wantsBackredirects = !!backredirectGrid;
+    const wantsSalesInsights = !!(salesPositioningList || salesCityList || salesDeviceList);
 
     const normalizeGatewayKey = (value) => {
         const normalized = String(value || '').trim().toLowerCase();
@@ -5062,7 +5079,8 @@ function initAdmin() {
 
         saveOverviewRange();
         syncOverviewRangeUi();
-        await loadLeads({ reset: true });
+        if (wantsLeads) await loadLeads({ reset: true });
+        if (wantsSalesInsights) await loadSalesInsights();
     };
 
     const initializeOverviewRange = () => {
@@ -5460,6 +5478,106 @@ function initAdmin() {
         }
     };
 
+    const renderSalesWinner = (strongNode, detailNode, tagNode, entry, emptyLabel = '-') => {
+        if (strongNode) strongNode.textContent = entry?.label || emptyLabel;
+        if (tagNode) tagNode.textContent = entry?.label || emptyLabel;
+        if (detailNode) {
+            detailNode.textContent = entry
+                ? `${entry.count || 0} vendas • ${Number(entry.share || 0).toFixed(1)}% • ${formatCurrency(Number(entry.amount || 0))}`
+                : 'Sem vendas ainda';
+        }
+    };
+
+    const renderSalesRankingList = (container, items = [], emptyText = 'Sem vendas aprovadas nesse periodo.') => {
+        if (!container) return;
+        const rows = Array.isArray(items) ? items : [];
+        if (!rows.length) {
+            container.innerHTML = `<div class="sales-ranking-empty">${escapeHtml(emptyText)}</div>`;
+            return;
+        }
+
+        const max = rows.reduce((acc, item) => Math.max(acc, Number(item?.count) || 0), 0) || 1;
+        container.innerHTML = rows.map((item, index) => {
+            const count = Number(item?.count || 0);
+            const amount = Number(item?.amount || 0);
+            const share = Number(item?.share || 0);
+            const width = Math.max(6, Math.round((count / max) * 100));
+            return `
+                <article class="sales-ranking-item">
+                    <div class="sales-ranking-item__top">
+                        <span class="sales-ranking-item__badge">#${index + 1}</span>
+                        <strong>${escapeHtml(item?.label || '-')}</strong>
+                        <span class="sales-ranking-item__count">${count} vendas</span>
+                    </div>
+                    <div class="sales-ranking-item__meta">
+                        <span>${share.toFixed(1)}% da base paga</span>
+                        <span>${escapeHtml(formatCurrency(amount))}</span>
+                    </div>
+                    <div class="sales-ranking-bar"><i style="width: ${width}%"></i></div>
+                </article>
+            `;
+        }).join('');
+    };
+
+    const loadSalesInsights = async () => {
+        if (!wantsSalesInsights) return;
+
+        const url = new URL('/api/admin/sales-insights', window.location.origin);
+        const activeRange = getActiveOverviewRange();
+        if (activeRange.from) url.searchParams.set('from', activeRange.from);
+        if (activeRange.to) url.searchParams.set('to', activeRange.to);
+        url.searchParams.set('max', '80000');
+
+        const res = await adminFetch(url.toString());
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok || payload?.ok === false) {
+            renderSalesWinner(salesPositioningWinner, salesPositioningDetail, salesTopPositioningLabel, null);
+            renderSalesWinner(salesCityWinner, salesCityDetail, salesTopCityLabel, null);
+            renderSalesWinner(salesDeviceWinner, salesDeviceDetail, salesTopDeviceLabel, null);
+            renderSalesRankingList(salesPositioningList, [], payload?.error || 'Sem dados de posicionamento.');
+            renderSalesRankingList(salesCityList, [], payload?.error || 'Sem dados de cidade.');
+            renderSalesRankingList(salesDeviceList, [], payload?.error || 'Sem dados de aparelho.');
+            if (salesBase) salesBase.textContent = 'Base: 0 vendas';
+            if (salesPaidTotal) salesPaidTotal.textContent = '0';
+            if (salesRevenueTotal) salesRevenueTotal.textContent = formatCurrency(0);
+            if (salesUpdated) salesUpdated.textContent = '-';
+            if (overviewRangeStatus && hasOverviewRangeControls) {
+                overviewRangeStatus.textContent = payload?.error || 'Falha ao carregar periodo selecionado.';
+            }
+            return;
+        }
+
+        const summary = payload?.summary || {};
+        const data = payload?.data || {};
+        const totalPaid = Number(summary?.totalPaid || 0);
+        const totalRevenue = Number(summary?.totalRevenue || 0);
+
+        if (salesBase) {
+            salesBase.textContent = summary?.truncated
+                ? `Base: ${totalPaid} vendas (amostra)`
+                : `Base: ${totalPaid} vendas`;
+        }
+        if (salesPaidTotal) salesPaidTotal.textContent = String(totalPaid);
+        if (salesRevenueTotal) salesRevenueTotal.textContent = formatCurrency(totalRevenue);
+        if (salesUpdated) salesUpdated.textContent = formatDateTime(summary?.lastSaleAt);
+
+        renderSalesWinner(salesPositioningWinner, salesPositioningDetail, salesTopPositioningLabel, summary?.topPositioning || null);
+        renderSalesWinner(salesCityWinner, salesCityDetail, salesTopCityLabel, summary?.topCity || null);
+        renderSalesWinner(salesDeviceWinner, salesDeviceDetail, salesTopDeviceLabel, summary?.topDevice || null);
+
+        renderSalesRankingList(salesPositioningList, data?.positionings || [], 'Nenhuma venda com posicionamento identificado nesse periodo.');
+        renderSalesRankingList(salesCityList, data?.cities || [], 'Nenhuma venda com cidade identificada nesse periodo.');
+        renderSalesRankingList(salesDeviceList, data?.devices || [], 'Nenhuma venda com aparelho identificado nesse periodo.');
+
+        if (overviewRangeStatus && hasOverviewRangeControls) {
+            overviewRangeStatus.textContent = describeOverviewRange({
+                preset: overviewRange.preset,
+                from: activeRange.from || '',
+                to: activeRange.to || ''
+            });
+        }
+    };
+
     leadsBody?.addEventListener('click', (event) => {
         const row = event.target?.closest?.('tr[data-session-id]');
         if (!row) return;
@@ -5531,6 +5649,7 @@ function initAdmin() {
         if (wantsLeads) await loadLeads({ reset: true });
         if (ipBlacklistBody) await loadIpBlacklist();
         if (wantsPages) await loadPageCounts();
+        if (wantsSalesInsights) await loadSalesInsights();
         if (wantsBackredirects) await loadBackredirects();
     });
 
@@ -5554,7 +5673,8 @@ function initAdmin() {
         overviewRange = buildPresetRange(selected);
         syncOverviewRangeUi();
         saveOverviewRange();
-        await loadLeads({ reset: true });
+        if (wantsLeads) await loadLeads({ reset: true });
+        if (wantsSalesInsights) await loadSalesInsights();
     });
     overviewRangeApply?.addEventListener('click', () => {
         applyOverviewRangeAndReload();
@@ -5563,7 +5683,8 @@ function initAdmin() {
         overviewRange = { preset: 'all', from: '', to: '' };
         syncOverviewRangeUi();
         saveOverviewRange();
-        await loadLeads({ reset: true });
+        if (wantsLeads) await loadLeads({ reset: true });
+        if (wantsSalesInsights) await loadSalesInsights();
     });
     overviewRangeFrom?.addEventListener('change', () => {
         if (overviewRange.preset !== 'custom') return;
@@ -5634,6 +5755,7 @@ function initAdmin() {
             if (wantsLeads) loadLeads({ reset: true });
             if (ipBlacklistBody) loadIpBlacklist();
             if (wantsPages) loadPageCounts();
+            if (wantsSalesInsights) loadSalesInsights();
             if (wantsBackredirects) loadBackredirects();
             // Keep overview fresh without manual reload.
             const refreshIntervalMs = 10000;
@@ -5641,6 +5763,7 @@ function initAdmin() {
                 if (document.visibilityState !== 'visible') return;
                 if (wantsLeads) loadLeads({ reset: true });
                 if (wantsPages) loadPageCounts();
+                if (wantsSalesInsights) loadSalesInsights();
                 if (wantsBackredirects) loadBackredirects();
             }, refreshIntervalMs);
         } else {
