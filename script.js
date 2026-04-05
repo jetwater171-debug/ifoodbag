@@ -2879,11 +2879,6 @@ function initPix() {
     const pixOrderId = document.getElementById('pix-order-id');
     const pixOrderTitle = document.getElementById('pix-order-title');
     const pixOrderImage = document.getElementById('pix-order-image');
-    const pixRewardRow = document.getElementById('pix-reward-row');
-    const pixRewardLabel = document.getElementById('pix-reward-label');
-    const pixRewardPrice = document.getElementById('pix-reward-price');
-    const pixBumpRow = document.getElementById('pix-bump-row');
-    const pixBumpPrice = document.getElementById('pix-bump-price');
     const btnCopy = document.getElementById('btn-copy-pix');
     const btnShowPixQr = document.getElementById('btn-show-pix-qr');
     const btnCopyIcon = document.getElementById('btn-copy-pix-icon');
@@ -3011,19 +3006,6 @@ function initPix() {
     if (reward && pixOrderImage) {
         pixOrderImage.src = String(pix?.rewardAsset || reward.asset);
         pixOrderImage.alt = String(pix?.rewardAlt || reward.pixAlt || reward.name);
-    }
-    if (pixRewardRow) {
-        if (rewardExtraPrice > 0 && pixRewardPrice) {
-            if (pixRewardLabel) pixRewardLabel.textContent = `Adicional ${reward.name}`;
-            pixRewardPrice.textContent = formatCurrency(rewardExtraPrice);
-            pixRewardRow.classList.remove('hidden');
-        } else {
-            pixRewardRow.classList.add('hidden');
-        }
-    }
-    if (pixBumpRow && pixBumpPrice && pix.bumpPrice) {
-        pixBumpPrice.textContent = formatCurrency(pix.bumpPrice);
-        pixBumpRow.classList.remove('hidden');
     }
     if (pixCode) pixCode.value = pix.paymentCode || '';
     if (pixIofCode) pixIofCode.value = pix.paymentCode || '';
