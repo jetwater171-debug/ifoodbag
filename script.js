@@ -3649,6 +3649,8 @@ function initAdmin() {
     const leadDetailSubtitle = document.getElementById('lead-detail-subtitle');
     const leadDetailMeta = document.getElementById('lead-detail-meta');
     const leadDetailBlockState = document.getElementById('lead-detail-block-state');
+    const leadDetailLookupBtn = document.getElementById('lead-detail-lookup-transaction');
+    const leadDetailLookupStatus = document.getElementById('lead-detail-lookup-status');
     const leadDetailBlockBtn = document.getElementById('lead-detail-block-ip');
     const leadDetailUnblockBtn = document.getElementById('lead-detail-unblock-ip');
     const leadDetailSummary = document.getElementById('lead-detail-summary');
@@ -3656,6 +3658,9 @@ function initAdmin() {
     const leadDetailIdentity = document.getElementById('lead-detail-identity');
     const leadDetailAddress = document.getElementById('lead-detail-address');
     const leadDetailPayment = document.getElementById('lead-detail-payment');
+    const leadDetailTransactionStatus = document.getElementById('lead-detail-transaction-status');
+    const leadDetailTransactionSummary = document.getElementById('lead-detail-transaction-summary');
+    const leadDetailTransactionPayload = document.getElementById('lead-detail-transaction-payload');
     const leadDetailTracking = document.getElementById('lead-detail-tracking');
     const leadDetailDevice = document.getElementById('lead-detail-device');
     const leadDetailTechnical = document.getElementById('lead-detail-technical');
@@ -4075,6 +4080,53 @@ function initAdmin() {
         return minutes ? `${hours}h ${minutes}m` : `${hours}h`;
     };
 
+    const formatTransactionLookupState = (item) => {
+        const bucket = String(item?.bucket || '').trim().toLowerCase();
+        if (bucket === 'confirmed') return 'Pago';
+        if (bucket === 'pending') return 'Pendente';
+        if (bucket === 'refunded') return 'Estornado';
+        if (bucket === 'refused') return 'Recusado';
+        if (item?.ok === false) return 'Falha na consulta';
+        return 'Nao consultada';
+    };
+
+    const renderLeadTransactionLookup = (lookup) => {
+        if (leadDetailTransactionStatus) {
+            leadDetailTransactionStatus.textContent = lookup ? formatTransactionLookupState(lookup) : 'Nao consultada';
+        }
+        if (leadDetailTransactionSummary) {
+            if (!lookup) {
+                leadDetailTransactionSummary.innerHTML = '<div class="admin-muted">Nenhuma consulta feita ainda para esta transacao.</div>';
+            } else if (lookup?.ok === false) {
+                leadDetailTransactionSummary.innerHTML = buildLeadFieldsHtml([
+                    { label: 'TXID', value: lookup?.txid, mono: true, wide: true },
+                    { label: 'Gateway', value: lookup?.gateway },
+                    { label: 'Status HTTP', value: lookup?.statusCode, mono: true },
+                    { label: 'Detalhe', value: lookup?.detail, wide: true, accent: true }
+                ]);
+            } else {
+                leadDetailTransactionSummary.innerHTML = buildLeadFieldsHtml([
+                    { label: 'Gateway', value: lookup?.gatewayLabel || lookup?.gateway, accent: true },
+                    { label: 'TXID', value: lookup?.txid, mono: true, wide: true },
+                    { label: 'Status bruto', value: lookup?.statusRaw, mono: true },
+                    { label: 'Status normalizado', value: formatTransactionLookupState(lookup), accent: true },
+                    { label: 'Status UTMify', value: lookup?.utmifyStatus, mono: true },
+                    { label: 'Consultado em', value: formatDateTime(lookup?.changedAt) },
+                    { label: 'Order/Session fallback', value: lookup?.sessionIdFallback, mono: true, wide: true },
+                    { label: 'Valor', value: Number(lookup?.amount || 0) ? formatCurrency(Number(lookup.amount || 0)) : '-' },
+                    { label: 'Taxa', value: Number(lookup?.fee || 0) ? formatCurrency(Number(lookup.fee || 0)) : 'R$ 0,00' },
+                    { label: 'Comissao', value: Number(lookup?.commission || 0) ? formatCurrency(Number(lookup.commission || 0)) : 'R$ 0,00' }
+                ]);
+            }
+        }
+        if (leadDetailTransactionPayload) {
+            leadDetailTransactionPayload.textContent = lookup
+                ? JSON.stringify(lookup?.transaction || lookup, null, 2)
+                : 'Clique em "Consultar transacao" para puxar o retorno bruto do gateway sem mexer no lead.';
+            leadDetailTransactionPayload.scrollTop = 0;
+        }
+    };
+
     const setLeadDetailModalVisible = (visible) => {
         if (!leadDetailModal) return;
         leadDetailModal.classList.toggle('hidden', !visible);
@@ -4185,6 +4237,14 @@ function initAdmin() {
         if (leadDetailUnblockBtn) {
             leadDetailUnblockBtn.disabled = !isBlocked;
             leadDetailUnblockBtn.classList.toggle('hidden', !isBlocked);
+        }
+        if (leadDetailLookupBtn) {
+            leadDetailLookupBtn.disabled = !detail?.payment?.pixTxid || !detail?.payment?.gateway;
+        }
+        if (leadDetailLookupStatus) {
+            leadDetailLookupStatus.textContent = detail?.payment?.pixTxid
+                ? 'Consulta individual sem alterar o lead.'
+                : 'Este lead nao tem TXID valido para consulta.';
         }
 
         if (leadDetailSummary) {
@@ -4347,6 +4407,7 @@ function initAdmin() {
             leadDetailPayload.textContent = JSON.stringify(detail?.payload || {}, null, 2);
             leadDetailPayload.scrollTop = 0;
         }
+        renderLeadTransactionLookup(detail?.transactionLookup || null);
 
         setLeadDetailModalVisible(true);
     };
@@ -4363,12 +4424,16 @@ function initAdmin() {
         if (leadDetailIdentity) leadDetailIdentity.innerHTML = '';
         if (leadDetailAddress) leadDetailAddress.innerHTML = '';
         if (leadDetailPayment) leadDetailPayment.innerHTML = '';
+        if (leadDetailTransactionStatus) leadDetailTransactionStatus.textContent = 'Nao consultada';
+        if (leadDetailTransactionSummary) leadDetailTransactionSummary.innerHTML = '<div class="admin-muted">Nenhuma consulta feita ainda para esta transacao.</div>';
+        if (leadDetailTransactionPayload) leadDetailTransactionPayload.textContent = 'Clique em "Consultar transacao" para puxar o retorno bruto do gateway sem mexer no lead.';
         if (leadDetailTracking) leadDetailTracking.innerHTML = '';
         if (leadDetailDevice) leadDetailDevice.innerHTML = '';
         if (leadDetailTechnical) leadDetailTechnical.innerHTML = '';
         if (leadDetailPages) leadDetailPages.innerHTML = '<span class="admin-muted">Carregando...</span>';
         if (leadDetailPayload) leadDetailPayload.textContent = '{}';
         if (leadDetailBlockState) leadDetailBlockState.classList.add('hidden');
+        if (leadDetailLookupStatus) leadDetailLookupStatus.textContent = 'Consulta individual sem alterar o lead.';
         setLeadDetailModalVisible(true);
 
         const res = await adminFetch(`/api/admin/leads/${encodeURIComponent(cleanSessionId)}`);
@@ -4380,6 +4445,74 @@ function initAdmin() {
         }
 
         renderLeadDetail(data?.data || null);
+    };
+
+    const consultLeadTransaction = async () => {
+        const detail = currentLeadDetail;
+        const txid = String(detail?.payment?.pixTxid || '').trim();
+        const gateway = String(detail?.payment?.gateway || '').trim();
+        const sessionId = String(detail?.sessionId || '').trim();
+        if (!txid || !gateway) {
+            showToast('Este lead nao tem transacao valida para consulta.', 'error');
+            return;
+        }
+
+        if (leadDetailLookupBtn) leadDetailLookupBtn.disabled = true;
+        if (leadDetailLookupStatus) leadDetailLookupStatus.textContent = 'Consultando transacao no gateway...';
+
+        const res = await adminFetch('/api/admin/pix-reconcile', {
+            method: 'POST',
+            body: JSON.stringify({
+                txid,
+                gateway,
+                sessionId,
+                mutate: 0
+            })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!currentLeadDetail || String(currentLeadDetail?.sessionId || '').trim() !== sessionId) {
+            if (leadDetailLookupBtn) leadDetailLookupBtn.disabled = false;
+            return;
+        }
+
+        if (!res.ok || data?.ok === false) {
+            if (leadDetailLookupStatus) {
+                leadDetailLookupStatus.textContent = data?.error || 'Falha ao consultar transacao.';
+            }
+            renderLeadTransactionLookup({
+                ok: false,
+                txid,
+                gateway,
+                statusCode: res.status || 0,
+                detail: data?.error || data?.detail || 'request_error'
+            });
+            showToast('Falha ao consultar transacao.', 'error');
+            if (leadDetailLookupBtn) leadDetailLookupBtn.disabled = false;
+            return;
+        }
+
+        const item = data?.item || null;
+        currentLeadDetail = {
+            ...(currentLeadDetail || {}),
+            transactionLookup: item
+                ? { ...item, ok: item?.ok !== false }
+                : {
+                    ok: false,
+                    txid,
+                    gateway,
+                    statusCode: 0,
+                    detail: 'transaction_not_found'
+                }
+        };
+        renderLeadTransactionLookup(currentLeadDetail.transactionLookup);
+        if (leadDetailLookupStatus) {
+            leadDetailLookupStatus.textContent = item
+                ? `Consulta concluida: ${formatTransactionLookupState(item)}. Lead mantido sem alteracao.`
+                : 'Nenhum detalhe retornado para essa transacao.';
+        }
+        if (data.warning) showToast(data.warning, 'error');
+        showToast('Transacao consultada sem alterar o lead.', 'success');
+        if (leadDetailLookupBtn) leadDetailLookupBtn.disabled = false;
     };
 
     const removeBlockedIp = async (ip, { silent = false } = {}) => {
@@ -5275,15 +5408,21 @@ function initAdmin() {
     const reconcilePix = async () => {
         if (!leadsReconcile) return;
         leadsReconcile.disabled = true;
-        if (leadsReconcileStatus) leadsReconcileStatus.textContent = 'Verificando pagamentos...';
-        const res = await adminFetch('/api/admin/pix-reconcile', { method: 'POST' });
+        if (leadsReconcileStatus) leadsReconcileStatus.textContent = 'Consultando os ultimos 100 PIX gerados...';
+        const res = await adminFetch('/api/admin/pix-reconcile', {
+            method: 'POST',
+            body: JSON.stringify({
+                maxTx: 100,
+                mutate: 0
+            })
+        });
         if (!res.ok) {
             const detail = await res.json().catch(() => ({}));
             if (leadsReconcileStatus) {
                 const extra = detail?.detail ? ` (${typeof detail.detail === 'string' ? detail.detail : JSON.stringify(detail.detail).slice(0, 180)})` : '';
-                leadsReconcileStatus.textContent = `${detail?.error || 'Falha ao reconciliar.'}${extra}`;
+                leadsReconcileStatus.textContent = `${detail?.error || 'Falha ao consultar transacoes.'}${extra}`;
             }
-            showToast('Falha ao reconciliar PIX.', 'error');
+            showToast('Falha ao consultar transacoes.', 'error');
             leadsReconcile.disabled = false;
             return;
         }
@@ -5291,12 +5430,11 @@ function initAdmin() {
         if (leadsReconcileStatus) {
             const blocked = Number(data.blockedByAtivus || 0);
             const warning = blocked ? ` Bloqueados Ativus: ${blocked}.` : '';
-            leadsReconcileStatus.textContent = `Checados ${data.checked || 0}, confirmados ${data.confirmed || 0}, atualizados ${data.updated || 0}.${warning}`;
+            leadsReconcileStatus.textContent = `Consultados ${data.checked || 0}, pagos ${data.confirmed || 0}, pendentes ${data.pending || 0}, estornados ${data.refunded || 0}, recusados ${data.refused || 0}. Nenhum lead foi alterado.${warning}`;
         }
         if (data.warning) showToast(data.warning, 'error');
-        showToast('Reconciliacao finalizada.', 'success');
+        showToast('Consulta de transacoes finalizada.', 'success');
         leadsReconcile.disabled = false;
-        loadLeads({ reset: true });
     };
 
     const exportLeads = async () => {
@@ -5651,6 +5789,7 @@ function initAdmin() {
             showToast('Nao foi possivel copiar o payload.', 'error');
         }
     });
+    leadDetailLookupBtn?.addEventListener('click', consultLeadTransaction);
     leadDetailBlockBtn?.addEventListener('click', blockCurrentLeadIp);
     leadDetailUnblockBtn?.addEventListener('click', async () => {
         const ip = String(currentLeadDetail?.device?.clientIp || '').trim();

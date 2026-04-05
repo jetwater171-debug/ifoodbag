@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/style.css?v=3.7" />
+  <link rel="stylesheet" href="/style.css?v=3.9" />
 <script src="/backguard.js?v=1.5"></script>
 </head>
 <body data-page="admin" data-admin="leads">
@@ -76,7 +76,7 @@
             </select>
             <button id="leads-export" class="btn-secondary" type="button">Exportar Excel</button>
             <button id="leads-refresh" class="btn-secondary" type="button">Atualizar</button>
-            <button id="leads-reconcile" class="btn-secondary" type="button">Reconciliar PIX</button>
+            <button id="leads-reconcile" class="btn-secondary" type="button">Consultar transacoes</button>
             <span id="leads-export-status" class="admin-muted admin-toolbar-status"></span>
             <span id="leads-reconcile-status" class="admin-muted admin-toolbar-status"></span>
           </div>
@@ -146,8 +146,10 @@
           <div id="lead-detail-block-state" class="admin-detail-alert hidden"></div>
           <div id="lead-detail-summary" class="lead-detail-summary"></div>
           <div class="lead-detail-actions">
+            <button id="lead-detail-lookup-transaction" class="btn-secondary" type="button">Consultar transacao</button>
             <button id="lead-detail-block-ip" class="btn-secondary btn-secondary--danger" type="button">Bloquear IP</button>
             <button id="lead-detail-unblock-ip" class="btn-secondary hidden" type="button">Remover blacklist</button>
+            <span id="lead-detail-lookup-status" class="admin-muted lead-detail-action-status">Consulta individual sem alterar o lead.</span>
           </div>
         </aside>
 
@@ -178,6 +180,15 @@
               <h4>Pagamento e oferta</h4>
             </div>
             <div id="lead-detail-payment" class="lead-detail-data-grid"></div>
+          </section>
+
+          <section class="lead-detail-section lead-detail-section--wide">
+            <div class="admin-section-header">
+              <h4>Consulta da transacao</h4>
+              <span id="lead-detail-transaction-status" class="admin-chip">Nao consultada</span>
+            </div>
+            <div id="lead-detail-transaction-summary" class="lead-detail-data-grid"></div>
+            <pre id="lead-detail-transaction-payload" class="lead-detail-payload">Clique em "Consultar transacao" para puxar o retorno bruto do gateway sem mexer no lead.</pre>
           </section>
 
           <section class="lead-detail-section">
@@ -223,7 +234,7 @@
 
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
-  <script src="/script.js?v=9.3" defer></script>
+  <script src="/script.js?v=9.5" defer></script>
 </body>
 </html>
 

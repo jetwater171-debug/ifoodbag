@@ -4332,6 +4332,12 @@ body.modal-open {
     min-height: 50px;
 }
 
+.lead-detail-action-status {
+    display: block;
+    font-size: 0.82rem;
+    line-height: 1.45;
+}
+
 .btn-secondary--danger {
     border-color: #f2b8c0;
     color: #af1f2f;

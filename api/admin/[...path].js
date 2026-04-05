@@ -1606,16 +1606,35 @@ function buildLeadExportWorkbook(rows, segment) {
     });
 }
 
-async function listLeadTxidsForReconcile({ maxTx = 50000, pageSize = 500, includeConfirmed = true } = {}) {
+function resolveReconcileSortAt(row, payload = {}) {
+    return (
+        toIsoDate(payload?.pixCreatedAt) ||
+        toIsoDate(payload?.pix?.created_at) ||
+        toIsoDate(payload?.pix?.createdAt) ||
+        toIsoDate(payload?.created_at) ||
+        toIsoDate(payload?.createdAt) ||
+        toIsoDate(row?.updated_at) ||
+        toIsoDate(row?.created_at) ||
+        null
+    );
+}
+
+async function listLeadTxidsForReconcile({
+    maxTx = 100,
+    pageSize = 250,
+    scanRows = 1500,
+    includeConfirmed = true
+} = {}) {
     const entries = [];
     const seen = new Set();
     let offset = 0;
     let scannedRows = 0;
 
-    while (entries.length < maxTx) {
+    while (scannedRows < scanRows) {
         const url = new URL(`${SUPABASE_URL}/rest/v1/leads`);
-        const limit = Math.min(pageSize, maxTx - entries.length);
-        url.searchParams.set('select', 'session_id,pix_txid,payload,last_event,updated_at');
+        const limit = Math.min(pageSize, Math.max(1, scanRows - scannedRows));
+        url.searchParams.set('select', 'session_id,pix_txid,payload,last_event,updated_at,created_at');
+        url.searchParams.set('pix_txid', 'not.is.null');
         if (!includeConfirmed) {
             url.searchParams.set('or', '(last_event.is.null,last_event.neq.pix_confirmed)');
         }
@@ -1643,19 +1662,19 @@ async function listLeadTxidsForReconcile({ maxTx = 50000, pageSize = 500, includ
         scannedRows += rows.length;
 
         rows.forEach((row) => {
+            const payload = asObject(row?.payload);
             const fallbackTxid = String(
-                row?.payload?.pixTxid ||
-                row?.payload?.pix?.idTransaction ||
-                row?.payload?.pix?.idtransaction ||
-                row?.payload?.idTransaction ||
-                row?.payload?.idtransaction ||
-                row?.payload?.id ||
+                payload?.pixTxid ||
+                payload?.pix?.idTransaction ||
+                payload?.pix?.idtransaction ||
+                payload?.idTransaction ||
+                payload?.idtransaction ||
+                payload?.id ||
                 ''
             ).trim();
             const txid = String(row?.pix_txid || fallbackTxid || '').trim();
             if (!txid || txid === '-') return;
 
-            const payload = asObject(row?.payload);
             const gateway = resolveLeadGateway(row, payload);
             const key = `${gateway}:${txid}`;
             if (seen.has(key)) return;
@@ -1663,7 +1682,8 @@ async function listLeadTxidsForReconcile({ maxTx = 50000, pageSize = 500, includ
             entries.push({
                 txid,
                 gateway,
-                sessionId: String(row?.session_id || payload?.sessionId || payload?.orderId || '').trim()
+                sessionId: String(row?.session_id || payload?.sessionId || payload?.orderId || '').trim(),
+                sortAt: resolveReconcileSortAt(row, payload) || ''
             });
         });
 
@@ -1675,7 +1695,14 @@ async function listLeadTxidsForReconcile({ maxTx = 50000, pageSize = 500, includ
 
     return {
         ok: true,
-        entries,
+        entries: entries
+            .sort((a, b) => {
+                const diff = Date.parse(b?.sortAt || '') - Date.parse(a?.sortAt || '');
+                if (Number.isFinite(diff) && diff !== 0) return diff;
+                return String(b?.txid || '').localeCompare(String(a?.txid || ''));
+            })
+            .slice(0, Math.max(1, Number(maxTx) || 100))
+            .map(({ sortAt, ...entry }) => entry),
         scannedRows
     };
 }
@@ -2754,6 +2781,439 @@ async function pushcutTest(req, res) {
     });
 }
 
+function classifyReconcileBucket(utmifyStatus = '') {
+    const status = String(utmifyStatus || '').trim().toLowerCase();
+    if (status === 'paid') return 'confirmed';
+    if (status === 'waiting_payment') return 'pending';
+    if (status === 'refunded') return 'refunded';
+    if (status === 'refused' || status === 'chargedback') return 'refused';
+    return 'failed';
+}
+
+async function inspectPixTransaction({ txid, rowGateway, sessionHint, payments }) {
+    const gateway = rowGateway === 'ghostspay'
+        ? 'ghostspay'
+        : rowGateway === 'sunize'
+            ? 'sunize'
+            : rowGateway === 'paradise'
+                ? 'paradise'
+                : 'ativushub';
+
+    let response;
+    let data;
+    let status = '';
+    let utmifyStatus = 'waiting_payment';
+    let isPaid = false;
+    let isRefunded = false;
+    let isRefused = false;
+    let isPending = false;
+    let changedAt = new Date().toISOString();
+    let sessionIdFallback = sessionHint || '';
+    let amount = 0;
+    let fee = 0;
+    let commission = 0;
+
+    try {
+        if (gateway === 'ghostspay') {
+            ({ response, data } = await requestGhostspayStatus(payments?.gateways?.ghostspay || {}, txid));
+            if (!response?.ok) {
+                return {
+                    ok: false,
+                    txid,
+                    gateway,
+                    responseStatus: response?.status || 0,
+                    detail: data?.error || data?.message || '',
+                    blockedByAtivus: false
+                };
+            }
+
+            status = getGhostspayStatus(data);
+            utmifyStatus = mapGhostspayStatusToUtmify(status);
+            isPaid = isGhostspayPaidStatus(status);
+            isRefunded = isGhostspayRefundedStatus(status);
+            isRefused = isGhostspayRefusedStatus(status) || isGhostspayChargebackStatus(status);
+            isPending = isGhostspayPendingStatus(status);
+            changedAt =
+                toIsoDate(getGhostspayUpdatedAt(data)) ||
+                toIsoDate(data?.paidAt) ||
+                toIsoDate(data?.data?.paidAt) ||
+                new Date().toISOString();
+            sessionIdFallback = String(
+                data?.metadata?.orderId ||
+                data?.data?.metadata?.orderId ||
+                data?.externalreference ||
+                data?.external_reference ||
+                sessionIdFallback ||
+                ''
+            ).trim();
+            amount = getGhostspayAmount(data);
+            fee = normalizeAmountPossiblyCents(
+                data?.gatewayFee ||
+                data?.fee ||
+                data?.data?.gatewayFee ||
+                data?.data?.fee ||
+                0
+            );
+            commission = Math.max(0, Number((amount - fee).toFixed(2)));
+        } else if (gateway === 'sunize') {
+            ({ response, data } = await requestSunizeStatus(payments?.gateways?.sunize || {}, txid));
+            if (!response?.ok) {
+                return {
+                    ok: false,
+                    txid,
+                    gateway,
+                    responseStatus: response?.status || 0,
+                    detail: data?.error || data?.message || '',
+                    blockedByAtivus: false
+                };
+            }
+
+            status = getSunizeStatus(data);
+            utmifyStatus = mapSunizeStatusToUtmify(status);
+            isPaid = isSunizePaidStatus(status);
+            isRefunded = isSunizeRefundedStatus(status);
+            isRefused = isSunizeRefusedStatus(status);
+            isPending = isSunizePendingStatus(status);
+            changedAt =
+                toIsoDate(getSunizeUpdatedAt(data)) ||
+                toIsoDate(data?.paid_at) ||
+                toIsoDate(data?.paidAt) ||
+                new Date().toISOString();
+            sessionIdFallback = String(
+                data?.external_id ||
+                data?.externalId ||
+                data?.metadata?.orderId ||
+                sessionIdFallback ||
+                ''
+            ).trim();
+            amount = getSunizeAmount(data);
+            fee = 0;
+            commission = amount;
+        } else if (gateway === 'paradise') {
+            ({ response, data } = await requestParadiseStatus(payments?.gateways?.paradise || {}, txid));
+            if (!response?.ok) {
+                return {
+                    ok: false,
+                    txid,
+                    gateway,
+                    responseStatus: response?.status || 0,
+                    detail: data?.error || data?.message || '',
+                    blockedByAtivus: false
+                };
+            }
+
+            status = getParadiseStatus(data);
+            utmifyStatus = mapParadiseStatusToUtmify(status);
+            isPaid = isParadisePaidStatus(status);
+            isRefunded = isParadiseRefundedStatus(status);
+            isRefused = isParadiseRefusedStatus(status) || isParadiseChargebackStatus(status);
+            isPending = isParadisePendingStatus(status);
+            changedAt =
+                toIsoDate(getParadiseUpdatedAt(data)) ||
+                toIsoDate(data?.timestamp) ||
+                toIsoDate(data?.updated_at) ||
+                new Date().toISOString();
+            sessionIdFallback = String(
+                getParadiseExternalId(data) ||
+                data?.metadata?.orderId ||
+                data?.tracking?.orderId ||
+                sessionIdFallback ||
+                ''
+            ).trim();
+            amount = getParadiseAmount(data);
+            fee = normalizeAmountPossiblyCents(
+                data?.fee ||
+                data?.gateway_fee ||
+                data?.gatewayFee ||
+                data?.data?.fee ||
+                data?.data?.gateway_fee ||
+                data?.data?.gatewayFee ||
+                0
+            );
+            commission = Math.max(0, Number((amount - fee).toFixed(2)));
+        } else {
+            ({ response, data } = await requestAtivushubStatus(payments?.gateways?.ativushub || {}, txid));
+            if (!response?.ok) {
+                return {
+                    ok: false,
+                    txid,
+                    gateway,
+                    responseStatus: response?.status || 0,
+                    detail: data?.error || data?.message || '',
+                    blockedByAtivus: response?.status === 403
+                };
+            }
+
+            status = getAtivusStatus(data);
+            utmifyStatus = mapAtivusStatusToUtmify(status);
+            isPaid = isAtivusPaidStatus(status);
+            isRefunded = isAtivusRefundedStatus(status);
+            isRefused = isAtivusRefusedStatus(status);
+            isPending = isAtivusPendingStatus(status);
+            changedAt =
+                toIsoDate(data?.data_transacao) ||
+                toIsoDate(data?.data_registro) ||
+                new Date().toISOString();
+            sessionIdFallback = String(
+                data?.externalreference ||
+                data?.external_reference ||
+                data?.metadata?.orderId ||
+                data?.orderId ||
+                sessionIdFallback ||
+                ''
+            ).trim();
+            amount = normalizeAmountPossiblyCents(
+                data?.amount ||
+                data?.valor_bruto ||
+                data?.valor_liquido ||
+                data?.data?.amount ||
+                0
+            );
+            fee = normalizeAmountPossiblyCents(data?.taxa_deposito || 0) +
+                normalizeAmountPossiblyCents(data?.taxa_adquirente || 0);
+            commission = normalizeAmountPossiblyCents(data?.deposito_liquido || data?.valor_liquido || 0);
+        }
+    } catch (_error) {
+        return {
+            ok: false,
+            txid,
+            gateway,
+            responseStatus: 0,
+            detail: 'request_error',
+            blockedByAtivus: false
+        };
+    }
+
+    if (!(isPaid || isRefunded || isRefused || isPending)) {
+        return {
+            ok: false,
+            txid,
+            gateway,
+            responseStatus: 200,
+            detail: `status:${status || 'unknown'}`,
+            blockedByAtivus: false
+        };
+    }
+
+    return {
+        ok: true,
+        txid,
+        gateway,
+        gatewayLabel: gatewayLabel(gateway),
+        statusRaw: status || '',
+        utmifyStatus,
+        bucket: classifyReconcileBucket(utmifyStatus),
+        isPaid,
+        isRefunded,
+        isRefused,
+        isPending,
+        changedAt,
+        sessionIdFallback,
+        amount,
+        fee,
+        commission,
+        transaction: data
+    };
+}
+
+async function applyPixReconcileEffects(result) {
+    const {
+        txid,
+        gateway,
+        statusRaw,
+        utmifyStatus,
+        isPaid,
+        isRefunded,
+        isRefused,
+        changedAt,
+        sessionIdFallback,
+        amount,
+        fee,
+        commission,
+        transaction
+    } = result || {};
+
+    const lastEvent = isPaid ? 'pix_confirmed' : isRefunded ? 'pix_refunded' : isRefused ? 'pix_refused' : 'pix_pending';
+    let lead = await getLeadByPixTxid(txid).catch(() => ({ ok: false, data: null }));
+    let leadData = lead?.ok ? lead.data : null;
+    if (!leadData && sessionIdFallback) {
+        lead = await getLeadBySessionId(sessionIdFallback).catch(() => ({ ok: false, data: null }));
+        leadData = lead?.ok ? lead.data : null;
+    }
+    const payloadPatch = mergeLeadPayload(leadData?.payload, {
+        gateway,
+        pixGateway: gateway,
+        paymentGateway: gateway,
+        pixTxid: txid,
+        pixStatus: statusRaw || null,
+        pixStatusChangedAt: changedAt,
+        pixCreatedAt:
+            asObject(leadData?.payload).pixCreatedAt ||
+            toIsoDate(transaction?.data_registro) ||
+            toIsoDate(transaction?.timestamp) ||
+            toIsoDate(transaction?.created_at) ||
+            toIsoDate(transaction?.createdAt) ||
+            toIsoDate(transaction?.updated_at) ||
+            toIsoDate(transaction?.data?.created_at) ||
+            toIsoDate(transaction?.data?.createdAt) ||
+            leadData?.created_at ||
+            undefined,
+        pixPaidAt: isPaid ? changedAt : undefined,
+        pixRefundedAt: isRefunded ? changedAt : undefined,
+        pixRefusedAt: isRefused ? changedAt : undefined
+    });
+    let up = await updateLeadByPixTxid(txid, {
+        last_event: lastEvent,
+        stage: 'pix',
+        payload: payloadPatch
+    }).catch(() => ({ ok: false, count: 0 }));
+    if ((!up?.ok || Number(up?.count || 0) === 0) && sessionIdFallback) {
+        const bySessionLead = leadData || (await getLeadBySessionId(sessionIdFallback).catch(() => ({ ok: false, data: null })))?.data;
+        const bySessionPayload = mergeLeadPayload(bySessionLead?.payload, payloadPatch);
+        const bySession = await updateLeadBySessionId(sessionIdFallback, {
+            last_event: lastEvent,
+            stage: 'pix',
+            payload: bySessionPayload
+        }).catch(() => ({ ok: false, count: 0 }));
+        if (bySession?.ok) up = bySession;
+    }
+
+    lead = await getLeadByPixTxid(txid).catch(() => ({ ok: false, data: null }));
+    leadData = lead?.ok ? lead.data : null;
+    if (!leadData && sessionIdFallback) {
+        lead = await getLeadBySessionId(sessionIdFallback).catch(() => ({ ok: false, data: null }));
+        leadData = lead?.ok ? lead.data : null;
+    }
+    const leadUtm = leadData?.payload?.utm || {};
+    const isUpsell = Boolean(
+        leadData?.payload?.upsell?.enabled === true ||
+        String(leadData?.shipping_id || '').trim().toLowerCase() === 'expresso_1dia' ||
+        /adiantamento|prioridade|expresso/i.test(String(leadData?.shipping_name || ''))
+    );
+    const changedRows = up?.ok ? Number(up?.count || 0) : 0;
+    if (changedRows <= 0) {
+        return { ok: true, updatedRows: 0, leadData };
+    }
+
+    const utmPayload = {
+        event: 'pix_status',
+        orderId: txid || leadData?.session_id || sessionIdFallback || '',
+        txid,
+        gateway,
+        status: utmifyStatus,
+        amount,
+        personal: leadData ? {
+            name: leadData.name,
+            email: leadData.email,
+            cpf: leadData.cpf,
+            phoneDigits: leadData.phone
+        } : null,
+        address: leadData ? {
+            street: leadData.address_line,
+            neighborhood: leadData.neighborhood,
+            city: leadData.city,
+            state: leadData.state,
+            cep: leadData.cep
+        } : null,
+        shipping: leadData ? {
+            id: leadData.shipping_id,
+            name: leadData.shipping_name,
+            price: leadData.shipping_price
+        } : null,
+        bump: leadData && leadData.bump_selected ? {
+            title: 'Seguro Bag',
+            price: leadData.bump_price
+        } : null,
+        upsell: isUpsell ? {
+            enabled: true,
+            kind: leadData?.payload?.upsell?.kind || 'frete_1dia',
+            title: leadData?.payload?.upsell?.title || leadData?.shipping_name || 'Prioridade de envio',
+            price: Number(leadData?.payload?.upsell?.price || leadData?.shipping_price || amount || 0)
+        } : null,
+        utm: leadData ? {
+            utm_source: leadData.utm_source,
+            utm_medium: leadData.utm_medium,
+            utm_campaign: leadData.utm_campaign,
+            utm_term: leadData.utm_term,
+            utm_content: leadData.utm_content,
+            gclid: leadData.gclid,
+            fbclid: leadData.fbclid,
+            ttclid: leadData.ttclid,
+            src: leadUtm.src,
+            sck: leadUtm.sck
+        } : leadUtm,
+        payload: transaction,
+        createdAt: leadData?.payload?.pixCreatedAt || leadData?.created_at,
+        approvedDate: isPaid ? (leadData?.payload?.pixPaidAt || changedAt || null) : null,
+        refundedAt: isRefunded ? (leadData?.payload?.pixRefundedAt || changedAt || null) : null,
+        gatewayFeeInCents: Math.round(Number(fee || 0) * 100),
+        userCommissionInCents: Math.round(Number(commission || 0) * 100),
+        totalPriceInCents: Math.round(Number(amount || 0) * 100)
+    };
+
+    const utmEventName = isUpsell && isPaid ? 'upsell_pix_confirmed' : 'pix_status';
+    const utmImmediate = await sendUtmfy(utmEventName, utmPayload).catch(() => ({ ok: false }));
+    if (!utmImmediate?.ok) {
+        await enqueueDispatch({
+            channel: 'utmfy',
+            eventName: utmEventName,
+            dedupeKey: `utmfy:status:${gateway}:${txid}:${isUpsell ? 'upsell' : 'base'}:${utmifyStatus}`,
+            payload: utmPayload
+        }).catch(() => null);
+        await processDispatchQueue(8).catch(() => null);
+    }
+
+    if (!isPaid) {
+        return { ok: true, updatedRows: changedRows, leadData };
+    }
+
+    const pushKind = isUpsell ? 'upsell_pix_confirmed' : 'pix_confirmed';
+    await enqueueDispatch({
+        channel: 'pushcut',
+        kind: pushKind,
+        dedupeKey: `pushcut:pix_confirmed:${gateway}:${txid}`,
+        payload: {
+            txid,
+            orderId: txid || leadData?.session_id || sessionIdFallback || '',
+            gateway,
+            status: statusRaw,
+            amount,
+            customerName: leadData?.name || '',
+            customerEmail: leadData?.email || '',
+            cep: leadData?.cep || '',
+            shippingName: leadData?.shipping_name || '',
+            utm: {
+                utm_source: leadData?.utm_source || leadUtm?.utm_source || leadUtm?.src || '',
+                utm_medium: leadData?.utm_medium || leadUtm?.utm_medium || '',
+                utm_campaign: leadData?.utm_campaign || leadUtm?.utm_campaign || leadUtm?.campaign || leadUtm?.sck || '',
+                utm_term: leadData?.utm_term || leadUtm?.utm_term || leadUtm?.term || '',
+                utm_content: (
+                    leadData?.utm_content ||
+                    leadUtm?.utm_content ||
+                    leadUtm?.utm_adset ||
+                    leadUtm?.adset ||
+                    leadUtm?.content ||
+                    ''
+                )
+            },
+            source: leadData?.utm_source || leadUtm?.utm_source || leadUtm?.src || '',
+            campaign: leadData?.utm_campaign || leadUtm?.utm_campaign || leadUtm?.campaign || leadUtm?.sck || '',
+            adset: (
+                leadData?.utm_content ||
+                leadUtm?.utm_content ||
+                leadUtm?.utm_adset ||
+                leadUtm?.adset ||
+                leadUtm?.content ||
+                ''
+            ),
+            isUpsell
+        }
+    }).catch(() => null);
+    await processDispatchQueue(8).catch(() => null);
+
+    return { ok: true, updatedRows: changedRows, leadData };
+}
+
 async function pixReconcile(req, res) {
     if (req.method !== 'POST') {
         res.status(405).json({ error: 'Method not allowed' });
@@ -2766,34 +3226,66 @@ async function pixReconcile(req, res) {
         return;
     }
 
-    const settingsData = await getSettings().catch(() => ({}));
-    const payments = buildPaymentsConfig(settingsData?.payments || {});
-    const maxTx = clamp(req.query?.maxTx || 50000, 1, 200000);
-    const concurrency = clamp(req.query?.concurrency || 6, 1, 12);
-    const pageSize = clamp(req.query?.pageSize || 500, 50, 1000);
-    const includeConfirmed = String(req.query?.includeConfirmed || '1') !== '0';
-    const txidList = await listLeadTxidsForReconcile({ maxTx, pageSize, includeConfirmed });
-    if (!txidList.ok) {
-        res.status(502).json({
-            error: 'Falha ao buscar txids no banco.',
-            detail: txidList.detail || ''
-        });
+    let body = {};
+    try {
+        body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+    } catch (_error) {
+        res.status(400).json({ error: 'JSON invalido.' });
         return;
     }
-    const candidates = txidList.entries || [];
+
+    const settingsData = await getSettings().catch(() => ({}));
+    const payments = buildPaymentsConfig(settingsData?.payments || {});
+    const maxTx = clamp(firstQueryValue(req.query?.maxTx) || body.maxTx || 100, 1, 1000);
+    const concurrency = clamp(firstQueryValue(req.query?.concurrency) || body.concurrency || 6, 1, 12);
+    const pageSize = clamp(firstQueryValue(req.query?.pageSize) || body.pageSize || 250, 50, 1000);
+    const scanRows = clamp(firstQueryValue(req.query?.scanRows) || body.scanRows || Math.max(maxTx * 10, 1000), maxTx, 20000);
+    const includeConfirmed = String(firstQueryValue(req.query?.includeConfirmed) || body.includeConfirmed || '1') !== '0';
+    const mutate = String(firstQueryValue(req.query?.mutate) || body.mutate || '0') === '1';
+    const requestedTxid = String(firstQueryValue(req.query?.txid) || body.txid || '').trim();
+    const requestedSessionId = String(firstQueryValue(req.query?.sessionId) || body.sessionId || '').trim();
+    let requestedGateway = String(firstQueryValue(req.query?.gateway) || body.gateway || '').trim().toLowerCase();
+
+    const isSingle = Boolean(requestedTxid);
+    let txidList = { ok: true, entries: [], scannedRows: 0 };
+    if (!isSingle) {
+        txidList = await listLeadTxidsForReconcile({ maxTx, pageSize, scanRows, includeConfirmed });
+        if (!txidList.ok) {
+            res.status(502).json({
+                error: 'Falha ao buscar txids no banco.',
+                detail: txidList.detail || ''
+            });
+            return;
+        }
+    } else if (!requestedGateway) {
+        const lead = await getLeadByPixTxid(requestedTxid).catch(() => ({ ok: false, data: null }));
+        const payload = asObject(lead?.data?.payload);
+        requestedGateway = resolveLeadGateway(lead?.data, payload);
+    }
+
+    const candidates = isSingle
+        ? [{
+            txid: requestedTxid,
+            gateway: requestedGateway,
+            sessionId: requestedSessionId
+        }]
+        : (txidList.entries || []);
 
     let checked = 0;
     let confirmed = 0;
     let pending = 0;
+    let refunded = 0;
+    let refused = 0;
     let failed = 0;
     let updated = 0;
     const failedDetails = [];
+    const items = [];
     let blockedByAtivus = 0;
     const gatewaySummary = {
-        ativushub: { checked: 0, confirmed: 0, pending: 0, failed: 0 },
-        ghostspay: { checked: 0, confirmed: 0, pending: 0, failed: 0 },
-        sunize: { checked: 0, confirmed: 0, pending: 0, failed: 0 },
-        paradise: { checked: 0, confirmed: 0, pending: 0, failed: 0 }
+        ativushub: { checked: 0, confirmed: 0, pending: 0, refunded: 0, refused: 0, failed: 0 },
+        ghostspay: { checked: 0, confirmed: 0, pending: 0, refunded: 0, refused: 0, failed: 0 },
+        sunize: { checked: 0, confirmed: 0, pending: 0, refunded: 0, refused: 0, failed: 0 },
+        paradise: { checked: 0, confirmed: 0, pending: 0, refunded: 0, refused: 0, failed: 0 }
     };
 
     const runOne = async ({ txid, gateway: rowGateway, sessionId: sessionHint }) => {
@@ -2806,395 +3298,57 @@ async function pixReconcile(req, res) {
                 : 'ativushub';
         checked += 1;
         gatewaySummary[gateway].checked += 1;
-        try {
-            let response;
-            let data;
-            let status = '';
-            let utmifyStatus = 'waiting_payment';
-            let isPaid = false;
-            let isRefunded = false;
-            let isRefused = false;
-            let isPending = false;
-            let changedAt = new Date().toISOString();
-            let sessionIdFallback = sessionHint || '';
-            let amount = 0;
-            let fee = 0;
-            let commission = 0;
-
-            if (gateway === 'ghostspay') {
-                ({ response, data } = await requestGhostspayStatus(payments?.gateways?.ghostspay || {}, txid));
-                if (!response?.ok) {
-                    failed += 1;
-                    gatewaySummary[gateway].failed += 1;
-                    if (failedDetails.length < 8) {
-                        failedDetails.push({
-                            txid,
-                            gateway,
-                            status: response?.status || 0,
-                            detail: data?.error || data?.message || ''
-                        });
-                    }
-                    return;
-                }
-
-                status = getGhostspayStatus(data);
-                utmifyStatus = mapGhostspayStatusToUtmify(status);
-                isPaid = isGhostspayPaidStatus(status);
-                isRefunded = isGhostspayRefundedStatus(status);
-                isRefused = isGhostspayRefusedStatus(status) || isGhostspayChargebackStatus(status);
-                isPending = isGhostspayPendingStatus(status);
-                changedAt =
-                    toIsoDate(getGhostspayUpdatedAt(data)) ||
-                    toIsoDate(data?.paidAt) ||
-                    toIsoDate(data?.data?.paidAt) ||
-                    new Date().toISOString();
-                sessionIdFallback = String(
-                    data?.metadata?.orderId ||
-                    data?.data?.metadata?.orderId ||
-                    data?.externalreference ||
-                    data?.external_reference ||
-                    sessionIdFallback ||
-                    ''
-                ).trim();
-                amount = getGhostspayAmount(data);
-                fee = normalizeAmountPossiblyCents(
-                    data?.gatewayFee ||
-                    data?.fee ||
-                    data?.data?.gatewayFee ||
-                    data?.data?.fee ||
-                    0
-                );
-                commission = Math.max(0, Number((amount - fee).toFixed(2)));
-            } else if (gateway === 'sunize') {
-                ({ response, data } = await requestSunizeStatus(payments?.gateways?.sunize || {}, txid));
-                if (!response?.ok) {
-                    failed += 1;
-                    gatewaySummary[gateway].failed += 1;
-                    if (failedDetails.length < 8) {
-                        failedDetails.push({
-                            txid,
-                            gateway,
-                            status: response?.status || 0,
-                            detail: data?.error || data?.message || ''
-                        });
-                    }
-                    return;
-                }
-
-                status = getSunizeStatus(data);
-                utmifyStatus = mapSunizeStatusToUtmify(status);
-                isPaid = isSunizePaidStatus(status);
-                isRefunded = isSunizeRefundedStatus(status);
-                isRefused = isSunizeRefusedStatus(status);
-                isPending = isSunizePendingStatus(status);
-                changedAt =
-                    toIsoDate(getSunizeUpdatedAt(data)) ||
-                    toIsoDate(data?.paid_at) ||
-                    toIsoDate(data?.paidAt) ||
-                    new Date().toISOString();
-                sessionIdFallback = String(
-                    data?.external_id ||
-                    data?.externalId ||
-                    data?.metadata?.orderId ||
-                    sessionIdFallback ||
-                    ''
-                ).trim();
-                amount = getSunizeAmount(data);
-                fee = 0;
-                commission = amount;
-            } else if (gateway === 'paradise') {
-                ({ response, data } = await requestParadiseStatus(payments?.gateways?.paradise || {}, txid));
-                if (!response?.ok) {
-                    failed += 1;
-                    gatewaySummary[gateway].failed += 1;
-                    if (failedDetails.length < 8) {
-                        failedDetails.push({
-                            txid,
-                            gateway,
-                            status: response?.status || 0,
-                            detail: data?.error || data?.message || ''
-                        });
-                    }
-                    return;
-                }
-
-                status = getParadiseStatus(data);
-                utmifyStatus = mapParadiseStatusToUtmify(status);
-                isPaid = isParadisePaidStatus(status);
-                isRefunded = isParadiseRefundedStatus(status);
-                isRefused = isParadiseRefusedStatus(status) || isParadiseChargebackStatus(status);
-                isPending = isParadisePendingStatus(status);
-                changedAt =
-                    toIsoDate(getParadiseUpdatedAt(data)) ||
-                    toIsoDate(data?.timestamp) ||
-                    toIsoDate(data?.updated_at) ||
-                    new Date().toISOString();
-                sessionIdFallback = String(
-                    getParadiseExternalId(data) ||
-                    data?.metadata?.orderId ||
-                    data?.tracking?.orderId ||
-                    sessionIdFallback ||
-                    ''
-                ).trim();
-                amount = getParadiseAmount(data);
-                fee = normalizeAmountPossiblyCents(
-                    data?.fee ||
-                    data?.gateway_fee ||
-                    data?.gatewayFee ||
-                    data?.data?.fee ||
-                    data?.data?.gateway_fee ||
-                    data?.data?.gatewayFee ||
-                    0
-                );
-                commission = Math.max(0, Number((amount - fee).toFixed(2)));
-            } else {
-                ({ response, data } = await requestAtivushubStatus(payments?.gateways?.ativushub || {}, txid));
-                if (!response?.ok) {
-                    failed += 1;
-                    gatewaySummary[gateway].failed += 1;
-                    if (response?.status === 403) blockedByAtivus += 1;
-                    if (failedDetails.length < 8) {
-                        failedDetails.push({
-                            txid,
-                            gateway,
-                            status: response?.status || 0,
-                            detail: data?.error || data?.message || ''
-                        });
-                    }
-                    return;
-                }
-
-                status = getAtivusStatus(data);
-                utmifyStatus = mapAtivusStatusToUtmify(status);
-                isPaid = isAtivusPaidStatus(status);
-                isRefunded = isAtivusRefundedStatus(status);
-                isRefused = isAtivusRefusedStatus(status);
-                isPending = isAtivusPendingStatus(status);
-                changedAt =
-                    toIsoDate(data?.data_transacao) ||
-                    toIsoDate(data?.data_registro) ||
-                    new Date().toISOString();
-                sessionIdFallback = String(
-                    data?.externalreference ||
-                    data?.external_reference ||
-                    data?.metadata?.orderId ||
-                    data?.orderId ||
-                    sessionIdFallback ||
-                    ''
-                ).trim();
-                amount = normalizeAmountPossiblyCents(
-                    data?.amount ||
-                    data?.valor_bruto ||
-                    data?.valor_liquido ||
-                    data?.data?.amount ||
-                    0
-                );
-                fee = normalizeAmountPossiblyCents(data?.taxa_deposito || 0) +
-                    normalizeAmountPossiblyCents(data?.taxa_adquirente || 0);
-                commission = normalizeAmountPossiblyCents(data?.deposito_liquido || data?.valor_liquido || 0);
-            }
-
-            if (!(isPaid || isRefunded || isRefused || isPending)) {
-                failed += 1;
-                gatewaySummary[gateway].failed += 1;
-                if (failedDetails.length < 8) {
-                    failedDetails.push({ txid, gateway, status: 200, detail: `status:${status || 'unknown'}` });
-                }
-                return;
-            }
-
-            if (utmifyStatus === 'paid') {
-                confirmed += 1;
-                gatewaySummary[gateway].confirmed += 1;
-            } else if (utmifyStatus === 'waiting_payment') {
-                pending += 1;
-                gatewaySummary[gateway].pending += 1;
-            } else {
-                failed += 1;
-                gatewaySummary[gateway].failed += 1;
-            }
-
-            const lastEvent = isPaid ? 'pix_confirmed' : isRefunded ? 'pix_refunded' : isRefused ? 'pix_refused' : 'pix_pending';
-            let lead = await getLeadByPixTxid(txid).catch(() => ({ ok: false, data: null }));
-            let leadData = lead?.ok ? lead.data : null;
-            if (!leadData && sessionIdFallback) {
-                lead = await getLeadBySessionId(sessionIdFallback).catch(() => ({ ok: false, data: null }));
-                leadData = lead?.ok ? lead.data : null;
-            }
-            const payloadPatch = mergeLeadPayload(leadData?.payload, {
-                gateway,
-                pixGateway: gateway,
-                paymentGateway: gateway,
-                pixTxid: txid,
-                pixStatus: status || null,
-                pixStatusChangedAt: changedAt,
-                pixCreatedAt:
-                    asObject(leadData?.payload).pixCreatedAt ||
-                    toIsoDate(data?.data_registro) ||
-                    toIsoDate(data?.timestamp) ||
-                    toIsoDate(data?.created_at) ||
-                    toIsoDate(data?.createdAt) ||
-                    toIsoDate(data?.updated_at) ||
-                    toIsoDate(data?.data?.created_at) ||
-                    toIsoDate(data?.data?.createdAt) ||
-                    leadData?.created_at ||
-                    undefined,
-                pixPaidAt: isPaid ? changedAt : undefined,
-                pixRefundedAt: isRefunded ? changedAt : undefined,
-                pixRefusedAt: isRefused ? changedAt : undefined
-            });
-            let up = await updateLeadByPixTxid(txid, {
-                last_event: lastEvent,
-                stage: 'pix',
-                payload: payloadPatch
-            }).catch(() => ({ ok: false, count: 0 }));
-            if ((!up?.ok || Number(up?.count || 0) === 0) && sessionIdFallback) {
-                const bySessionLead = leadData || (await getLeadBySessionId(sessionIdFallback).catch(() => ({ ok: false, data: null })))?.data;
-                const bySessionPayload = mergeLeadPayload(bySessionLead?.payload, payloadPatch);
-                const bySession = await updateLeadBySessionId(sessionIdFallback, {
-                    last_event: lastEvent,
-                    stage: 'pix',
-                    payload: bySessionPayload
-                }).catch(() => ({ ok: false, count: 0 }));
-                if (bySession?.ok) up = bySession;
-            }
-
-            lead = await getLeadByPixTxid(txid).catch(() => ({ ok: false, data: null }));
-            leadData = lead?.ok ? lead.data : null;
-            if (!leadData && sessionIdFallback) {
-                lead = await getLeadBySessionId(sessionIdFallback).catch(() => ({ ok: false, data: null }));
-                leadData = lead?.ok ? lead.data : null;
-            }
-            const leadUtm = leadData?.payload?.utm || {};
-            const isUpsell = Boolean(
-                leadData?.payload?.upsell?.enabled === true ||
-                String(leadData?.shipping_id || '').trim().toLowerCase() === 'expresso_1dia' ||
-                /adiantamento|prioridade|expresso/i.test(String(leadData?.shipping_name || ''))
-            );
-            const changedRows = up?.ok ? Number(up?.count || 0) : 0;
-            if (changedRows <= 0) return;
-
-            updated += changedRows;
-
-            const utmPayload = {
-                event: 'pix_status',
-                orderId: txid || leadData?.session_id || sessionIdFallback || '',
-                txid,
-                gateway,
-                status: utmifyStatus,
-                amount,
-                personal: leadData ? {
-                    name: leadData.name,
-                    email: leadData.email,
-                    cpf: leadData.cpf,
-                    phoneDigits: leadData.phone
-                } : null,
-                address: leadData ? {
-                    street: leadData.address_line,
-                    neighborhood: leadData.neighborhood,
-                    city: leadData.city,
-                    state: leadData.state,
-                    cep: leadData.cep
-                } : null,
-                shipping: leadData ? {
-                    id: leadData.shipping_id,
-                    name: leadData.shipping_name,
-                    price: leadData.shipping_price
-                } : null,
-                bump: leadData && leadData.bump_selected ? {
-                    title: 'Seguro Bag',
-                    price: leadData.bump_price
-                } : null,
-                upsell: isUpsell ? {
-                    enabled: true,
-                    kind: leadData?.payload?.upsell?.kind || 'frete_1dia',
-                    title: leadData?.payload?.upsell?.title || leadData?.shipping_name || 'Prioridade de envio',
-                    price: Number(leadData?.payload?.upsell?.price || leadData?.shipping_price || amount || 0)
-                } : null,
-                utm: leadData ? {
-                    utm_source: leadData.utm_source,
-                    utm_medium: leadData.utm_medium,
-                    utm_campaign: leadData.utm_campaign,
-                    utm_term: leadData.utm_term,
-                    utm_content: leadData.utm_content,
-                    gclid: leadData.gclid,
-                    fbclid: leadData.fbclid,
-                    ttclid: leadData.ttclid,
-                    src: leadUtm.src,
-                    sck: leadUtm.sck
-                } : leadUtm,
-                payload: data,
-                createdAt: leadData?.payload?.pixCreatedAt || leadData?.created_at,
-                approvedDate: isPaid ? (leadData?.payload?.pixPaidAt || changedAt || null) : null,
-                refundedAt: isRefunded ? (leadData?.payload?.pixRefundedAt || changedAt || null) : null,
-                gatewayFeeInCents: Math.round(Number(fee || 0) * 100),
-                userCommissionInCents: Math.round(Number(commission || 0) * 100),
-                totalPriceInCents: Math.round(Number(amount || 0) * 100)
-            };
-
-            const utmEventName = isUpsell && isPaid ? 'upsell_pix_confirmed' : 'pix_status';
-            const utmImmediate = await sendUtmfy(utmEventName, utmPayload).catch(() => ({ ok: false }));
-            if (!utmImmediate?.ok) {
-                await enqueueDispatch({
-                    channel: 'utmfy',
-                    eventName: utmEventName,
-                    dedupeKey: `utmfy:status:${gateway}:${txid}:${isUpsell ? 'upsell' : 'base'}:${utmifyStatus}`,
-                    payload: utmPayload
-                }).catch(() => null);
-                await processDispatchQueue(8).catch(() => null);
-            }
-
-            if (!isPaid) return;
-
-            const pushKind = isUpsell ? 'upsell_pix_confirmed' : 'pix_confirmed';
-            await enqueueDispatch({
-                channel: 'pushcut',
-                kind: pushKind,
-                dedupeKey: `pushcut:pix_confirmed:${gateway}:${txid}`,
-                payload: {
-                    txid,
-                    orderId: txid || leadData?.session_id || sessionIdFallback || '',
-                    gateway,
-                    status,
-                    amount,
-                    customerName: leadData?.name || '',
-                    customerEmail: leadData?.email || '',
-                    cep: leadData?.cep || '',
-                    shippingName: leadData?.shipping_name || '',
-                    utm: {
-                        utm_source: leadData?.utm_source || leadUtm?.utm_source || leadUtm?.src || '',
-                        utm_medium: leadData?.utm_medium || leadUtm?.utm_medium || '',
-                        utm_campaign: leadData?.utm_campaign || leadUtm?.utm_campaign || leadUtm?.campaign || leadUtm?.sck || '',
-                        utm_term: leadData?.utm_term || leadUtm?.utm_term || leadUtm?.term || '',
-                        utm_content: (
-                            leadData?.utm_content ||
-                            leadUtm?.utm_content ||
-                            leadUtm?.utm_adset ||
-                            leadUtm?.adset ||
-                            leadUtm?.content ||
-                            ''
-                        )
-                    },
-                    source: leadData?.utm_source || leadUtm?.utm_source || leadUtm?.src || '',
-                    campaign: leadData?.utm_campaign || leadUtm?.utm_campaign || leadUtm?.campaign || leadUtm?.sck || '',
-                    adset: (
-                        leadData?.utm_content ||
-                        leadUtm?.utm_content ||
-                        leadUtm?.utm_adset ||
-                        leadUtm?.adset ||
-                        leadUtm?.content ||
-                        ''
-                    ),
-                    isUpsell
-                }
-            }).catch(() => null);
-            await processDispatchQueue(8).catch(() => null);
-        } catch (_error) {
+        const result = await inspectPixTransaction({
+            txid,
+            rowGateway: gateway,
+            sessionHint,
+            payments
+        });
+        if (!result?.ok) {
             failed += 1;
             gatewaySummary[gateway].failed += 1;
+            if (result?.blockedByAtivus) blockedByAtivus += 1;
             if (failedDetails.length < 8) {
-                failedDetails.push({ txid, gateway, status: 0, detail: 'request_error' });
+                failedDetails.push({
+                    txid,
+                    gateway,
+                    status: result?.responseStatus || 0,
+                    detail: result?.detail || 'request_error'
+                });
             }
+            if (isSingle) items.push({ txid, gateway, ok: false, statusCode: result?.responseStatus || 0, detail: result?.detail || 'request_error' });
+            return;
+        }
+
+        if (result.bucket === 'confirmed') {
+            confirmed += 1;
+            gatewaySummary[gateway].confirmed += 1;
+        } else if (result.bucket === 'pending') {
+            pending += 1;
+            gatewaySummary[gateway].pending += 1;
+        } else if (result.bucket === 'refunded') {
+            refunded += 1;
+            gatewaySummary[gateway].refunded += 1;
+        } else if (result.bucket === 'refused') {
+            refused += 1;
+            gatewaySummary[gateway].refused += 1;
+        } else {
+            failed += 1;
+            gatewaySummary[gateway].failed += 1;
+        }
+
+        let updatedRows = 0;
+        if (mutate) {
+            const syncResult = await applyPixReconcileEffects(result).catch(() => ({ ok: false, updatedRows: 0 }));
+            updatedRows = Number(syncResult?.updatedRows || 0);
+            updated += updatedRows;
+        }
+
+        if (isSingle) {
+            items.push({
+                ...result,
+                updatedRows
+            });
         }
     };
 
@@ -3211,15 +3365,19 @@ async function pixReconcile(req, res) {
         checked,
         confirmed,
         pending,
+        refunded,
+        refused,
         failed,
         blockedByAtivus,
         warning: blockedByAtivus > 0
             ? 'A consulta de status na Ativus foi bloqueada (403). Habilite este endpoint no suporte Ativus para reconciliacao retroativa.'
             : null,
         includeConfirmed,
+        mutate,
         updated,
         gatewaySummary,
-        failedDetails
+        failedDetails,
+        item: isSingle ? (items[0] || null) : null
     });
 }
 
