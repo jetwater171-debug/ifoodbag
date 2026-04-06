@@ -149,7 +149,7 @@
             <button id="lead-detail-lookup-transaction" class="btn-secondary" type="button">Consultar transacao</button>
             <button id="lead-detail-block-ip" class="btn-secondary btn-secondary--danger" type="button">Bloquear IP</button>
             <button id="lead-detail-unblock-ip" class="btn-secondary hidden" type="button">Remover blacklist</button>
-            <span id="lead-detail-lookup-status" class="admin-muted lead-detail-action-status">Consulta individual sem alterar o lead.</span>
+            <span id="lead-detail-lookup-status" class="admin-muted lead-detail-action-status">Consulta individual pronta para sincronizar o lead.</span>
           </div>
         </aside>
 
@@ -188,7 +188,7 @@
               <span id="lead-detail-transaction-status" class="admin-chip">Nao consultada</span>
             </div>
             <div id="lead-detail-transaction-summary" class="lead-detail-data-grid"></div>
-            <pre id="lead-detail-transaction-payload" class="lead-detail-payload">Clique em "Consultar transacao" para puxar o retorno bruto do gateway sem mexer no lead.</pre>
+            <pre id="lead-detail-transaction-payload" class="lead-detail-payload">Clique em "Consultar transacao" para consultar o gateway e sincronizar o status deste lead.</pre>
           </section>
 
           <section class="lead-detail-section">
@@ -234,7 +234,7 @@
 
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
-  <script src="/script.js?v=9.5" defer></script>
+  <script src="/script.js?v=9.7" defer></script>
 </body>
 </html>
 

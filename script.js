@@ -4124,6 +4124,9 @@ function initAdmin() {
                     { label: 'Status normalizado', value: formatTransactionLookupState(lookup), accent: true },
                     { label: 'Status UTMify', value: lookup?.utmifyStatus, mono: true },
                     { label: 'Consultado em', value: formatDateTime(lookup?.changedAt) },
+                    { label: 'Lead sincronizado', value: Number(lookup?.updatedRows || 0) > 0 ? 'Sim' : 'Nao', accent: Number(lookup?.updatedRows || 0) > 0 },
+                    { label: 'Linhas sincronizadas', value: String(Number(lookup?.updatedRows || 0)), mono: true },
+                    { label: 'Regressao ignorada', value: lookup?.skippedRegression === true ? 'Sim' : 'Nao' },
                     { label: 'Order/Session fallback', value: lookup?.sessionIdFallback, mono: true, wide: true },
                     { label: 'Valor', value: Number(lookup?.amount || 0) ? formatCurrency(Number(lookup.amount || 0)) : '-' },
                     { label: 'Taxa', value: Number(lookup?.fee || 0) ? formatCurrency(Number(lookup.fee || 0)) : 'R$ 0,00' },
@@ -4134,7 +4137,7 @@ function initAdmin() {
         if (leadDetailTransactionPayload) {
             leadDetailTransactionPayload.textContent = lookup
                 ? JSON.stringify(lookup?.transaction || lookup, null, 2)
-                : 'Clique em "Consultar transacao" para puxar o retorno bruto do gateway sem mexer no lead.';
+                : 'Clique em "Consultar transacao" para consultar o gateway e sincronizar o status deste lead.';
             leadDetailTransactionPayload.scrollTop = 0;
         }
     };
@@ -4255,7 +4258,7 @@ function initAdmin() {
         }
         if (leadDetailLookupStatus) {
             leadDetailLookupStatus.textContent = detail?.payment?.pixTxid
-                ? 'Consulta individual sem alterar o lead.'
+                ? 'Consulta individual pronta para sincronizar o lead.'
                 : 'Este lead nao tem TXID valido para consulta.';
         }
 
@@ -4438,14 +4441,14 @@ function initAdmin() {
         if (leadDetailPayment) leadDetailPayment.innerHTML = '';
         if (leadDetailTransactionStatus) leadDetailTransactionStatus.textContent = 'Nao consultada';
         if (leadDetailTransactionSummary) leadDetailTransactionSummary.innerHTML = '<div class="admin-muted">Nenhuma consulta feita ainda para esta transacao.</div>';
-        if (leadDetailTransactionPayload) leadDetailTransactionPayload.textContent = 'Clique em "Consultar transacao" para puxar o retorno bruto do gateway sem mexer no lead.';
+        if (leadDetailTransactionPayload) leadDetailTransactionPayload.textContent = 'Clique em "Consultar transacao" para consultar o gateway e sincronizar o status deste lead.';
         if (leadDetailTracking) leadDetailTracking.innerHTML = '';
         if (leadDetailDevice) leadDetailDevice.innerHTML = '';
         if (leadDetailTechnical) leadDetailTechnical.innerHTML = '';
         if (leadDetailPages) leadDetailPages.innerHTML = '<span class="admin-muted">Carregando...</span>';
         if (leadDetailPayload) leadDetailPayload.textContent = '{}';
         if (leadDetailBlockState) leadDetailBlockState.classList.add('hidden');
-        if (leadDetailLookupStatus) leadDetailLookupStatus.textContent = 'Consulta individual sem alterar o lead.';
+        if (leadDetailLookupStatus) leadDetailLookupStatus.textContent = 'Consulta individual pronta para sincronizar o lead.';
         setLeadDetailModalVisible(true);
 
         const res = await adminFetch(`/api/admin/leads/${encodeURIComponent(cleanSessionId)}`);
@@ -4478,7 +4481,7 @@ function initAdmin() {
                 txid,
                 gateway,
                 sessionId,
-                mutate: 0
+                mutate: 1
             })
         });
         const data = await res.json().catch(() => ({}));
@@ -4516,14 +4519,38 @@ function initAdmin() {
                     detail: 'transaction_not_found'
                 }
         };
-        renderLeadTransactionLookup(currentLeadDetail.transactionLookup);
+        if (item?.ok !== false && Number(item?.updatedRows || 0) > 0) {
+            const refreshedRes = await adminFetch(`/api/admin/leads/${encodeURIComponent(sessionId)}`);
+            const refreshedData = await refreshedRes.json().catch(() => ({}));
+            if (refreshedRes.ok && refreshedData?.ok && refreshedData?.data) {
+                currentLeadDetail = {
+                    ...refreshedData.data,
+                    transactionLookup: currentLeadDetail.transactionLookup
+                };
+                renderLeadDetail(currentLeadDetail);
+            } else {
+                renderLeadTransactionLookup(currentLeadDetail.transactionLookup);
+            }
+        } else {
+            renderLeadTransactionLookup(currentLeadDetail.transactionLookup);
+        }
         if (leadDetailLookupStatus) {
             leadDetailLookupStatus.textContent = item
-                ? `Consulta concluida: ${formatTransactionLookupState(item)}. Lead mantido sem alteracao.`
+                ? item?.skippedRegression === true
+                    ? `Consulta concluida: ${formatTransactionLookupState(item)}. O gateway respondeu sem promover o lead, entao o painel preservou o estado mais forte que ja existia.`
+                    : Number(item?.updatedRows || 0) > 0
+                        ? `Consulta concluida: ${formatTransactionLookupState(item)}. Lead sincronizado com sucesso.`
+                        : `Consulta concluida: ${formatTransactionLookupState(item)}. Nenhuma alteracao foi necessaria neste lead.`
                 : 'Nenhum detalhe retornado para essa transacao.';
         }
         if (data.warning) showToast(data.warning, 'error');
-        showToast('Transacao consultada sem alterar o lead.', 'success');
+        if (item?.skippedRegression === true) {
+            showToast('Transacao consultada. O painel preservou o estado mais avancado do lead.', 'success');
+        } else if (Number(item?.updatedRows || 0) > 0) {
+            showToast('Transacao consultada e lead sincronizado.', 'success');
+        } else {
+            showToast('Transacao consultada. Nenhuma alteracao foi necessaria.', 'success');
+        }
         if (leadDetailLookupBtn) leadDetailLookupBtn.disabled = false;
     };
 
@@ -5420,12 +5447,12 @@ function initAdmin() {
     const reconcilePix = async () => {
         if (!leadsReconcile) return;
         leadsReconcile.disabled = true;
-        if (leadsReconcileStatus) leadsReconcileStatus.textContent = 'Consultando os ultimos 100 PIX gerados...';
+        if (leadsReconcileStatus) leadsReconcileStatus.textContent = 'Consultando e sincronizando os ultimos 100 PIX gerados...';
         const res = await adminFetch('/api/admin/pix-reconcile', {
             method: 'POST',
             body: JSON.stringify({
                 maxTx: 100,
-                mutate: 0
+                mutate: 1
             })
         });
         if (!res.ok) {
@@ -5439,13 +5466,14 @@ function initAdmin() {
             return;
         }
         const data = await res.json().catch(() => ({}));
+        await loadLeads({ reset: true });
         if (leadsReconcileStatus) {
             const blocked = Number(data.blockedByAtivus || 0);
             const warning = blocked ? ` Bloqueados Ativus: ${blocked}.` : '';
-            leadsReconcileStatus.textContent = `Consultados ${data.checked || 0}, pagos ${data.confirmed || 0}, pendentes ${data.pending || 0}, estornados ${data.refunded || 0}, recusados ${data.refused || 0}. Nenhum lead foi alterado.${warning}`;
+            leadsReconcileStatus.textContent = `Consultados ${data.checked || 0}, pagos ${data.confirmed || 0}, pendentes ${data.pending || 0}, estornados ${data.refunded || 0}, recusados ${data.refused || 0}. Leads sincronizados: ${data.updated || 0}.${warning}`;
         }
         if (data.warning) showToast(data.warning, 'error');
-        showToast('Consulta de transacoes finalizada.', 'success');
+        showToast('Consulta de transacoes finalizada e painel sincronizado.', 'success');
         leadsReconcile.disabled = false;
     };
 

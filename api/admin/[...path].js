@@ -2790,6 +2790,23 @@ function classifyReconcileBucket(utmifyStatus = '') {
     return 'failed';
 }
 
+function reconcileLifecycleRank(eventName) {
+    const name = String(eventName || '').trim().toLowerCase();
+    if (!name) return 0;
+    if (name === 'pix_pending' || name === 'pix_created' || name === 'upsell_pix_created') return 1;
+    if (name === 'pix_confirmed' || name === 'upsell_pix_confirmed') return 2;
+    if (name === 'pix_refused' || name === 'pix_failed') return 3;
+    if (name === 'pix_refunded') return 4;
+    return 0;
+}
+
+function isReconcileLifecycleRegression(previousEvent, nextEvent) {
+    const prevRank = reconcileLifecycleRank(previousEvent);
+    const nextRank = reconcileLifecycleRank(nextEvent);
+    if (!prevRank || !nextRank) return false;
+    return nextRank < prevRank;
+}
+
 async function inspectPixTransaction({ txid, rowGateway, sessionHint, payments }) {
     const gateway = rowGateway === 'ghostspay'
         ? 'ghostspay'
@@ -3040,6 +3057,11 @@ async function applyPixReconcileEffects(result) {
         lead = await getLeadBySessionId(sessionIdFallback).catch(() => ({ ok: false, data: null }));
         leadData = lead?.ok ? lead.data : null;
     }
+    const previousLastEvent = String(leadData?.last_event || '').trim().toLowerCase();
+    if (isReconcileLifecycleRegression(previousLastEvent, lastEvent)) {
+        return { ok: true, updatedRows: 0, leadData, skippedRegression: true };
+    }
+
     const payloadPatch = mergeLeadPayload(leadData?.payload, {
         gateway,
         pixGateway: gateway,
@@ -3062,18 +3084,27 @@ async function applyPixReconcileEffects(result) {
         pixRefundedAt: isRefunded ? changedAt : undefined,
         pixRefusedAt: isRefused ? changedAt : undefined
     });
-    let up = await updateLeadByPixTxid(txid, {
+    const updateFields = {
         last_event: lastEvent,
-        stage: 'pix',
+        stage: String(leadData?.stage || '').trim() || 'pix',
         payload: payloadPatch
+    };
+    if (leadData?.updated_at) updateFields.updated_at = leadData.updated_at;
+
+    let up = await updateLeadByPixTxid(txid, updateFields, {
+        touchUpdatedAt: false
     }).catch(() => ({ ok: false, count: 0 }));
     if ((!up?.ok || Number(up?.count || 0) === 0) && sessionIdFallback) {
         const bySessionLead = leadData || (await getLeadBySessionId(sessionIdFallback).catch(() => ({ ok: false, data: null })))?.data;
         const bySessionPayload = mergeLeadPayload(bySessionLead?.payload, payloadPatch);
-        const bySession = await updateLeadBySessionId(sessionIdFallback, {
+        const bySessionFields = {
             last_event: lastEvent,
-            stage: 'pix',
+            stage: String(bySessionLead?.stage || '').trim() || 'pix',
             payload: bySessionPayload
+        };
+        if (bySessionLead?.updated_at) bySessionFields.updated_at = bySessionLead.updated_at;
+        const bySession = await updateLeadBySessionId(sessionIdFallback, bySessionFields, {
+            touchUpdatedAt: false
         }).catch(() => ({ ok: false, count: 0 }));
         if (bySession?.ok) up = bySession;
     }
@@ -3338,16 +3369,19 @@ async function pixReconcile(req, res) {
         }
 
         let updatedRows = 0;
+        let skippedRegression = false;
         if (mutate) {
             const syncResult = await applyPixReconcileEffects(result).catch(() => ({ ok: false, updatedRows: 0 }));
             updatedRows = Number(syncResult?.updatedRows || 0);
+            skippedRegression = syncResult?.skippedRegression === true;
             updated += updatedRows;
         }
 
         if (isSingle) {
             items.push({
                 ...result,
-                updatedRows
+                updatedRows,
+                skippedRegression
             });
         }
     };
