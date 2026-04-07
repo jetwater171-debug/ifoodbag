@@ -6,8 +6,10 @@
         "start": "node server.js"
     },
     "dependencies": {
+        "capi-param-builder-nodejs": "^1.2.1",
         "dotenv": "^16.4.5",
         "express": "^4.19.2",
+        "facebook-nodejs-business-sdk": "^24.0.1",
         "node-fetch": "^3.3.2",
         "xlsx": "^0.18.5"
     }

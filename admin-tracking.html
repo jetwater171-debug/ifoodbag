@@ -69,7 +69,7 @@
             <h2>Pixel do Meta</h2>
             <span class="admin-chip">Facebook Ads</span>
           </div>
-          <p class="admin-hint">Tracking 100% browser-side. Informe o Pixel ID principal, opcionalmente um pixel reserva, e escolha os eventos.</p>
+          <p class="admin-hint">Configure o Pixel browser e, se quiser, o Meta CAPI oficial com deduplicacao pelo mesmo event_id no principal e no reserva.</p>
           <div class="admin-grid">
             <label class="admin-switch">
               <input type="checkbox" id="pixel-enabled" />
@@ -82,6 +82,18 @@
             <div class="input-group">
               <input type="text" id="pixel-backup-id" class="floating-input" placeholder=" " />
               <label for="pixel-backup-id" class="floating-label">Pixel reserva</label>
+            </div>
+            <label class="admin-switch">
+              <input type="checkbox" id="pixel-capi-enabled" />
+              <span>CAPI ativo</span>
+            </label>
+            <div class="input-group">
+              <input type="text" id="pixel-capi-token" class="floating-input" placeholder=" " />
+              <label for="pixel-capi-token" class="floating-label">Token CAPI principal</label>
+            </div>
+            <div class="input-group">
+              <input type="text" id="pixel-capi-backup-token" class="floating-input" placeholder=" " />
+              <label for="pixel-capi-backup-token" class="floating-label">Token CAPI reserva</label>
             </div>
             <div class="admin-checkboxes">
               <label><input type="checkbox" id="pixel-event-page" /> PageView</label>
@@ -139,7 +151,7 @@
 
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
-  <script src="/script.js?v=9.3" defer></script>
+  <script src="/script.js?v=10.0" defer></script>
 </body>
 </html>
 

@@ -159,6 +159,7 @@ const state = {
     tiktokPixelConfigAt: 0,
     siteConfig: null,
     siteConfigAt: 0,
+    metaRuntimeEventIds: {},
     toastTimeout: null,
     pixCreatePromise: null,
     pixCreateKey: '',
@@ -3591,6 +3592,9 @@ function initAdmin() {
     const pixelEnabled = document.getElementById('pixel-enabled');
     const pixelId = document.getElementById('pixel-id');
     const pixelBackupId = document.getElementById('pixel-backup-id');
+    const pixelCapiEnabled = document.getElementById('pixel-capi-enabled');
+    const pixelCapiToken = document.getElementById('pixel-capi-token');
+    const pixelCapiBackupToken = document.getElementById('pixel-capi-backup-token');
     const pixelEventPage = document.getElementById('pixel-event-page');
     const pixelEventQuiz = document.getElementById('pixel-event-quiz');
     const pixelEventLead = document.getElementById('pixel-event-lead');
@@ -3889,6 +3893,9 @@ function initAdmin() {
         pixelEnabled ||
         pixelId ||
         pixelBackupId ||
+        pixelCapiEnabled ||
+        pixelCapiToken ||
+        pixelCapiBackupToken ||
         pixelEventPage ||
         pixelEventQuiz ||
         pixelEventLead ||
@@ -4645,6 +4652,9 @@ function initAdmin() {
             if (pixelEnabled) pixelEnabled.checked = !!data.pixel?.enabled;
             if (pixelId) pixelId.value = data.pixel?.id || '';
             if (pixelBackupId) pixelBackupId.value = data.pixel?.backupId || '';
+            if (pixelCapiEnabled) pixelCapiEnabled.checked = !!data.pixel?.capi?.enabled;
+            if (pixelCapiToken) pixelCapiToken.value = data.pixel?.capi?.accessToken || '';
+            if (pixelCapiBackupToken) pixelCapiBackupToken.value = data.pixel?.capi?.backupAccessToken || '';
             if (pixelEventPage) pixelEventPage.checked = data.pixel?.events?.page_view !== false;
             if (pixelEventQuiz) pixelEventQuiz.checked = data.pixel?.events?.quiz_view !== false;
             if (pixelEventLead) pixelEventLead.checked = data.pixel?.events?.lead !== false;
@@ -4747,6 +4757,13 @@ function initAdmin() {
                 enabled: !!pixelEnabled?.checked,
                 id: pixelId?.value?.trim() || '',
                 backupId: pixelBackupId?.value?.trim() || '',
+                capi: {
+                    enabled: !!pixelCapiEnabled?.checked,
+                    accessToken: pixelCapiToken?.value?.trim() || '',
+                    backupAccessToken: pixelCapiBackupToken?.value?.trim() || '',
+                    testEventCode: currentSettings?.pixel?.capi?.testEventCode || '',
+                    backupTestEventCode: currentSettings?.pixel?.capi?.backupTestEventCode || ''
+                },
                 events: {
                     page_view: pixelEventPage?.checked !== false,
                     quiz_view: pixelEventQuiz?.checked !== false,
@@ -6905,6 +6922,9 @@ function captureUtmParams() {
 
 function trackPageView(page) {
     if (!page) return;
+    const utm = getUtmData();
+    const pixelBrowser = getPixelBrowserContext(utm);
+    const pageViewEventId = getCurrentPageViewEventId(page);
     const send = () => fetch('/api/lead/pageview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -6913,7 +6933,11 @@ function trackPageView(page) {
             sessionId: getLeadSessionId(),
             page,
             sourceUrl: window.location.href,
-            utm: getUtmData()
+            utm,
+            fbclid: pixelBrowser.fbclid || undefined,
+            fbp: pixelBrowser.fbp || undefined,
+            fbc: pixelBrowser.fbc || undefined,
+            pageViewEventId
         }),
         keepalive: true
     });
@@ -7154,9 +7178,25 @@ function buildLeadEventId(sessionId = '') {
     return `lead_${token}`;
 }
 
+function buildPageViewEventId(page = '', sessionId = '') {
+    const pageToken = sanitizeEventIdToken(page || document.body?.dataset?.page || 'page', 24);
+    const sessionToken = sanitizeEventIdToken(sessionId || getLeadSessionId(), 24);
+    return `pv_${pageToken}_${sessionToken}`;
+}
+
 function buildAddPaymentInfoEventId(sessionId = '') {
     const token = sanitizeEventIdToken(sessionId || getLeadSessionId());
     return `api_${token}`;
+}
+
+function buildInitiateCheckoutEventId(sessionId = '') {
+    const token = sanitizeEventIdToken(sessionId || getLeadSessionId());
+    return `ic_${token}`;
+}
+
+function buildViewContentEventId(sessionId = '') {
+    const token = sanitizeEventIdToken(sessionId || getLeadSessionId());
+    return `vc_${token}`;
 }
 
 function buildPurchaseEventId(payload = {}) {
@@ -7170,6 +7210,32 @@ function buildPurchaseEventId(payload = {}) {
 
 function shouldDedupePixelByEventId(eventId = '') {
     return !!String(eventId || '').trim();
+}
+
+function buildRuntimePixelEventNonce() {
+    return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`.replace(/[^a-z0-9]/g, '');
+}
+
+function getMetaRuntimeEventId(kind = '', page = '') {
+    const pageToken = sanitizeEventIdToken(page || document.body?.dataset?.page || 'page', 24);
+    const key = `${String(kind || '').trim()}:${pageToken}`;
+    if (!state.metaRuntimeEventIds[key]) {
+        const sessionToken = sanitizeEventIdToken(getLeadSessionId(), 18);
+        state.metaRuntimeEventIds[key] = `${String(kind || 'evt').trim()}_${pageToken}_${sessionToken}_${buildRuntimePixelEventNonce()}`.slice(0, 120);
+    }
+    return state.metaRuntimeEventIds[key];
+}
+
+function getCurrentPageViewEventId(page = '') {
+    return getMetaRuntimeEventId('pv', page || document.body?.dataset?.page || 'page');
+}
+
+function getCurrentInitiateCheckoutEventId() {
+    return getMetaRuntimeEventId('ic', 'pix');
+}
+
+function getCurrentViewContentEventId() {
+    return getMetaRuntimeEventId('vc', 'processing');
 }
 
 function loadPixelEventDedupe() {
@@ -7315,7 +7381,9 @@ async function initMarketing() {
     }
 
     if (shouldSendMetaPageView) {
-        fireMetaPixelEvent('PageView');
+        fireMetaPixelEvent('PageView', {}, {
+            eventID: getCurrentPageViewEventId(page)
+        });
     }
 
     if (routing.meta && metaEnabled) {
@@ -7323,6 +7391,8 @@ async function initMarketing() {
             fireMetaPixelEvent('InitiateCheckout', {
                 currency: 'BRL',
                 ...(Number.isFinite(pixAmount) && pixAmount > 0 ? { value: Number(pixAmount.toFixed(2)) } : {})
+            }, {
+                eventID: getCurrentInitiateCheckoutEventId()
             });
         }
 
@@ -7330,6 +7400,8 @@ async function initMarketing() {
         if (page === 'processing' && pixel.events?.quiz_view !== false) {
             fireMetaPixelEvent('ViewContent', {
                 content_name: 'processando'
+            }, {
+                eventID: getCurrentViewContentEventId()
             });
         }
     }
@@ -7525,7 +7597,9 @@ function trackLead(eventName, extra = {}) {
         isUpsell: extra.isUpsell === true,
         eventId: extra.eventId || undefined,
         addPaymentInfoEventId: extra.addPaymentInfoEventId || undefined,
-        purchaseEventId: extra.purchaseEventId || undefined
+        purchaseEventId: extra.purchaseEventId || undefined,
+        viewContentEventId: extra.viewContentEventId || (eventName === 'processing_view' ? getCurrentViewContentEventId() : undefined),
+        initiateCheckoutEventId: extra.initiateCheckoutEventId || (eventName === 'pix_view' ? getCurrentInitiateCheckoutEventId() : undefined)
     };
 
     maybeTrackPixels(eventName, payload);

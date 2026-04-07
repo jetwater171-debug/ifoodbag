@@ -10,6 +10,8 @@ const {
     normalizeGatewayId
 } = require('../../lib/payment-gateway-config');
 const { getPaymentsConfig } = require('../../lib/payments-config-store');
+const { getSettings } = require('../../lib/settings-store');
+const { buildPurchaseDispatchJobs } = require('../../lib/meta-capi');
 const {
     getAtivusTxid,
     getAtivusStatus,
@@ -980,6 +982,28 @@ module.exports = async (req, res) => {
         }).catch(() => null);
         if (pushQueued?.ok || pushQueued?.fallback) {
             shouldProcessQueue = true;
+        }
+
+        const settings = await getSettings().catch(() => ({}));
+        const pixelJobs = buildPurchaseDispatchJobs({
+            leadData,
+            amount: eventAmount,
+            txid: effectiveTxid,
+            gateway,
+            isUpsell: upsellEvent,
+            statusChangedAt,
+            clientIp: req?.headers?.['x-forwarded-for']
+                ? String(req.headers['x-forwarded-for']).split(',')[0].trim()
+                : req?.socket?.remoteAddress || '',
+            userAgent: req?.headers?.['user-agent'] || ''
+        }, settings);
+        if (pixelJobs.length) {
+            const pixelResults = await Promise.all(
+                pixelJobs.map((job) => enqueueDispatch(job).catch(() => null))
+            );
+            if (pixelResults.some((item) => item?.ok || item?.fallback)) {
+                shouldProcessQueue = true;
+            }
         }
     }
 

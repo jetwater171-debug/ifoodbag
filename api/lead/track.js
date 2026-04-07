@@ -1,5 +1,8 @@
 const { upsertLead } = require('../../lib/lead-store');
 const { ensurePublicAccess } = require('../../lib/public-access');
+const { getSettings } = require('../../lib/settings-store');
+const { enqueueDispatch, processDispatchQueue } = require('../../lib/dispatch-queue');
+const { buildLeadTrackDispatchJobs } = require('../../lib/meta-capi');
 
 module.exports = async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
@@ -59,6 +62,20 @@ module.exports = async (req, res) => {
         if (!result.ok) {
             res.status(502).json({ ok: false, reason: result.reason, detail: result.detail || '' });
             return;
+        }
+
+        let shouldProcessQueue = false;
+        const settings = await getSettings().catch(() => ({}));
+        const jobs = buildLeadTrackDispatchJobs(body, req, settings);
+        if (jobs.length) {
+            const queueResults = await Promise.all(
+                jobs.map((job) => enqueueDispatch(job).catch(() => null))
+            );
+            shouldProcessQueue = queueResults.some((item) => item?.ok || item?.fallback);
+        }
+
+        if (shouldProcessQueue) {
+            await processDispatchQueue(6).catch(() => null);
         }
 
         res.status(200).json({ ok: true });

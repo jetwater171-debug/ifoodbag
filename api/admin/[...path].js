@@ -505,6 +505,13 @@ function sanitizeSettingsForAdmin(settingsData = {}) {
         enabled: !!safePixel.enabled,
         id: String(safePixel.id || '').trim(),
         backupId: String(safePixel.backupId || '').trim(),
+        capi: {
+            enabled: !!safePixel?.capi?.enabled,
+            accessToken: maskSecret(safePixel?.capi?.accessToken),
+            backupAccessToken: maskSecret(safePixel?.capi?.backupAccessToken),
+            testEventCode: String(safePixel?.capi?.testEventCode || '').trim(),
+            backupTestEventCode: String(safePixel?.capi?.backupTestEventCode || '').trim()
+        },
         events: {
             ...defaultSettings.pixel.events,
             ...asObject(safePixel.events)
@@ -2587,6 +2594,16 @@ async function settings(req, res) {
                 enabled: !!bodyPixel.enabled,
                 id: String(bodyPixel.id || '').trim(),
                 backupId: String(bodyPixel.backupId || '').trim(),
+                capi: {
+                    ...defaultSettings.pixel.capi,
+                    ...(currentSaved?.pixel?.capi || {}),
+                    ...(bodyPixel?.capi || {}),
+                    enabled: !!bodyPixel?.capi?.enabled,
+                    accessToken: pickSecretInput(bodyPixel?.capi?.accessToken, currentSaved?.pixel?.capi?.accessToken || ''),
+                    backupAccessToken: pickSecretInput(bodyPixel?.capi?.backupAccessToken, currentSaved?.pixel?.capi?.backupAccessToken || ''),
+                    testEventCode: String(bodyPixel?.capi?.testEventCode || '').trim(),
+                    backupTestEventCode: String(bodyPixel?.capi?.backupTestEventCode || '').trim()
+                },
                 events: {
                     ...defaultSettings.pixel.events,
                     ...(bodyPixel?.events || {})

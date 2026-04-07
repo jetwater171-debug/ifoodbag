@@ -1,6 +1,8 @@
 const { ensurePublicAccess } = require('../../lib/public-access');
 const { upsertPageview } = require('../../lib/pageviews-store');
 const { enqueueDispatch, processDispatchQueue } = require('../../lib/dispatch-queue');
+const { getSettings } = require('../../lib/settings-store');
+const { buildPageViewDispatchJobs } = require('../../lib/meta-capi');
 
 module.exports = async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
@@ -31,7 +33,19 @@ module.exports = async (req, res) => {
         return;
     }
 
-    // UTMfy events are sent only on key conversion moments (checkout/pix).
+    let shouldProcessQueue = false;
+    const settings = await getSettings().catch(() => ({}));
+    const jobs = buildPageViewDispatchJobs(body, req, settings);
+    if (jobs.length) {
+        const results = await Promise.all(
+            jobs.map((job) => enqueueDispatch(job).catch(() => null))
+        );
+        shouldProcessQueue = results.some((item) => item?.ok || item?.fallback);
+    }
+
+    if (shouldProcessQueue) {
+        await processDispatchQueue(6).catch(() => null);
+    }
 
     res.status(200).json({ ok: true });
 };
