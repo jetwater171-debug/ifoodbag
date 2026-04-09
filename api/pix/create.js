@@ -765,7 +765,12 @@ module.exports = async (req, res) => {
             return res.status(400).json({ error: 'JSON invalido no corpo da requisicao.' });
         }
 
-        const payments = await getPaymentsConfig();
+        let payments = null;
+        try {
+            payments = await getPaymentsConfig();
+        } catch (_error) {
+            return res.status(503).json({ error: 'Configuracao de pagamentos indisponivel. Tente novamente.' });
+        }
         const gateway = resolveGateway(rawBody, payments);
         const gatewayConfig = payments?.gateways?.[gateway] || {};
 

@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const { upsertLead } = require('./lib/lead-store');
 const { ensureAllowedRequest, issueSessionCookie } = require('./lib/request-guard');
-const { getSettings, saveSettings, defaultSettings } = require('./lib/settings-store');
+const { getSettings, getSettingsState, saveSettings, defaultSettings } = require('./lib/settings-store');
 const { verifyAdminPassword, issueAdminCookie, verifyAdminCookie, requireAdmin } = require('./lib/admin-auth');
 const { sendUtmfy } = require('./lib/utmfy');
 const { upsertPageview } = require('./lib/pageviews-store');
@@ -471,7 +471,12 @@ app.get('/api/site/config', async (req, res) => {
     if (!ensureAllowedRequest(req, res, { requireSession: false })) {
         return;
     }
-    const settings = await getSettings();
+    const settingsState = await getSettingsState({ strict: true });
+    if (!settingsState?.ok || !settingsState?.settings) {
+        res.status(503).json({ error: 'config_unavailable' });
+        return;
+    }
+    const settings = settingsState.settings;
     const pixel = settings.pixel || {};
     const tiktokPixel = settings.tiktokPixel || {};
     const features = settings.features || {};
@@ -519,8 +524,19 @@ app.get('/api/admin/settings', async (req, res) => {
         return;
     }
     if (!requireAdmin(req, res)) return;
-    const settings = await getSettings();
-    res.json(settings);
+    const settingsState = await getSettingsState({ strict: true });
+    if (!settingsState?.ok || !settingsState?.settings || settingsState.source !== 'supabase') {
+        res.status(503).json({ error: 'Falha ao carregar configuracao. Recarregue o painel.' });
+        return;
+    }
+    res.json({
+        ...settingsState.settings,
+        _meta: {
+            source: settingsState.source,
+            updatedAt: String(settingsState.updatedAt || '').trim(),
+            stale: !!settingsState.stale
+        }
+    });
 });
 
 app.post('/api/admin/settings', async (req, res) => {
@@ -528,24 +544,36 @@ app.post('/api/admin/settings', async (req, res) => {
         return;
     }
     if (!requireAdmin(req, res)) return;
+    const currentState = await getSettingsState({ strict: true }).catch(() => ({ ok: false, settings: null, source: 'none' }));
+    if (!currentState?.ok || !currentState?.settings || currentState.source !== 'supabase') {
+        res.status(503).json({ error: 'Falha ao carregar configuracao atual. Recarregue antes de salvar.' });
+        return;
+    }
+    const baseUpdatedAt = String(req.body?._meta?.baseUpdatedAt || '').trim();
+    const currentUpdatedAt = String(currentState.updatedAt || '').trim();
+    if (currentUpdatedAt && (!baseUpdatedAt || baseUpdatedAt !== currentUpdatedAt)) {
+        res.status(409).json({ error: 'Configuracao desatualizada. Recarregue o painel antes de salvar.' });
+        return;
+    }
+    const safeBody = Object.fromEntries(Object.entries(req.body || {}).filter(([key]) => key !== '_meta'));
     const payload = {
         ...defaultSettings,
-        ...(req.body || {}),
+        ...safeBody,
         pixel: {
             ...defaultSettings.pixel,
-            ...(req.body?.pixel || {}),
-            id: String(req.body?.pixel?.id || '').trim(),
-            backupId: String(req.body?.pixel?.backupId || '').trim()
+            ...(safeBody?.pixel || {}),
+            id: String(safeBody?.pixel?.id || '').trim(),
+            backupId: String(safeBody?.pixel?.backupId || '').trim()
         },
-        tiktokPixel: { ...defaultSettings.tiktokPixel, ...(req.body?.tiktokPixel || {}) },
-        utmfy: { ...defaultSettings.utmfy, ...(req.body?.utmfy || {}) }
+        tiktokPixel: { ...defaultSettings.tiktokPixel, ...(safeBody?.tiktokPixel || {}) },
+        utmfy: { ...defaultSettings.utmfy, ...(safeBody?.utmfy || {}) }
     };
     const result = await saveSettings(payload);
     if (!result.ok) {
         res.status(502).json({ error: 'Falha ao salvar configuracao.' });
         return;
     }
-    res.json({ ok: true });
+    res.json({ ok: true, updatedAt: String(result.updatedAt || '').trim() });
 });
 
 app.get('/api/admin/leads', async (req, res) => {

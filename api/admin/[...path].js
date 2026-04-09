@@ -1,7 +1,7 @@
 const XLSX = require('xlsx');
 const { ensureAllowedRequest } = require('../../lib/request-guard');
 const { verifyAdminPassword, issueAdminCookie, verifyAdminCookie, requireAdmin } = require('../../lib/admin-auth');
-const { getSettings, saveSettings, defaultSettings } = require('../../lib/settings-store');
+const { getSettings, getSettingsState, saveSettings, defaultSettings } = require('../../lib/settings-store');
 const { invalidatePaymentsConfigCache } = require('../../lib/payments-config-store');
 const {
     buildPaymentsConfig,
@@ -2781,8 +2781,18 @@ function buildPushcutConfig(raw = {}) {
 async function settings(req, res) {
     if (req.method === 'GET') {
         if (!requireAdmin(req, res)) return;
-        const settingsData = await getSettings();
-        res.status(200).json(sanitizeSettingsForAdmin(settingsData));
+        const settingsState = await getSettingsState({ strict: true });
+        if (!settingsState?.ok || !settingsState?.settings || settingsState.source !== 'supabase') {
+            res.status(503).json({ error: 'Falha ao carregar configuracao. Recarregue o painel.' });
+            return;
+        }
+        const sanitized = sanitizeSettingsForAdmin(settingsState.settings);
+        sanitized._meta = {
+            source: settingsState.source,
+            updatedAt: String(settingsState.updatedAt || '').trim(),
+            stale: !!settingsState.stale
+        };
+        res.status(200).json(sanitized);
         return;
     }
 
@@ -2797,7 +2807,19 @@ async function settings(req, res) {
             return;
         }
 
-        const currentSaved = await getSettings().catch(() => ({}));
+        const currentState = await getSettingsState({ strict: true }).catch(() => ({ ok: false, settings: null, source: 'none' }));
+        if (!currentState?.ok || !currentState?.settings || currentState.source !== 'supabase') {
+            res.status(503).json({ error: 'Falha ao carregar configuracao atual. Recarregue antes de salvar.' });
+            return;
+        }
+        const baseUpdatedAt = String(body?._meta?.baseUpdatedAt || '').trim();
+        const currentUpdatedAt = String(currentState.updatedAt || '').trim();
+        if (currentUpdatedAt && (!baseUpdatedAt || baseUpdatedAt !== currentUpdatedAt)) {
+            res.status(409).json({ error: 'Configuracao desatualizada. Recarregue o painel antes de salvar.' });
+            return;
+        }
+
+        const currentSaved = currentState.settings;
         const currentPayments = buildPaymentsConfig(currentSaved?.payments || {});
         const bodyPayments = body?.payments && typeof body.payments === 'object' ? body.payments : {};
         const bodyGateways = bodyPayments.gateways && typeof bodyPayments.gateways === 'object'
@@ -2869,7 +2891,7 @@ async function settings(req, res) {
 
         const payload = {
             ...defaultSettings,
-            ...body,
+            ...Object.fromEntries(Object.entries(body || {}).filter(([key]) => key !== '_meta')),
             pixel: {
                 enabled: !!bodyPixel.enabled,
                 id: String(bodyPixel.id || '').trim(),
@@ -2920,7 +2942,7 @@ async function settings(req, res) {
         }
 
         invalidatePaymentsConfigCache();
-        res.status(200).json({ ok: true });
+        res.status(200).json({ ok: true, updatedAt: String(result.updatedAt || '').trim() });
         return;
     }
 

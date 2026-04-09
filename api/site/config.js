@@ -1,5 +1,5 @@
 const { ensurePublicAccess } = require('../../lib/public-access');
-const { getSettings } = require('../../lib/settings-store');
+const { getSettingsState } = require('../../lib/settings-store');
 
 module.exports = async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
@@ -12,7 +12,13 @@ module.exports = async (req, res) => {
         return;
     }
 
-    const settings = await getSettings();
+    const settingsState = await getSettingsState({ strict: true });
+    if (!settingsState?.ok || !settingsState?.settings) {
+        res.status(503).json({ error: 'config_unavailable' });
+        return;
+    }
+
+    const settings = settingsState.settings;
     const pixel = settings.pixel || {};
     const tiktokPixel = settings.tiktokPixel || {};
     const features = settings.features || {};

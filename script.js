@@ -4016,6 +4016,8 @@ function initAdmin() {
     };
     let overviewRange = { preset: 'all', from: '', to: '' };
     let currentSettings = null;
+    let currentSettingsLoaded = false;
+    let currentSettingsRevision = '';
     let currentLeadDetail = null;
     let currentIpBlacklist = [];
     let gatewayTestRunning = false;
@@ -5071,10 +5073,17 @@ function initAdmin() {
     };
 
     const loadSettings = async () => {
+        currentSettingsLoaded = false;
+        currentSettingsRevision = '';
         const res = await adminFetch('/api/admin/settings');
-        if (!res.ok) return;
+        if (!res.ok) {
+            if (saveStatus) saveStatus.textContent = 'Falha ao carregar configuracoes. Recarregue o painel.';
+            return;
+        }
         const data = await res.json();
         currentSettings = data || {};
+        currentSettingsLoaded = true;
+        currentSettingsRevision = String(data?._meta?.updatedAt || '').trim();
 
         if (hasPixelForm) {
             if (pixelEnabled) pixelEnabled.checked = !!data.pixel?.enabled;
@@ -5173,11 +5182,24 @@ function initAdmin() {
 
     const saveSettings = async () => {
         if (!saveBtn) return;
+        if (!currentSettingsLoaded || !currentSettingsRevision) {
+            if (saveStatus) {
+                saveStatus.textContent = 'Recarregue as configuracoes antes de salvar.';
+                setTimeout(() => {
+                    if (saveStatus) saveStatus.textContent = '';
+                }, 3000);
+            }
+            return;
+        }
         saveBtn.disabled = true;
         if (saveStatus) saveStatus.textContent = 'Salvando...';
 
         const payload = {
-            ...(currentSettings || {})
+            ...(currentSettings || {}),
+            _meta: {
+                ...(currentSettings?._meta || {}),
+                baseUpdatedAt: currentSettingsRevision
+            }
         };
 
         if (hasPixelForm) {
@@ -5296,12 +5318,20 @@ function initAdmin() {
             method: 'POST',
             body: JSON.stringify(payload)
         });
+        const result = await res.json().catch(() => ({}));
 
         if (saveStatus) {
-            saveStatus.textContent = res.ok ? 'Configuracoes salvas.' : 'Falha ao salvar.';
+            saveStatus.textContent = res.ok
+                ? 'Configuracoes salvas.'
+                : (result?.error || 'Falha ao salvar.');
             setTimeout(() => {
                 if (saveStatus) saveStatus.textContent = '';
             }, 2500);
+        }
+        if (res.ok) {
+            currentSettingsLoaded = false;
+            currentSettingsRevision = String(result?.updatedAt || '').trim();
+            await loadSettings();
         }
         if (res.ok && hasPaymentsForm) {
             const activeGateway = normalizeGatewayKey(paymentsActiveGateway?.value || 'ativushub');
