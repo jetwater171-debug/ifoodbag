@@ -11,7 +11,13 @@ module.exports = async (req, res) => {
         res.status(405).json({ error: 'Method not allowed' });
         return;
     }
-    if (!await ensurePublicAccess(req, res, { requireSession: true })) {
+    try {
+        if (!await ensurePublicAccess(req, res, { requireSession: true })) {
+            return;
+        }
+    } catch (error) {
+        console.error('[lead-track] public access failed', error);
+        res.status(202).json({ ok: false, reason: 'public_access_error' });
         return;
     }
 
@@ -24,46 +30,11 @@ module.exports = async (req, res) => {
     }
 
     try {
-        const forwarded = req.headers['x-forwarded-for'];
-        const clientIp = typeof forwarded === 'string' && forwarded
-            ? forwarded.split(',')[0].trim()
-            : req.socket?.remoteAddress || '';
-
-        const fullPayload = {
-            event: body.event || 'lead_event',
-            stage: body.stage || '',
-            page: body.page || '',
-            sessionId: body.sessionId || body.session_id || '',
-            sourceUrl: body.sourceUrl || '',
-            utm: body.utm || {},
-            personal: body.personal || {},
-            address: body.address || {},
-            extra: body.extra || {},
-            shipping: body.shipping || {},
-            bump: body.bump || {},
-            pix: body.pix || {},
-            amount: body.amount,
-            metadata: {
-                received_at: new Date().toISOString(),
-                user_agent: req.headers['user-agent'] || '',
-                referrer: req.headers['referer'] || '',
-                client_ip: clientIp
-            },
-            raw: body
-        };
-
-        const result = await upsertLead(body, req);
-
-        if (!result.ok && (result.reason === 'missing_supabase_config' || result.reason === 'skipped_no_data')) {
-            res.status(202).json({ ok: false, reason: result.reason });
-            return;
-        }
-
-        if (!result.ok) {
-            res.status(502).json({ ok: false, reason: result.reason, detail: result.detail || '' });
-            return;
-        }
-
+        const result = await upsertLead(body, req).catch((error) => ({
+            ok: false,
+            reason: 'lead_store_error',
+            detail: error?.message || String(error)
+        }));
         let shouldProcessQueue = false;
         const settings = await getSettings().catch(() => ({}));
         const jobs = buildLeadTrackDispatchJobs(body, req, settings);
@@ -78,8 +49,23 @@ module.exports = async (req, res) => {
             await processDispatchQueue(6).catch(() => null);
         }
 
+        if (!result.ok) {
+            res.status(202).json({
+                ok: false,
+                reason: result.reason,
+                detail: result.detail || '',
+                trackingAttempted: jobs.length > 0
+            });
+            return;
+        }
+
         res.status(200).json({ ok: true });
     } catch (error) {
-        res.status(500).json({ ok: false, error: error.message || String(error) });
+        console.error('[lead-track] unexpected failure', error);
+        res.status(202).json({
+            ok: false,
+            reason: 'track_internal_error',
+            detail: error?.message || String(error)
+        });
     }
 };

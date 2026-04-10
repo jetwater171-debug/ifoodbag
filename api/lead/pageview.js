@@ -11,7 +11,13 @@ module.exports = async (req, res) => {
         res.status(405).json({ error: 'Method not allowed' });
         return;
     }
-    if (!await ensurePublicAccess(req, res, { requireSession: true })) {
+    try {
+        if (!await ensurePublicAccess(req, res, { requireSession: true })) {
+            return;
+        }
+    } catch (error) {
+        console.error('[lead-pageview] public access failed', error);
+        res.status(202).json({ ok: false, reason: 'public_access_error' });
         return;
     }
 
@@ -23,29 +29,44 @@ module.exports = async (req, res) => {
         return;
     }
 
-    const result = await upsertPageview(body.sessionId, body.page);
-    if (!result.ok && result.reason === 'missing_supabase_config') {
-        res.status(202).json({ ok: false, reason: result.reason });
-        return;
-    }
-    if (!result.ok) {
-        res.status(502).json({ ok: false, reason: result.reason, detail: result.detail || '' });
-        return;
-    }
+    try {
+        const result = await upsertPageview(body.sessionId, body.page).catch((error) => ({
+            ok: false,
+            reason: 'pageview_store_error',
+            detail: error?.message || String(error)
+        }));
 
-    let shouldProcessQueue = false;
-    const settings = await getSettings().catch(() => ({}));
-    const jobs = buildPageViewDispatchJobs(body, req, settings);
-    if (jobs.length) {
-        const results = await Promise.all(
-            jobs.map((job) => enqueueDispatch(job).catch(() => null))
-        );
-        shouldProcessQueue = results.some((item) => item?.ok || item?.fallback);
-    }
+        let shouldProcessQueue = false;
+        const settings = await getSettings().catch(() => ({}));
+        const jobs = buildPageViewDispatchJobs(body, req, settings);
+        if (jobs.length) {
+            const results = await Promise.all(
+                jobs.map((job) => enqueueDispatch(job).catch(() => null))
+            );
+            shouldProcessQueue = results.some((item) => item?.ok || item?.fallback);
+        }
 
-    if (shouldProcessQueue) {
-        await processDispatchQueue(6).catch(() => null);
-    }
+        if (shouldProcessQueue) {
+            await processDispatchQueue(6).catch(() => null);
+        }
 
-    res.status(200).json({ ok: true });
+        if (!result.ok) {
+            res.status(202).json({
+                ok: false,
+                reason: result.reason,
+                detail: result.detail || '',
+                trackingAttempted: jobs.length > 0
+            });
+            return;
+        }
+
+        res.status(200).json({ ok: true });
+    } catch (error) {
+        console.error('[lead-pageview] unexpected failure', error);
+        res.status(202).json({
+            ok: false,
+            reason: 'pageview_internal_error',
+            detail: error?.message || String(error)
+        });
+    }
 };
