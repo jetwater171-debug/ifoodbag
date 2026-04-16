@@ -2592,7 +2592,7 @@ function initUpsellCorreios() {
     const shippingStored = loadShipping();
     const shipping = isShippingSelectionComplete(shippingStored) ? shippingStored : null;
     const pix = loadPix();
-    const offerPrice = 16.96;
+    const offerPrice = 15.96;
 
     trackLead('upsell_correios_view', { stage: 'upsell_correios', shipping, pix, offerPrice });
 
