@@ -4601,7 +4601,8 @@ function initAdmin() {
             const txidText = escapeHtml(formatDetailValue(result?.txid, '-'));
             const externalIdText = escapeHtml(formatDetailValue(result?.externalId, '-'));
             const paymentCode = String(result?.paymentCode || '').trim();
-            const detailText = escapeHtml(formatDetailValue(result?.detail, '-'));
+            const detailRaw = String(result?.detail || '').trim();
+            const detailText = escapeHtml(detailRaw);
             return `
                 <article class="gateway-test-card${result?.ok ? '' : ' gateway-test-card--error'}">
                     <div class="gateway-test-card__top">
@@ -4646,7 +4647,7 @@ function initAdmin() {
                             <button class="btn-secondary gateway-test-copy" type="button" data-gateway-test-copy="${escapeHtml(paymentCode)}">Copiar codigo</button>
                         </div>
                             ` : ''}
-                            ${!result?.ok ? `<div class="gateway-test-card__error">${detailText}</div>` : ''}
+                            ${detailRaw ? `<div class="${result?.ok ? 'admin-detail-alert' : 'gateway-test-card__error'}">${detailText}</div>` : ''}
                         </div>
                     </div>
                 </article>

@@ -29,6 +29,7 @@ const {
     resolvePostbackUrl: resolveAtomopayPostbackUrl
 } = require('../../lib/atomopay-provider');
 const {
+    describeAtomopayPayload,
     getAtomopayStatus,
     resolveAtomopayPixPayload
 } = require('../../lib/atomopay-status');
@@ -487,10 +488,28 @@ function resolveAtomopayResponse(data = {}) {
 async function hydrateAtomopayVisual(gatewayConfig, txid, attempts = 4) {
     const cleanTxid = String(txid || '').trim();
     if (!cleanTxid) {
-        return { paymentCode: '', paymentCodeBase64: '', paymentQrUrl: '', status: '', externalId: '' };
+        return {
+            paymentCode: '',
+            paymentCodeBase64: '',
+            paymentQrUrl: '',
+            status: '',
+            externalId: '',
+            debug: {
+                attempts: []
+            }
+        };
     }
 
-    let latest = { paymentCode: '', paymentCodeBase64: '', paymentQrUrl: '', status: '', externalId: '' };
+    let latest = {
+        paymentCode: '',
+        paymentCodeBase64: '',
+        paymentQrUrl: '',
+        status: '',
+        externalId: '',
+        debug: {
+            attempts: []
+        }
+    };
     for (let attempt = 0; attempt < attempts; attempt += 1) {
         const timeoutMs = Math.max(
             1200,
@@ -504,8 +523,17 @@ async function hydrateAtomopayVisual(gatewayConfig, txid, attempts = 4) {
             response: { ok: false },
             data: {}
         }));
+        latest.debug.attempts.push({
+            attempt: attempt + 1,
+            statusCode: Number(response?.status || 0),
+            ok: response?.ok === true,
+            shape: describeAtomopayPayload(data || {})
+        });
         if (response?.ok) {
-            latest = resolveAtomopayResponse(data || {});
+            latest = {
+                ...resolveAtomopayResponse(data || {}),
+                debug: latest.debug
+            };
             if (latest.paymentCode || latest.paymentCodeBase64 || latest.paymentQrUrl) {
                 return latest;
             }
@@ -1361,20 +1389,31 @@ module.exports = async (req, res) => {
                 }
 
                 const atomopayData = resolveAtomopayResponse(data);
+                const atomopayCreateShape = describeAtomopayPayload(data || {});
                 txid = atomopayData.txid;
                 paymentCode = atomopayData.paymentCode;
                 paymentCodeBase64 = atomopayData.paymentCodeBase64;
                 paymentQrUrl = atomopayData.paymentQrUrl;
                 statusRaw = atomopayData.status || getAtomopayStatus(data) || 'pending';
+                let atomopayHydrateDebug = null;
 
                 if (txid && !paymentCode && !paymentCodeBase64 && !paymentQrUrl) {
                     const hydrated = await hydrateAtomopayVisual(gatewayConfig, txid, 4);
+                    atomopayHydrateDebug = hydrated.debug || null;
                     paymentCode = paymentCode || hydrated.paymentCode;
                     paymentCodeBase64 = paymentCodeBase64 || hydrated.paymentCodeBase64;
                     paymentQrUrl = paymentQrUrl || hydrated.paymentQrUrl;
                     if (!statusRaw || statusRaw === 'waiting_payment' || statusRaw === 'pending') {
                         statusRaw = hydrated.status || statusRaw || 'pending';
                     }
+                }
+                if (txid && !paymentCode && !paymentCodeBase64 && !paymentQrUrl) {
+                    console.warn('[pix] atomopay missing pix visual after create', {
+                        txid,
+                        statusRaw,
+                        createShape: atomopayCreateShape,
+                        hydratedDebug: atomopayHydrateDebug
+                    });
                 }
             } else {
                 createInflightError = new Error('gateway_unavailable');

@@ -61,6 +61,7 @@ const {
     mapParadiseStatusToUtmify
 } = require('../../lib/paradise-status');
 const {
+    describeAtomopayPayload,
     getAtomopayStatus,
     getAtomopayUpdatedAt,
     getAtomopayAmount,
@@ -811,7 +812,10 @@ async function hydrateAtomopayCreateResponse(gatewayConfig = {}, txid = '', atte
             paymentCodeBase64: '',
             paymentQrUrl: '',
             status: '',
-            externalId: ''
+            externalId: '',
+            debug: {
+                attempts: []
+            }
         };
     }
 
@@ -821,15 +825,28 @@ async function hydrateAtomopayCreateResponse(gatewayConfig = {}, txid = '', atte
         paymentCodeBase64: '',
         paymentQrUrl: '',
         status: '',
-        externalId: ''
+        externalId: '',
+        debug: {
+            attempts: []
+        }
     };
     for (let attempt = 0; attempt < attempts; attempt += 1) {
         const quickStatus = await requestAtomopayStatus({
             ...gatewayConfig,
             timeoutMs: Math.max(1200, Math.min(Number(gatewayConfig.timeoutMs || 12000), attempt === 0 ? 3500 : 5000))
         }, cleanTxid).catch(() => ({ response: { ok: false }, data: {} }));
+        const debugAttempt = {
+            attempt: attempt + 1,
+            statusCode: Number(quickStatus?.response?.status || 0),
+            ok: quickStatus?.response?.ok === true,
+            shape: describeAtomopayPayload(quickStatus?.data || {})
+        };
+        latest.debug.attempts.push(debugAttempt);
         if (quickStatus?.response?.ok) {
-            latest = resolveAtomopayCreateResponse(quickStatus.data || {});
+            latest = {
+                ...resolveAtomopayCreateResponse(quickStatus.data || {}),
+                debug: latest.debug
+            };
             if (latest.paymentCode || latest.paymentCodeBase64 || latest.paymentQrUrl) {
                 return latest;
             }
@@ -3516,8 +3533,11 @@ async function gatewayTestPix(req, res) {
                     };
                 }
                 let parsed = resolveAtomopayCreateResponse(data || {});
+                const createShape = describeAtomopayPayload(data || {});
+                let hydratedDebug = null;
                 if (parsed.txid && !parsed.paymentCode && !parsed.paymentCodeBase64 && !parsed.paymentQrUrl) {
                     const hydrated = await hydrateAtomopayCreateResponse(gatewayConfig, parsed.txid, 4);
+                    hydratedDebug = hydrated.debug || null;
                     parsed = {
                         ...parsed,
                         paymentCode: parsed.paymentCode || hydrated.paymentCode,
@@ -3525,6 +3545,15 @@ async function gatewayTestPix(req, res) {
                         paymentQrUrl: parsed.paymentQrUrl || hydrated.paymentQrUrl,
                         status: parsed.status || hydrated.status
                     };
+                }
+                const missingAtomopayVisual = !parsed.paymentCode && !parsed.paymentCodeBase64 && !parsed.paymentQrUrl;
+                if (missingAtomopayVisual) {
+                    console.warn('[admin][gateway-test][atomopay] missing pix visual after create', {
+                        txid: parsed.txid,
+                        statusRaw: parsed.status || '',
+                        createShape,
+                        hydratedDebug
+                    });
                 }
 
                 return {
@@ -3535,7 +3564,10 @@ async function gatewayTestPix(req, res) {
                     paymentCodeBase64: parsed.paymentCodeBase64,
                     paymentQrUrl: parsed.paymentQrUrl,
                     statusRaw: parsed.status || '',
-                    externalId: ''
+                    externalId: '',
+                    detail: missingAtomopayVisual
+                        ? 'AtomoPay gerou o TXID, mas nao devolveu QR/copia-e-cola. Registrei um resumo sanitizado nos logs do Vercel para depuracao.'
+                        : ''
                 };
             }
 
