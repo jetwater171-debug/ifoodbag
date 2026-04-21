@@ -42,6 +42,7 @@ const {
 const {
     getAtomopayStatus,
     getAtomopayUpdatedAt,
+    hasAtomopayPaidMarker,
     isAtomopayPaidStatus,
     isAtomopayRefundedStatus,
     isAtomopayRefusedStatus,
@@ -403,6 +404,192 @@ function buildPatchFromGatewayStatus(leadData, txid, gateway, statusRaw, nextSta
     };
 }
 
+async function enqueuePaidSideEffectsFromLead({
+    req,
+    leadData,
+    txid = '',
+    gateway = '',
+    statusRaw = 'paid',
+    changedAtIso = new Date().toISOString()
+} = {}) {
+    const leadPayload = asObject(leadData?.payload);
+    const effectiveTxid = pickText(
+        txid,
+        leadData?.pix_txid,
+        leadPayload?.pixTxid,
+        leadPayload?.pix?.idTransaction,
+        leadPayload?.pix?.idtransaction,
+        leadPayload?.pix?.txid
+    );
+    if (!leadData || !effectiveTxid) return false;
+
+    const resolvedGateway = normalizeGatewayId(
+        gateway ||
+        resolveGatewayFromPayload(leadPayload, '') ||
+        leadData?.gateway ||
+        'atomopay'
+    );
+    const leadUtm = asObject(leadPayload?.utm);
+    const amountFromLead = normalizeMoneyToBrl(
+        leadPayload?.pixAmount ||
+        leadData?.pix_amount ||
+        leadPayload?.pix?.amount ||
+        0
+    );
+    const fallbackLeadAmount = normalizeMoneyToBrl(
+        Number(leadData?.shipping_price || 0) + Number(leadData?.bump_price || 0)
+    );
+    const eventAmount = amountFromLead > 0 ? amountFromLead : fallbackLeadAmount;
+    const upsellEvent = isUpsellLead(leadData);
+    const rewardSnapshot = upsellEvent ? null : buildLeadRewardSnapshot(leadPayload);
+    const orderId = pickText(
+        leadData?.session_id,
+        leadPayload?.orderId,
+        leadPayload?.sessionId,
+        effectiveTxid
+    );
+    const dedupeBase = effectiveTxid || orderId || 'unknown';
+    const approvedDate = leadPayload?.pixPaidAt || changedAtIso;
+    const clientIp = req?.headers?.['x-forwarded-for']
+        ? String(req.headers['x-forwarded-for']).split(',')[0].trim()
+        : req?.socket?.remoteAddress || '';
+    const userAgent = req?.headers?.['user-agent'] || '';
+
+    let shouldProcessQueue = false;
+    const utmQueued = await enqueueDispatch({
+        channel: 'utmfy',
+        eventName: upsellEvent ? 'upsell_pix_confirmed' : 'pix_confirmed',
+        dedupeKey: `utmfy:status:${resolvedGateway}:${dedupeBase}:${upsellEvent ? 'upsell' : 'base'}:paid`,
+        payload: {
+            event: 'pix_status',
+            orderId: effectiveTxid || orderId,
+            txid: effectiveTxid,
+            gateway: resolvedGateway,
+            status: 'paid',
+            amount: eventAmount,
+            personal: {
+                name: leadData.name,
+                email: leadData.email,
+                cpf: leadData.cpf,
+                phoneDigits: leadData.phone
+            },
+            address: {
+                street: leadData.address_line,
+                neighborhood: leadData.neighborhood,
+                city: leadData.city,
+                state: leadData.state,
+                cep: leadData.cep
+            },
+            shipping: {
+                id: leadData.shipping_id,
+                name: leadData.shipping_name,
+                price: leadData.shipping_price
+            },
+            reward: rewardSnapshot,
+            bump: leadData.bump_selected ? {
+                title: 'Seguro Bag',
+                price: leadData.bump_price
+            } : null,
+            upsell: upsellEvent ? {
+                enabled: true,
+                kind: leadPayload?.upsell?.kind || 'frete_1dia',
+                title: leadPayload?.upsell?.title || leadData?.shipping_name || 'Prioridade de envio',
+                price: Number(leadPayload?.upsell?.price || leadData?.shipping_price || eventAmount || 0)
+            } : null,
+            utm: {
+                utm_source: leadData.utm_source,
+                utm_medium: leadData.utm_medium,
+                utm_campaign: leadData.utm_campaign,
+                utm_term: leadData.utm_term,
+                utm_content: leadData.utm_content,
+                gclid: leadData.gclid,
+                fbclid: leadData.fbclid,
+                ttclid: leadData.ttclid,
+                src: leadUtm.src,
+                sck: leadUtm.sck
+            },
+            payload: leadPayload,
+            client_ip: clientIp,
+            user_agent: userAgent,
+            createdAt: leadPayload?.pixCreatedAt || leadData?.created_at || changedAtIso,
+            approvedDate,
+            refundedAt: null,
+            gatewayFeeInCents: 0,
+            userCommissionInCents: Math.round(Number(eventAmount || 0) * 100),
+            totalPriceInCents: Math.round(Number(eventAmount || 0) * 100)
+        }
+    }).catch(() => null);
+    if (utmQueued?.ok || utmQueued?.fallback) shouldProcessQueue = true;
+
+    const pushQueued = await enqueueDispatch({
+        channel: 'pushcut',
+        kind: upsellEvent ? 'upsell_pix_confirmed' : 'pix_confirmed',
+        dedupeKey: `pushcut:pix_confirmed:${resolvedGateway}:${effectiveTxid}`,
+        payload: {
+            txid: effectiveTxid,
+            orderId: effectiveTxid || orderId,
+            status: statusRaw || 'paid',
+            amount: eventAmount,
+            gateway: resolvedGateway,
+            customerName: leadData.name || '',
+            customerEmail: leadData.email || '',
+            cep: leadData.cep || '',
+            shippingName: leadData.shipping_name || '',
+            utm: {
+                utm_source: leadData.utm_source || leadUtm?.utm_source || leadUtm?.src || '',
+                utm_medium: leadData.utm_medium || leadUtm?.utm_medium || '',
+                utm_campaign: leadData.utm_campaign || leadUtm?.utm_campaign || leadUtm?.campaign || leadUtm?.sck || '',
+                utm_term: leadData.utm_term || leadUtm?.utm_term || leadUtm?.term || '',
+                utm_content: (
+                    leadData.utm_content ||
+                    leadUtm?.utm_content ||
+                    leadUtm?.utm_adset ||
+                    leadUtm?.adset ||
+                    leadUtm?.content ||
+                    ''
+                )
+            },
+            source: leadData.utm_source || leadUtm?.utm_source || leadUtm?.src || '',
+            campaign: leadData.utm_campaign || leadUtm?.utm_campaign || leadUtm?.campaign || leadUtm?.sck || '',
+            adset: (
+                leadData.utm_content ||
+                leadUtm?.utm_content ||
+                leadUtm?.utm_adset ||
+                leadUtm?.adset ||
+                leadUtm?.content ||
+                ''
+            ),
+            isUpsell: upsellEvent
+        }
+    }).catch(() => null);
+    if (pushQueued?.ok || pushQueued?.fallback) shouldProcessQueue = true;
+
+    const settings = await getSettings().catch(() => ({}));
+    const pixelJobs = buildPurchaseDispatchJobs({
+        leadData,
+        amount: eventAmount,
+        txid: effectiveTxid,
+        gateway: resolvedGateway,
+        isUpsell: upsellEvent,
+        statusChangedAt: approvedDate,
+        clientIp,
+        userAgent
+    }, settings);
+    if (pixelJobs.length) {
+        const pixelResults = await Promise.all(
+            pixelJobs.map((job) => enqueueDispatch(job).catch(() => null))
+        );
+        if (pixelResults.some((item) => item?.ok || item?.fallback)) {
+            shouldProcessQueue = true;
+        }
+    }
+
+    if (shouldProcessQueue) {
+        await processDispatchQueue(12).catch(() => null);
+    }
+    return shouldProcessQueue;
+}
+
 function resolveStatusGateway(body = {}, leadData = null, payments = {}) {
     const payload = asObject(leadData?.payload);
     const fromLead = resolveGatewayFromPayload(payload, '');
@@ -486,13 +673,25 @@ module.exports = async (req, res) => {
     };
 
     if (leadStatus.status === 'paid') {
+        const paidTxid = txid || getLeadCurrentPixTxid(leadData);
+        const paidGateway = leadStatus.gateway || gateway;
+        if (paidGateway === 'atomopay') {
+            await enqueuePaidSideEffectsFromLead({
+                req,
+                leadData,
+                txid: paidTxid,
+                gateway: paidGateway,
+                statusRaw: leadStatus.statusRaw || 'paid',
+                changedAtIso: asObject(leadData?.payload)?.pixPaidAt || new Date().toISOString()
+            }).catch(() => null);
+        }
         res.status(200).json({
             ok: true,
             status: 'paid',
             statusRaw: leadStatus.statusRaw || 'paid',
             source: 'database',
-            gateway: leadStatus.gateway || gateway,
-            txid: txid || String(leadData?.pix_txid || '').trim()
+            gateway: paidGateway,
+            txid: paidTxid
         });
         return;
     }
@@ -646,8 +845,12 @@ module.exports = async (req, res) => {
         }
 
         statusRaw = getAtomopayStatus(data);
+        const atomopayPaidByMarker = hasAtomopayPaidMarker(data);
+        if (atomopayPaidByMarker && !isAtomopayPaidStatus(statusRaw)) {
+            statusRaw = 'paid';
+        }
         const mapped = mapAtomopayStatusToUtmify(statusRaw);
-        nextStatus = isAtomopayPaidStatus(statusRaw)
+        nextStatus = (isAtomopayPaidStatus(statusRaw) || atomopayPaidByMarker)
             ? 'paid'
             : isAtomopayRefundedStatus(statusRaw)
                 ? 'refunded'

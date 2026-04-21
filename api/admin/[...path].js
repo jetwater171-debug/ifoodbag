@@ -66,6 +66,7 @@ const {
     getAtomopayUpdatedAt,
     getAtomopayAmount,
     getAtomopayTracking,
+    hasAtomopayPaidMarker,
     resolveAtomopayPixPayload,
     isAtomopayPaidStatus,
     isAtomopayPendingStatus,
@@ -3830,8 +3831,12 @@ async function inspectPixTransaction({ txid, rowGateway, sessionHint, payments }
             }
 
             status = getAtomopayStatus(data);
+            const paidByMarker = hasAtomopayPaidMarker(data);
+            if (paidByMarker && !isAtomopayPaidStatus(status)) {
+                status = 'paid';
+            }
             utmifyStatus = mapAtomopayStatusToUtmify(status);
-            isPaid = isAtomopayPaidStatus(status);
+            isPaid = isAtomopayPaidStatus(status) || paidByMarker;
             isRefunded = isAtomopayRefundedStatus(status);
             isRefused = isAtomopayRefusedStatus(status) || isAtomopayChargebackStatus(status);
             isPending = isAtomopayPendingStatus(status);

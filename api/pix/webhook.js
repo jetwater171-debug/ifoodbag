@@ -50,11 +50,13 @@ const {
 const {
     getAtomopayTxid,
     getAtomopayStatus,
+    hasAtomopayPaidMarker,
     getAtomopayUpdatedAt,
     getAtomopayAmount,
     getAtomopayTracking,
     getAtomopayCustomer,
     isAtomopayPaidStatus,
+    isAtomopayPendingStatus,
     isAtomopayRefundedStatus,
     isAtomopayRefusedStatus,
     isAtomopayChargebackStatus,
@@ -244,10 +246,27 @@ function looksLikeParadiseWebhook(payload = {}) {
 }
 
 function looksLikeAtomopayWebhook(payload = {}) {
-    const hasTx = !!String(payload?.transaction_hash || payload?.transactionHash || payload?.hash || payload?.data?.hash || '').trim();
-    const status = String(payload?.status || payload?.data?.status || '').trim().toLowerCase();
-    const hasStatus = ['pending', 'paid', 'canceled', 'cancelled', 'refunded'].includes(status);
-    const paymentMethod = String(payload?.payment_method || payload?.paymentMethod || payload?.data?.payment_method || '').trim().toLowerCase();
+    const hasTx = !!getAtomopayTxid(payload);
+    const status = getAtomopayStatus(payload);
+    const hasStatus = Boolean(
+        status &&
+        (
+            isAtomopayPendingStatus(status) ||
+            isAtomopayPaidStatus(status) ||
+            isAtomopayRefundedStatus(status) ||
+            isAtomopayRefusedStatus(status) ||
+            isAtomopayChargebackStatus(status)
+        )
+    );
+    const paymentMethod = String(
+        payload?.payment_method ||
+        payload?.paymentMethod ||
+        payload?.data?.payment_method ||
+        payload?.data?.paymentMethod ||
+        payload?.transaction?.payment_method ||
+        payload?.payment?.payment_method ||
+        ''
+    ).trim().toLowerCase();
     return hasTx && hasStatus && (!paymentMethod || paymentMethod === 'pix');
 }
 
@@ -449,9 +468,13 @@ function extractGatewayEvent(gateway, body = {}) {
 
     if (gateway === 'atomopay') {
         const txid = getAtomopayTxid(body);
-        const statusRaw = getAtomopayStatus(body);
+        let statusRaw = getAtomopayStatus(body);
+        const paidByMarker = hasAtomopayPaidMarker(body);
+        if (paidByMarker && !isAtomopayPaidStatus(statusRaw)) {
+            statusRaw = 'paid';
+        }
         const utmifyStatus = mapAtomopayStatusToUtmify(statusRaw);
-        const isPaid = isAtomopayPaidStatus(statusRaw);
+        const isPaid = isAtomopayPaidStatus(statusRaw) || paidByMarker;
         const isRefunded = isAtomopayRefundedStatus(statusRaw);
         const isRefused = isAtomopayRefusedStatus(statusRaw) || isAtomopayChargebackStatus(statusRaw);
         const amount = getAtomopayAmount(body);
