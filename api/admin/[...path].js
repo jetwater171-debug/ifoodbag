@@ -1646,6 +1646,7 @@ function extractGatewaySalesEntries(row = {}) {
         paymentHistory.forEach((item) => pushEntry(item, 'history'));
     } else if (isLeadPaid(row, payload)) {
         pushEntry({
+            status: 'paid',
             gateway: currentGateway,
             txid: currentTxid,
             step: currentChargeStep || 'front',
