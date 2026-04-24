@@ -1273,6 +1273,23 @@ function leadStepDisplayLabel(step = '', { charge = false } = {}) {
     return 'Front';
 }
 
+function leadPaymentShortLabel(step = '') {
+    if (step === 'upsell_iof') return 'UP-IOF';
+    if (step === 'upsell_correios') return 'UP-CORREIOS';
+    if (step === 'upsell_final') return 'UP-PRIORIDADE';
+    return 'FRONT';
+}
+
+function normalizeLeadStagePage(value = '') {
+    const normalized = String(value || '')
+        .trim()
+        .toLowerCase()
+        .replace(/_/g, '-');
+
+    if (normalized === 'upsell-final') return 'upsell';
+    return normalized;
+}
+
 function hasLeadUpsellMarker(payload = {}) {
     const upsell = asObject(payload?.upsell);
     return Boolean(
@@ -1356,6 +1373,26 @@ function resolveLeadChargeState(row, payload) {
     return { code: 'none', label: 'Sem PIX', tone: 'neutral' };
 }
 
+function resolveLeadCurrentStageInfo(row, payload = {}) {
+    const rawStage = String(
+        pick(
+            payload?.page,
+            row?.stage,
+            payload?.stage
+        ) || ''
+    ).trim();
+    const page = normalizeLeadStagePage(rawStage);
+    const meta = describeLeadPage(page);
+
+    return {
+        key: normalizeLeadJourneyToken(rawStage || page),
+        page: page || '-',
+        raw: rawStage || '-',
+        label: meta?.label || '-',
+        description: meta?.description || 'Pagina registrada'
+    };
+}
+
 function resolveLeadBumpInfo(row, payload) {
     const rawPrice = pick(
         row?.bump_price,
@@ -1396,14 +1433,53 @@ function resolveLeadBaseAmount({ chargeStep = 'front', reward = {}, shipping = {
     return null;
 }
 
+function buildLeadPaymentItems({ chargeStep = 'front', chargeState = {}, currentTxid = '', previousTxid = '' } = {}) {
+    const items = [];
+    const currentCode = String(chargeState?.code || '').trim().toLowerCase();
+    const currentTxidValue = String(currentTxid || '').trim();
+    const previousTxidValue = String(previousTxid || '').trim();
+    const hasDistinctCurrentTxid = Boolean(currentTxidValue && currentTxidValue !== previousTxidValue);
+    const hasCurrentItem = chargeStep === 'front'
+        ? Boolean(currentTxidValue) || currentCode === 'paid' || currentCode === 'refused' || currentCode === 'refunded'
+        : hasDistinctCurrentTxid || currentCode === 'refused' || currentCode === 'refunded';
+
+    if (chargeStep !== 'front') {
+        items.push({
+            step: 'front',
+            shortLabel: leadPaymentShortLabel('front'),
+            label: 'Front',
+            status: 'paid',
+            statusLabel: 'Pago',
+            tone: 'paid',
+            current: false
+        });
+    }
+
+    if (!hasCurrentItem) {
+        return items;
+    }
+
+    items.push({
+        step: chargeStep,
+        shortLabel: leadPaymentShortLabel(chargeStep),
+        label: leadStepDisplayLabel(chargeStep, { charge: true }),
+        status: currentCode || 'pending',
+        statusLabel: chargeState?.label || 'PIX gerado',
+        tone: chargeState?.tone || 'neutral',
+        current: true
+    });
+
+    return items;
+}
+
 function summarizeLeadPaymentItem(item = {}) {
-    const label = String(item?.label || 'PIX').trim() || 'PIX';
+    const label = String(item?.shortLabel || leadPaymentShortLabel(item?.step || '')).trim() || 'PIX';
     const code = String(item?.status || '').trim().toLowerCase();
-    if (code === 'paid') return `${label} pago`;
-    if (code === 'pending') return `${label} PIX gerado`;
-    if (code === 'refused') return `${label} recusado`;
-    if (code === 'refunded') return `${label} estornado`;
-    return `${label} sem PIX`;
+    if (code === 'paid') return `${label} PAGO`;
+    if (code === 'pending') return `${label} GERADO`;
+    if (code === 'refused') return `${label} RECUSADO`;
+    if (code === 'refunded') return `${label} ESTORNADO`;
+    return '';
 }
 
 function mapLeadReadable(row) {
@@ -1416,12 +1492,12 @@ function mapLeadReadable(row) {
     const reward = resolveLeadRewardInfo(row, payload);
     const shipping = resolveLeadShippingInfo(row, payload);
     const bump = resolveLeadBumpInfo(row, payload);
-    const journeyStep = resolveLeadJourneyStep(row, payload);
+    const currentStage = resolveLeadCurrentStageInfo(row, payload);
     const chargeStep = resolveLeadChargeStep(row, payload);
-    const journeyLabel = leadStepDisplayLabel(journeyStep);
     const chargeLabel = leadStepDisplayLabel(chargeStep, { charge: true });
     const chargeState = resolveLeadChargeState(row, payload);
     const currentTxid = resolveLeadCurrentPixTxid(row, payload);
+    const previousTxid = resolveLeadPreviousPixTxid(payload);
     const currentAmount = Number(row?.pix_amount);
     const currentAmountValue = Number.isFinite(currentAmount) ? Number(currentAmount.toFixed(2)) : null;
     const baseAmount = resolveLeadBaseAmount({
@@ -1439,26 +1515,16 @@ function mapLeadReadable(row) {
     const currentOfferLabel = chargeStep === 'front'
         ? (reward?.name && reward.name !== '-' ? reward.name : 'Front')
         : (String(payload?.upsell?.title || '').trim() || chargeLabel);
-    const paymentItems = [
-        {
-            step: 'front',
-            label: 'Front',
-            status: chargeStep === 'front' ? chargeState.code : 'paid',
-            statusLabel: chargeStep === 'front' ? chargeState.label : 'Pago',
-            tone: chargeStep === 'front' ? chargeState.tone : 'paid',
-            current: chargeStep === 'front'
-        }
-    ];
-    if (chargeStep !== 'front') {
-        paymentItems.push({
-            step: chargeStep,
-            label: chargeLabel,
-            status: chargeState.code,
-            statusLabel: chargeState.label,
-            tone: chargeState.tone,
-            current: true
-        });
-    }
+    const paymentItems = buildLeadPaymentItems({
+        chargeStep,
+        chargeState,
+        currentTxid,
+        previousTxid
+    });
+    const paymentSummary = paymentItems
+        .map(summarizeLeadPaymentItem)
+        .filter(Boolean)
+        .join(' | ');
     const isUpsell = Boolean(
         payload?.upsell?.enabled === true ||
         String(row?.shipping_id || '').trim().toLowerCase() === 'expresso_1dia' ||
@@ -1556,9 +1622,12 @@ function mapLeadReadable(row) {
         valor_base: baseAmount,
         display: {
             journey: {
-                step: journeyStep,
-                label: journeyLabel,
-                note: journeyStep !== chargeStep ? `Tela atual: ${journeyLabel}` : `Etapa atual: ${journeyLabel}`
+                step: currentStage?.key || normalizeLeadJourneyToken(row?.stage || ''),
+                label: currentStage?.label || '-',
+                page: currentStage?.page || '-',
+                raw: currentStage?.raw || row?.stage || '-',
+                description: currentStage?.description || 'Pagina registrada',
+                note: `Pagina atual: ${currentStage?.label || '-'}`
             },
             charge: {
                 step: chargeStep,
@@ -1571,7 +1640,7 @@ function mapLeadReadable(row) {
                 amount: currentAmountValue
             },
             payments: paymentItems,
-            paymentSummary: paymentItems.map(summarizeLeadPaymentItem).join(' | '),
+            paymentSummary,
             selection: {
                 summary: selectionTags.join(' | ') || '-',
                 tags: selectionTags,
@@ -1594,6 +1663,10 @@ function resolveLeadCurrentPixTxid(row, payload) {
         payload?.pix?.txid ||
         ''
     ).trim();
+}
+
+function resolveLeadPreviousPixTxid(payload) {
+    return String(payload?.upsell?.previousTxid || '').trim();
 }
 
 function resolveLeadPayloadPixTxid(payload) {
@@ -1733,7 +1806,21 @@ function leadJourneyLabel(step) {
 }
 
 function describeLeadPage(page = '') {
-    const normalized = String(page || '').trim().toLowerCase();
+    const normalized = normalizeLeadStagePage(page);
+    if (normalized === 'processing') {
+        return {
+            page: normalized,
+            label: 'Processando',
+            description: 'Tela intermediaria antes do checkout'
+        };
+    }
+    if (normalized === 'success') {
+        return {
+            page: normalized,
+            label: 'Sucesso',
+            description: 'Tela de confirmacao'
+        };
+    }
     const stage = FUNNEL_OVERVIEW_STAGES.find((item) => item?.source === 'page' && item?.page === normalized);
     if (stage) {
         return {

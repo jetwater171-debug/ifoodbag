@@ -4799,19 +4799,21 @@ function initAdmin() {
     };
 
     const summarizeLeadPaymentItem = (item = {}) => {
-        const label = formatDetailValue(item?.label, 'PIX');
+        const label = formatDetailValue(item?.shortLabel || item?.label, 'PIX');
         const status = String(item?.status || '').trim().toLowerCase();
-        if (status === 'paid') return `${label} pago`;
-        if (status === 'pending') return `${label} PIX gerado`;
-        if (status === 'refused') return `${label} recusado`;
-        if (status === 'refunded') return `${label} estornado`;
-        return `${label} sem PIX`;
+        if (status === 'paid') return `${label} PAGO`;
+        if (status === 'pending') return `${label} GERADO`;
+        if (status === 'refused') return `${label} RECUSADO`;
+        if (status === 'refunded') return `${label} ESTORNADO`;
+        return '';
     };
 
-    const buildLeadStatusPillsHtml = (items = []) => {
+    const buildLeadStatusPillsHtml = (items = [], { emptyLabel = '' } = {}) => {
         const list = Array.isArray(items) ? items : [];
         if (!list.length) {
-            return '<span class="status-pill status-pill--neutral">Sem PIX</span>';
+            return emptyLabel
+                ? `<span class="status-pill status-pill--neutral">${escapeHtml(emptyLabel)}</span>`
+                : '';
         }
 
         return list
@@ -5176,7 +5178,7 @@ function initAdmin() {
         const shippingName = formatDetailValue(detail?.shipping?.name);
         const paymentItems = Array.isArray(detail?.payment?.payments) ? detail.payment.payments : (Array.isArray(display?.payments) ? display.payments : []);
         const paymentPillsHtml = buildLeadStatusPillsHtml(paymentItems);
-        const paymentSummary = formatDetailValue(detail?.payment?.paymentSummary || display?.paymentSummary);
+        const paymentSummary = formatDetailValue(detail?.payment?.paymentSummary || display?.paymentSummary, 'Sem pagamentos');
         const journeyLabel = formatDetailValue(detail?.payment?.journey?.label || display?.journey?.label);
         const chargeLabel = formatDetailValue(detail?.payment?.charge?.label || display?.charge?.label);
         const chargeOfferLabel = formatDetailValue(detail?.payment?.charge?.offerLabel || display?.charge?.offerLabel);
@@ -5979,11 +5981,11 @@ function initAdmin() {
             const sessionId = String(row.session_id || '').trim();
             const display = getLeadDisplayData(row);
             const paymentItems = Array.isArray(display?.payments) ? display.payments : [];
-            const paymentSummary = formatDetailValue(display?.paymentSummary);
+            const paymentSummary = formatDetailValue(display?.paymentSummary, '');
             const journeyLabel = formatDetailValue(display?.journey?.label);
+            const journeyRaw = formatDetailValue(display?.journey?.raw || row.etapa);
             const chargeLabel = formatDetailValue(display?.charge?.label);
             const chargeOfferLabel = formatDetailValue(display?.charge?.offerLabel || chargeLabel);
-            const chargeStatusLabel = formatDetailValue(display?.charge?.statusLabel || row.status_funil);
             const rewardName = formatDetailValue(display?.selection?.reward?.name);
             const shippingName = formatDetailValue(display?.selection?.shipping?.name || row.frete);
             const bumpSelected = display?.selection?.bump?.selected === true;
@@ -5998,6 +6000,9 @@ function initAdmin() {
             const term = String(row.utm_term_label || row.utm_term || '-').trim() || '-';
             const adset = String(row.utm_adset_name || row.utm_adset_label || row.utm_adset || '-').trim() || '-';
             const paymentPillsHtml = buildLeadStatusPillsHtml(paymentItems);
+            const paymentBlockHtml = paymentPillsHtml
+                ? `<div class="lead-stack"><div class="lead-stack__chips">${paymentPillsHtml}</div></div>`
+                : '';
             const sessionNote = sessionId ? `Sessao ${formatLeadShortCode(sessionId, 10)}` : '-';
             const txidNote = txid ? `TXID ${formatLeadShortCode(txid, 10)}` : 'Sem TXID';
             const offerTags = [];
@@ -6040,16 +6045,11 @@ function initAdmin() {
                 <td class="lead-cell">
                     <div class="lead-stack">
                         <strong class="lead-stack__title">${esc(journeyLabel)}</strong>
-                        <span class="lead-stack__meta">${esc(`Cobranca atual: ${chargeLabel}`)}</span>
-                        <span class="lead-stack__meta">${esc(`Status atual: ${chargeStatusLabel}`)}</span>
+                        <span class="lead-stack__meta">${esc(`Etapa salva: ${journeyRaw}`)}</span>
+                        <span class="lead-stack__meta">${esc(`Ultimo evento: ${formatDetailValue(row.evento)}`)}</span>
                     </div>
                 </td>
-                <td class="lead-cell">
-                    <div class="lead-stack">
-                        <div class="lead-stack__chips">${paymentPillsHtml}</div>
-                        <span class="lead-stack__meta">${esc(paymentSummary)}</span>
-                    </div>
-                </td>
+                <td class="lead-cell">${paymentBlockHtml}</td>
                 <td class="lead-cell lead-cell--value">
                     <div class="lead-value">
                         <strong class="lead-value__primary">${esc(currentAmountText)}</strong>
