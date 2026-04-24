@@ -4230,6 +4230,56 @@ body[data-page='admin'][data-admin='leads'] .admin-topbar {
     border-bottom: 1px solid #e6e8ee;
 }
 
+.admin-table--leads {
+    min-width: 1180px;
+    table-layout: auto;
+}
+
+.admin-table--leads th,
+.admin-table--leads td {
+    vertical-align: top;
+}
+
+.admin-table--leads th:nth-child(1),
+.admin-table--leads td:nth-child(1) {
+    min-width: 210px;
+}
+
+.admin-table--leads th:nth-child(2),
+.admin-table--leads td:nth-child(2) {
+    min-width: 220px;
+}
+
+.admin-table--leads th:nth-child(3),
+.admin-table--leads td:nth-child(3) {
+    min-width: 220px;
+}
+
+.admin-table--leads th:nth-child(4),
+.admin-table--leads td:nth-child(4) {
+    min-width: 220px;
+}
+
+.admin-table--leads th:nth-child(5),
+.admin-table--leads td:nth-child(5) {
+    min-width: 180px;
+}
+
+.admin-table--leads th:nth-child(6),
+.admin-table--leads td:nth-child(6) {
+    min-width: 220px;
+}
+
+.admin-table--leads th:nth-child(7),
+.admin-table--leads td:nth-child(7) {
+    min-width: 140px;
+}
+
+.admin-table--leads th:nth-child(8),
+.admin-table--leads td:nth-child(8) {
+    min-width: 150px;
+}
+
 .admin-table th.lead-col--channel,
 .admin-table td.lead-cell--channel {
     width: 72px;
@@ -4263,6 +4313,74 @@ body[data-page='admin'][data-admin='leads'] .admin-topbar {
 
 .lead-cell {
     vertical-align: middle;
+}
+
+.lead-cell--lead {
+    min-width: 200px;
+}
+
+.lead-cell--value {
+    text-align: left;
+}
+
+.lead-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+}
+
+.lead-stack__title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #20242d;
+    line-height: 1.35;
+    white-space: normal;
+    word-break: break-word;
+}
+
+.lead-stack__meta {
+    font-size: 0.76rem;
+    color: #677185;
+    line-height: 1.35;
+    white-space: normal;
+    word-break: break-word;
+}
+
+.lead-stack__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-width: 0;
+}
+
+.lead-value {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.lead-value__primary {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #20242d;
+    line-height: 1.2;
+}
+
+.lead-value__label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #4b5a72;
+    line-height: 1.35;
+    white-space: normal;
+}
+
+.lead-value__secondary {
+    font-size: 0.74rem;
+    color: #72809b;
+    line-height: 1.35;
+    white-space: normal;
 }
 
 .lead-cell--name,
@@ -4321,6 +4439,18 @@ body[data-page='admin'][data-admin='leads'] .admin-topbar {
     border-color: #d4f0e2;
 }
 
+.lead-chip--soft {
+    background: #f4f6fb;
+    color: #56627a;
+    border-color: #e1e7f0;
+}
+
+.lead-chip--accent {
+    background: #eefaf8;
+    color: #0f7b70;
+    border-color: #c9e9e3;
+}
+
 .lead-cell--campaign {
     font-weight: 600;
     color: #20242d;
@@ -4351,10 +4481,26 @@ body[data-page='admin'][data-admin='leads'] .admin-topbar {
     border: 1px solid rgba(255, 152, 0, 0.36);
 }
 
+.status-pill--danger {
+    background: rgba(220, 72, 72, 0.13);
+    color: #b23636;
+    border: 1px solid rgba(220, 72, 72, 0.25);
+}
+
+.status-pill--refunded {
+    background: rgba(94, 109, 137, 0.12);
+    color: #5d667c;
+    border: 1px solid rgba(94, 109, 137, 0.22);
+}
+
 .status-pill--neutral {
     background: #f1f2f6;
     color: #5a5a5a;
     border: 1px solid #e1e3ea;
+}
+
+.status-pill--current {
+    box-shadow: inset 0 0 0 1px rgba(17, 24, 39, 0.05);
 }
 
 .admin-quiz-btn {

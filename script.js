@@ -4778,6 +4778,58 @@ function initAdmin() {
             .join('');
     };
 
+    const LEAD_STATUS_CLASS_MAP = {
+        paid: 'status-pill--paid',
+        pending: 'status-pill--pix-created',
+        refunded: 'status-pill--refunded',
+        refused: 'status-pill--danger',
+        neutral: 'status-pill--neutral',
+        none: 'status-pill--neutral'
+    };
+
+    const getLeadDisplayData = (source) => {
+        if (source?.display && typeof source.display === 'object') return source.display;
+        if (source?.readable?.display && typeof source.readable.display === 'object') return source.readable.display;
+        return {};
+    };
+
+    const getLeadStatusClass = (tone) => {
+        const key = String(tone || '').trim().toLowerCase();
+        return LEAD_STATUS_CLASS_MAP[key] || LEAD_STATUS_CLASS_MAP.neutral;
+    };
+
+    const summarizeLeadPaymentItem = (item = {}) => {
+        const label = formatDetailValue(item?.label, 'PIX');
+        const status = String(item?.status || '').trim().toLowerCase();
+        if (status === 'paid') return `${label} pago`;
+        if (status === 'pending') return `${label} PIX gerado`;
+        if (status === 'refused') return `${label} recusado`;
+        if (status === 'refunded') return `${label} estornado`;
+        return `${label} sem PIX`;
+    };
+
+    const buildLeadStatusPillsHtml = (items = []) => {
+        const list = Array.isArray(items) ? items : [];
+        if (!list.length) {
+            return '<span class="status-pill status-pill--neutral">Sem PIX</span>';
+        }
+
+        return list
+            .map((item) => `
+                <span class="status-pill ${getLeadStatusClass(item?.tone || item?.status)}${item?.current ? ' status-pill--current' : ''}">
+                    ${escapeHtml(summarizeLeadPaymentItem(item))}
+                </span>
+            `)
+            .join('');
+    };
+
+    const formatLeadShortCode = (value, length = 8) => {
+        const text = String(value || '').trim();
+        if (!text) return '-';
+        if (text.length <= length) return text;
+        return text.slice(-Math.max(4, Number(length) || 8));
+    };
+
     const buildGatewayTestQrFallbackUrl = (codeText = '') => {
         const clean = String(codeText || '').trim();
         if (!clean) return '';
@@ -5109,6 +5161,7 @@ function initAdmin() {
         currentLeadDetail = detail;
 
         const payload = detail?.payload || {};
+        const display = getLeadDisplayData(detail);
         const metadata = payload?.metadata || {};
         const payloadUtm = payload?.utm || {};
         const payloadPersonal = payload?.personal || {};
@@ -5121,7 +5174,18 @@ function initAdmin() {
         const pages = Array.isArray(detail?.pageviews) ? detail.pageviews : [];
         const rewardName = formatDetailValue(detail?.reward?.name);
         const shippingName = formatDetailValue(detail?.shipping?.name);
-        const valueText = detail?.payment?.amount ? formatCurrency(detail.payment.amount) : '-';
+        const paymentItems = Array.isArray(detail?.payment?.payments) ? detail.payment.payments : (Array.isArray(display?.payments) ? display.payments : []);
+        const paymentPillsHtml = buildLeadStatusPillsHtml(paymentItems);
+        const paymentSummary = formatDetailValue(detail?.payment?.paymentSummary || display?.paymentSummary);
+        const journeyLabel = formatDetailValue(detail?.payment?.journey?.label || display?.journey?.label);
+        const chargeLabel = formatDetailValue(detail?.payment?.charge?.label || display?.charge?.label);
+        const chargeOfferLabel = formatDetailValue(detail?.payment?.charge?.offerLabel || display?.charge?.offerLabel);
+        const chargeStatusLabel = formatDetailValue(detail?.payment?.charge?.statusLabel || display?.charge?.statusLabel);
+        const selectionSummary = formatDetailValue(detail?.payment?.selection?.summary || display?.selection?.summary);
+        const baseAmountValue = Number(detail?.payment?.baseAmount);
+        const currentAmountValue = Number(detail?.payment?.amount);
+        const baseAmountText = Number.isFinite(baseAmountValue) ? formatCurrency(baseAmountValue) : '-';
+        const valueText = Number.isFinite(currentAmountValue) ? formatCurrency(currentAmountValue) : '-';
         const clientIp = formatDetailValue(detail?.device?.clientIp);
         const blockedEntry = detail?.block?.entry || null;
         const isBlocked = detail?.block?.blocked === true;
@@ -5137,12 +5201,13 @@ function initAdmin() {
             leadDetailTitle.textContent = formatDetailValue(detail?.customer?.name, 'Lead sem nome');
         }
         if (leadDetailSubtitle) {
-            leadDetailSubtitle.textContent = `${sessionId} | ${gatewayLabel} | ${statusLabel}`;
+            leadDetailSubtitle.textContent = `${sessionId} | ${gatewayLabel} | ${paymentSummary}`;
         }
         if (leadDetailMeta) {
             leadDetailMeta.innerHTML = `
-                <span class="admin-quiz-chip">${escapeHtml(statusLabel)}</span>
-                <span class="admin-quiz-chip">${escapeHtml(eventLabel)}</span>
+                ${paymentPillsHtml}
+                <span class="admin-quiz-chip">${escapeHtml(journeyLabel)}</span>
+                <span class="admin-quiz-chip">${escapeHtml(chargeOfferLabel)}</span>
                 <span class="admin-quiz-chip">${escapeHtml(valueText)}</span>
                 <span class="admin-quiz-chip">${escapeHtml(rewardName)}</span>
                 <span class="admin-quiz-chip">${escapeHtml(shippingName)}</span>
@@ -5177,24 +5242,29 @@ function initAdmin() {
 
         if (leadDetailSummary) {
             leadDetailSummary.innerHTML = buildLeadSummaryCardsHtml([
-                { label: 'Valor total', value: valueText },
-                { label: 'Produto', value: rewardName },
-                { label: 'Frete', value: shippingName },
-                { label: 'Order bump', value: detail?.bump?.selected ? 'Selecionado' : 'Nao selecionado' },
-                { label: 'IP publico', value: clientIp },
+                { label: 'Valor atual', value: valueText },
+                { label: 'Valor base', value: baseAmountText },
+                { label: 'Selecao base', value: selectionSummary },
+                { label: 'Cobranca atual', value: chargeOfferLabel },
+                { label: 'Pagamentos', value: paymentSummary },
                 { label: 'Ultima atualizacao', value: formatDateTime(detail?.payment?.updatedAt || detail?.payment?.createdAt) }
             ]);
         }
 
         if (leadDetailOverview) {
             leadDetailOverview.innerHTML = buildLeadStatCardsHtml([
-                { label: 'Etapa atual', value: detail?.readable?.etapa },
-                { label: 'Evento', value: eventLabel },
+                { label: 'Jornada atual', value: journeyLabel },
+                { label: 'Cobranca atual', value: chargeLabel },
+                { label: 'Oferta atual', value: chargeOfferLabel },
+                { label: 'Status atual', value: chargeStatusLabel },
+                { label: 'Pagamentos salvos', value: paymentSummary },
                 { label: 'Gateway', value: gatewayLabel },
+                { label: 'Status funil', value: statusLabel },
+                { label: 'Evento', value: eventLabel },
                 { label: 'Status bruto', value: detail?.payment?.pixStatusRaw },
                 { label: 'Lead criado', value: formatDateTime(detail?.payment?.createdAt) },
                 { label: 'Lead atualizado', value: formatDateTime(detail?.payment?.updatedAt) },
-                { label: 'Seguro bag', value: detail?.bump?.selected ? 'Sim' : 'Nao' },
+                { label: 'Selecao base', value: selectionSummary },
                 { label: 'Pages registradas', value: String(pages.length || 0) },
                 { label: 'Inicio da jornada', value: firstPageAt },
                 { label: 'Fim da jornada', value: lastPageAt },
@@ -5235,11 +5305,18 @@ function initAdmin() {
 
         if (leadDetailPayment) {
             leadDetailPayment.innerHTML = buildLeadFieldsHtml([
+                { label: 'Pagamentos salvos', value: paymentSummary, wide: true, accent: true },
+                { label: 'Selecao base', value: selectionSummary, wide: true, accent: true },
+                { label: 'Jornada atual', value: journeyLabel },
+                { label: 'Cobranca atual', value: chargeLabel },
+                { label: 'Oferta atual', value: chargeOfferLabel, wide: true },
+                { label: 'Status atual', value: chargeStatusLabel, accent: true },
+                { label: 'Valor base', value: baseAmountText, accent: true },
                 { label: 'Gateway label', value: gatewayLabel, accent: true },
                 { label: 'Gateway key', value: detail?.payment?.gateway, mono: true },
                 { label: 'Status funil', value: detail?.payment?.status, accent: true },
                 { label: 'Evento', value: detail?.payment?.event },
-                { label: 'Valor total', value: valueText, accent: true },
+                { label: 'Valor atual', value: valueText, accent: true },
                 { label: 'TXID atual', value: detail?.payment?.pixTxid, mono: true, wide: true },
                 { label: 'Status bruto gateway', value: detail?.payment?.pixStatusRaw, mono: true },
                 { label: 'Produto selecionado', value: rewardName },
@@ -5900,46 +5977,95 @@ function initAdmin() {
         rows.forEach((row) => {
             const tr = document.createElement('tr');
             const sessionId = String(row.session_id || '').trim();
-            const ev = String(row.evento || '').toLowerCase().trim();
-            const isPaid = row.is_paid === true || ev === 'pix_confirmed' || ev === 'pagamento_confirmado' || ev === 'paid';
-            const rawStatus = String(row.status_funil || row.evento || '').toLowerCase().trim();
-            const isPixGenerated = (
-                rawStatus === 'pix_gerado' ||
-                rawStatus === 'pix_created' ||
-                rawStatus === 'pix_pending' ||
-                rawStatus === 'waiting_payment' ||
-                rawStatus === 'aguardando_pagamento'
-            );
-            const statusLabel = isPaid ? 'pagamento_confirmado' : (row.status_funil || row.evento || '-');
-            const statusClass = isPaid
-                ? 'status-pill--paid'
-                : (isPixGenerated ? 'status-pill--pix-created' : 'status-pill--neutral');
+            const display = getLeadDisplayData(row);
+            const paymentItems = Array.isArray(display?.payments) ? display.payments : [];
+            const paymentSummary = formatDetailValue(display?.paymentSummary);
+            const journeyLabel = formatDetailValue(display?.journey?.label);
+            const chargeLabel = formatDetailValue(display?.charge?.label);
+            const chargeOfferLabel = formatDetailValue(display?.charge?.offerLabel || chargeLabel);
+            const chargeStatusLabel = formatDetailValue(display?.charge?.statusLabel || row.status_funil);
+            const rewardName = formatDetailValue(display?.selection?.reward?.name);
+            const shippingName = formatDetailValue(display?.selection?.shipping?.name || row.frete);
+            const bumpSelected = display?.selection?.bump?.selected === true;
+            const bumpTitle = formatDetailValue(display?.selection?.bump?.title, 'Seguro Bag');
+            const currentAmount = Number(display?.charge?.amount ?? row.valor_total);
+            const currentAmountText = Number.isFinite(currentAmount) ? formatCurrency(currentAmount) : '-';
+            const baseAmount = Number(display?.selection?.baseAmount ?? row.valor_base);
+            const baseAmountText = Number.isFinite(baseAmount) ? formatCurrency(baseAmount) : '-';
+            const txid = formatDetailValue(display?.charge?.txid || row.pix_txid, '');
             const campaign = String(row.utm_campaign_name || row.utm_campaign || '-').trim() || '-';
-            const campaignRaw = String(row.utm_campaign || '-').trim() || '-';
             const source = String(row.utm_source_label || row.utm_source || '-').trim() || '-';
             const term = String(row.utm_term_label || row.utm_term || '-').trim() || '-';
             const adset = String(row.utm_adset_name || row.utm_adset_label || row.utm_adset || '-').trim() || '-';
-            const adsetRaw = adset;
+            const paymentPillsHtml = buildLeadStatusPillsHtml(paymentItems);
+            const sessionNote = sessionId ? `Sessao ${formatLeadShortCode(sessionId, 10)}` : '-';
+            const txidNote = txid ? `TXID ${formatLeadShortCode(txid, 10)}` : 'Sem TXID';
+            const offerTags = [];
+            if (bumpSelected) offerTags.push(`<span class="lead-chip lead-chip--soft">${esc(bumpTitle)}</span>`);
+            if (chargeLabel !== 'Front') offerTags.push(`<span class="lead-chip lead-chip--accent">${esc(chargeOfferLabel)}</span>`);
             tr.classList.add('admin-table-row--clickable');
             tr.tabIndex = 0;
             if (sessionId) tr.dataset.sessionId = sessionId;
             tr.innerHTML = `
-                <td class="lead-cell lead-cell--name"><strong>${esc(row.nome || '-')}</strong></td>
-                <td class="lead-cell lead-cell--email">${esc(row.email || '-')}</td>
-                <td class="lead-cell">${esc(row.telefone || '-')}</td>
-                <td class="lead-cell lead-cell--channel">
-                    <span class="lead-chip lead-chip--channel">${esc(source)}</span>
+                <td class="lead-cell lead-cell--lead">
+                    <div class="lead-stack">
+                        <strong class="lead-stack__title">${esc(row.nome || '-')}</strong>
+                        <span class="lead-stack__meta">${esc(row.cpf && row.cpf !== '-' ? `CPF ${row.cpf}` : sessionNote)}</span>
+                        ${row.cpf && row.cpf !== '-' ? `<span class="lead-stack__meta">${esc(sessionNote)}</span>` : ''}
+                    </div>
                 </td>
-                <td class="lead-cell lead-cell--source">
-                    <span class="lead-chip lead-chip--term">${esc(term)}</span>
+                <td class="lead-cell">
+                    <div class="lead-stack">
+                        <strong class="lead-stack__title">${esc(row.email || '-')}</strong>
+                        <span class="lead-stack__meta">${esc(row.telefone || '-')}</span>
+                    </div>
                 </td>
-                <td class="lead-cell lead-cell--campaign" title="${esc(campaignRaw)}">${esc(campaign)}</td>
-                <td class="lead-cell lead-cell--campaign" title="${esc(adsetRaw)}">${esc(adset)}</td>
-                <td class="lead-cell">${esc(row.etapa || '-')}</td>
-                <td class="lead-cell"><span class="status-pill ${statusClass}">${esc(statusLabel)}</span></td>
-                <td class="lead-cell">${esc(row.frete || '-')}</td>
-                <td class="lead-cell">${row.valor_total ? esc(formatCurrency(row.valor_total)) : '-'}</td>
-                <td class="lead-cell">${esc(formatDateTime(row.event_time || row.updated_at))}</td>
+                <td class="lead-cell">
+                    <div class="lead-stack">
+                        <div class="lead-stack__chips">
+                            <span class="lead-chip lead-chip--channel">${esc(source)}</span>
+                            <span class="lead-chip lead-chip--term">${esc(term)}</span>
+                        </div>
+                        <span class="lead-stack__meta" title="${esc(campaign)}">${esc(campaign)}</span>
+                        <span class="lead-stack__meta" title="${esc(adset)}">${esc(adset)}</span>
+                    </div>
+                </td>
+                <td class="lead-cell">
+                    <div class="lead-stack">
+                        <strong class="lead-stack__title">${esc(rewardName)}</strong>
+                        <span class="lead-stack__meta">${esc(shippingName)}</span>
+                        ${offerTags.length ? `<div class="lead-stack__chips">${offerTags.join('')}</div>` : ''}
+                    </div>
+                </td>
+                <td class="lead-cell">
+                    <div class="lead-stack">
+                        <strong class="lead-stack__title">${esc(journeyLabel)}</strong>
+                        <span class="lead-stack__meta">${esc(`Cobranca atual: ${chargeLabel}`)}</span>
+                        <span class="lead-stack__meta">${esc(`Status atual: ${chargeStatusLabel}`)}</span>
+                    </div>
+                </td>
+                <td class="lead-cell">
+                    <div class="lead-stack">
+                        <div class="lead-stack__chips">${paymentPillsHtml}</div>
+                        <span class="lead-stack__meta">${esc(paymentSummary)}</span>
+                    </div>
+                </td>
+                <td class="lead-cell lead-cell--value">
+                    <div class="lead-value">
+                        <strong class="lead-value__primary">${esc(currentAmountText)}</strong>
+                        <span class="lead-value__label">${esc(chargeOfferLabel)}</span>
+                        ${Number.isFinite(baseAmount) && (chargeLabel !== 'Front' || baseAmountText !== currentAmountText)
+                            ? `<span class="lead-value__secondary">Base ${esc(baseAmountText)}</span>`
+                            : ''}
+                    </div>
+                </td>
+                <td class="lead-cell">
+                    <div class="lead-stack">
+                        <strong class="lead-stack__title">${esc(formatDateTime(row.event_time || row.updated_at))}</strong>
+                        <span class="lead-stack__meta">${esc(row.gateway_label || '-')}</span>
+                        <span class="lead-stack__meta">${esc(txidNote)}</span>
+                    </div>
+                </td>
             `;
             leadsBody.appendChild(tr);
         });
@@ -6310,6 +6436,8 @@ function initAdmin() {
         }
         loadingLeads = false;
     };
+
+    let leadsSearchDebounce = 0;
 
     const reconcilePix = async () => {
         if (!leadsReconcile) return;
@@ -6775,7 +6903,22 @@ function initAdmin() {
     saveBtn?.addEventListener('click', saveSettings);
     leadsRefresh?.addEventListener('click', () => loadLeads({ reset: true }));
     leadsMore?.addEventListener('click', () => loadLeads({ reset: false }));
-    leadsSearch?.addEventListener('change', () => loadLeads({ reset: true }));
+    leadsSearch?.addEventListener('input', () => {
+        window.clearTimeout(leadsSearchDebounce);
+        leadsSearchDebounce = window.setTimeout(() => {
+            loadLeads({ reset: true });
+        }, 220);
+    });
+    leadsSearch?.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        window.clearTimeout(leadsSearchDebounce);
+        loadLeads({ reset: true });
+    });
+    leadsSearch?.addEventListener('change', () => {
+        window.clearTimeout(leadsSearchDebounce);
+        loadLeads({ reset: true });
+    });
     leadsExport?.addEventListener('click', exportLeads);
     overviewRangePreset?.addEventListener('change', async () => {
         const selected = String(overviewRangePreset.value || 'all');

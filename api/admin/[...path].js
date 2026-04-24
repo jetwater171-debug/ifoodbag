@@ -1266,6 +1266,146 @@ function prettifyTrafficLabel(value = '') {
         .trim();
 }
 
+function leadStepDisplayLabel(step = '', { charge = false } = {}) {
+    if (step === 'upsell_iof') return 'Upsell IOF';
+    if (step === 'upsell_correios') return 'Upsell Correios';
+    if (step === 'upsell_final') return charge ? 'Prioridade de envio' : 'Ultimo upsell';
+    return 'Front';
+}
+
+function hasLeadUpsellMarker(payload = {}) {
+    const upsell = asObject(payload?.upsell);
+    return Boolean(
+        upsell?.enabled === true ||
+        String(upsell?.kind || '').trim() ||
+        String(upsell?.title || '').trim() ||
+        String(upsell?.previousTxid || '').trim() ||
+        String(upsell?.targetAfterPaid || '').trim()
+    );
+}
+
+function resolveLeadChargeStep(row, payload) {
+    if (!hasLeadUpsellMarker(payload)) return 'front';
+
+    const upsell = asObject(payload?.upsell);
+    const sourceStage = normalizeLeadJourneyToken(payload?.sourceStage || '');
+    const payloadStage = normalizeLeadJourneyToken(payload?.stage || '');
+    const rowStage = normalizeLeadJourneyToken(row?.stage || '');
+    const shippingId = normalizeLeadJourneyToken(
+        row?.shipping_id ||
+        payload?.shipping?.id ||
+        payload?.shippingId ||
+        ''
+    );
+    const shippingName = normalizeLeadJourneyToken(
+        row?.shipping_name ||
+        payload?.shipping?.name ||
+        payload?.shippingName ||
+        ''
+    );
+    const combined = [
+        normalizeLeadJourneyToken(upsell?.kind || ''),
+        normalizeLeadJourneyToken(upsell?.title || ''),
+        normalizeLeadJourneyToken(upsell?.targetAfterPaid || ''),
+        shippingId,
+        shippingName,
+        sourceStage,
+        payloadStage,
+        rowStage
+    ].join('_');
+
+    if (sourceStage === 'upsell_iof' || combined.includes('iof')) {
+        return 'upsell_iof';
+    }
+
+    if (sourceStage === 'upsell_correios' || /correios|objeto_grande/.test(combined)) {
+        return 'upsell_correios';
+    }
+
+    if (
+        sourceStage === 'upsell' ||
+        shippingId === 'expresso_1dia' ||
+        /frete_1dia|expresso|adiantamento|prioridade/.test(combined)
+    ) {
+        return 'upsell_final';
+    }
+
+    if (payloadStage === 'upsell_iof' || rowStage === 'upsell_iof') return 'upsell_iof';
+    if (payloadStage === 'upsell_correios' || rowStage === 'upsell_correios') return 'upsell_correios';
+    if (payloadStage === 'upsell' || rowStage === 'upsell') return 'upsell_final';
+
+    return 'upsell_final';
+}
+
+function resolveLeadChargeState(row, payload) {
+    const hasPix = Boolean(resolveLeadCurrentPixTxid(row, payload));
+
+    if (isLeadRefunded(row, payload)) {
+        return { code: 'refunded', label: 'Estornado', tone: 'refunded' };
+    }
+    if (isLeadRefused(row, payload)) {
+        return { code: 'refused', label: 'Recusado', tone: 'refused' };
+    }
+    if (isLeadPaid(row, payload)) {
+        return { code: 'paid', label: 'Pago', tone: 'paid' };
+    }
+    if (hasPix) {
+        return { code: 'pending', label: 'PIX gerado', tone: 'pending' };
+    }
+
+    return { code: 'none', label: 'Sem PIX', tone: 'neutral' };
+}
+
+function resolveLeadBumpInfo(row, payload) {
+    const rawPrice = pick(
+        row?.bump_price,
+        payload?.bump?.price,
+        payload?.bumpPrice
+    );
+    const bumpPrice = Number(rawPrice);
+    const selected = (
+        row?.bump_selected === true ||
+        payload?.bump?.selected === true ||
+        (Number.isFinite(bumpPrice) && bumpPrice > 0)
+    );
+
+    return {
+        selected,
+        title: String(payload?.bump?.title || 'Seguro Bag').trim() || 'Seguro Bag',
+        price: Number.isFinite(bumpPrice) ? bumpPrice : null
+    };
+}
+
+function resolveLeadBaseAmount({ chargeStep = 'front', reward = {}, shipping = {}, bump = {}, currentAmount = null } = {}) {
+    const values = [
+        Number(reward?.price),
+        Number(shipping?.price),
+        bump?.selected ? Number(bump?.price) : NaN
+    ];
+    const validValues = values.filter((value) => Number.isFinite(value));
+
+    if (validValues.length > 0) {
+        return Number(validValues.reduce((sum, value) => sum + value, 0).toFixed(2));
+    }
+
+    const current = Number(currentAmount);
+    if (chargeStep === 'front' && Number.isFinite(current)) {
+        return Number(current.toFixed(2));
+    }
+
+    return null;
+}
+
+function summarizeLeadPaymentItem(item = {}) {
+    const label = String(item?.label || 'PIX').trim() || 'PIX';
+    const code = String(item?.status || '').trim().toLowerCase();
+    if (code === 'paid') return `${label} pago`;
+    if (code === 'pending') return `${label} PIX gerado`;
+    if (code === 'refused') return `${label} recusado`;
+    if (code === 'refunded') return `${label} estornado`;
+    return `${label} sem PIX`;
+}
+
 function mapLeadReadable(row) {
     const payload = asObject(row?.payload);
     const payloadUtm = asObject(payload?.utm);
@@ -1273,6 +1413,52 @@ function mapLeadReadable(row) {
     const isPaid = isLeadPaid(row, payload);
     const isRefunded = isLeadRefunded(row, payload);
     const isRefused = isLeadRefused(row, payload);
+    const reward = resolveLeadRewardInfo(row, payload);
+    const shipping = resolveLeadShippingInfo(row, payload);
+    const bump = resolveLeadBumpInfo(row, payload);
+    const journeyStep = resolveLeadJourneyStep(row, payload);
+    const chargeStep = resolveLeadChargeStep(row, payload);
+    const journeyLabel = leadStepDisplayLabel(journeyStep);
+    const chargeLabel = leadStepDisplayLabel(chargeStep, { charge: true });
+    const chargeState = resolveLeadChargeState(row, payload);
+    const currentTxid = resolveLeadCurrentPixTxid(row, payload);
+    const currentAmount = Number(row?.pix_amount);
+    const currentAmountValue = Number.isFinite(currentAmount) ? Number(currentAmount.toFixed(2)) : null;
+    const baseAmount = resolveLeadBaseAmount({
+        chargeStep,
+        reward,
+        shipping,
+        bump,
+        currentAmount: currentAmountValue
+    });
+    const selectionTags = [
+        reward?.name && reward.name !== '-' ? reward.name : '',
+        shipping?.name && shipping.name !== '-' ? shipping.name : '',
+        bump?.selected ? (bump?.title || 'Seguro Bag') : ''
+    ].filter(Boolean);
+    const currentOfferLabel = chargeStep === 'front'
+        ? (reward?.name && reward.name !== '-' ? reward.name : 'Front')
+        : (String(payload?.upsell?.title || '').trim() || chargeLabel);
+    const paymentItems = [
+        {
+            step: 'front',
+            label: 'Front',
+            status: chargeStep === 'front' ? chargeState.code : 'paid',
+            statusLabel: chargeStep === 'front' ? chargeState.label : 'Pago',
+            tone: chargeStep === 'front' ? chargeState.tone : 'paid',
+            current: chargeStep === 'front'
+        }
+    ];
+    if (chargeStep !== 'front') {
+        paymentItems.push({
+            step: chargeStep,
+            label: chargeLabel,
+            status: chargeState.code,
+            statusLabel: chargeState.label,
+            tone: chargeState.tone,
+            current: true
+        });
+    }
     const isUpsell = Boolean(
         payload?.upsell?.enabled === true ||
         String(row?.shipping_id || '').trim().toLowerCase() === 'expresso_1dia' ||
@@ -1342,12 +1528,12 @@ function mapLeadReadable(row) {
         endereco: [row?.address_line, row?.number, row?.neighborhood, row?.city, row?.state]
             .filter(Boolean)
             .join(', '),
-        frete: row?.shipping_name || '-',
-        valor_frete: row?.shipping_price ?? null,
-        seguro_bag: row?.bump_selected ? 'sim' : 'nao',
-        valor_seguro: row?.bump_price ?? null,
-        pix_txid: row?.pix_txid || '-',
-        valor_total: row?.pix_amount ?? null,
+        frete: shipping?.name || '-',
+        valor_frete: shipping?.price ?? null,
+        seguro_bag: bump?.selected ? 'sim' : 'nao',
+        valor_seguro: bump?.price ?? null,
+        pix_txid: currentTxid || '-',
+        valor_total: currentAmountValue,
         is_upsell: isUpsell,
         gateway,
         gateway_label: gatewayLabel(gateway),
@@ -1366,7 +1552,36 @@ function mapLeadReadable(row) {
         is_paid: isPaid,
         updated_at: row?.updated_at || null,
         created_at: row?.created_at || null,
-        event_time: resolveEventTime(row, payload)
+        event_time: resolveEventTime(row, payload),
+        valor_base: baseAmount,
+        display: {
+            journey: {
+                step: journeyStep,
+                label: journeyLabel,
+                note: journeyStep !== chargeStep ? `Tela atual: ${journeyLabel}` : `Etapa atual: ${journeyLabel}`
+            },
+            charge: {
+                step: chargeStep,
+                label: chargeLabel,
+                offerLabel: currentOfferLabel,
+                status: chargeState.code,
+                statusLabel: chargeState.label,
+                tone: chargeState.tone,
+                txid: currentTxid || '',
+                amount: currentAmountValue
+            },
+            payments: paymentItems,
+            paymentSummary: paymentItems.map(summarizeLeadPaymentItem).join(' | '),
+            selection: {
+                summary: selectionTags.join(' | ') || '-',
+                tags: selectionTags,
+                reward,
+                shipping,
+                bump,
+                baseAmount,
+                currentAmount: currentAmountValue
+            }
+        }
     };
 }
 
@@ -1877,7 +2092,7 @@ function applyLeadFiltersToUrl(url, { range = null, query = '', limit = 50, offs
         const ilike = `%${String(query).replace(/%/g, '')}%`;
         url.searchParams.set(
             'or',
-            `name.ilike.${ilike},email.ilike.${ilike},phone.ilike.${ilike},cpf.ilike.${ilike},utm_source.ilike.${ilike},utm_campaign.ilike.${ilike},utm_term.ilike.${ilike},utm_content.ilike.${ilike}`
+            `name.ilike.${ilike},email.ilike.${ilike},phone.ilike.${ilike},cpf.ilike.${ilike},session_id.ilike.${ilike},pix_txid.ilike.${ilike},shipping_name.ilike.${ilike},stage.ilike.${ilike},utm_source.ilike.${ilike},utm_campaign.ilike.${ilike},utm_term.ilike.${ilike},utm_content.ilike.${ilike}`
         );
     }
 }
@@ -2285,7 +2500,7 @@ async function getLeads(req, res) {
             const ilike = `%${query.replace(/%/g, '')}%`;
             u.searchParams.set(
                 'or',
-                `name.ilike.${ilike},email.ilike.${ilike},phone.ilike.${ilike},cpf.ilike.${ilike},utm_source.ilike.${ilike},utm_campaign.ilike.${ilike},utm_term.ilike.${ilike},utm_content.ilike.${ilike}`
+                `name.ilike.${ilike},email.ilike.${ilike},phone.ilike.${ilike},cpf.ilike.${ilike},session_id.ilike.${ilike},pix_txid.ilike.${ilike},shipping_name.ilike.${ilike},stage.ilike.${ilike},utm_source.ilike.${ilike},utm_campaign.ilike.${ilike},utm_term.ilike.${ilike},utm_content.ilike.${ilike}`
             );
         }
 
@@ -2473,12 +2688,18 @@ async function getLeadDetail(req, res, sessionIdParam = '') {
             pixTxid: resolveLeadCurrentPixTxid(lead, payload),
             pixStatusRaw: resolveLeadCurrentPixStatus(lead, payload),
             amount: Number.isFinite(Number(lead?.pix_amount)) ? Number(lead.pix_amount) : null,
+            baseAmount: Number.isFinite(Number(readable?.valor_base)) ? Number(readable.valor_base) : null,
             createdAt: toIsoDate(lead?.created_at) || lead?.created_at || null,
             updatedAt: toIsoDate(lead?.updated_at) || lead?.updated_at || null,
             pixCreatedAt: toIsoDate(payload?.pixCreatedAt) || payload?.pixCreatedAt || null,
             pixPaidAt: toIsoDate(payload?.pixPaidAt) || payload?.pixPaidAt || null,
             pixRefundedAt: toIsoDate(payload?.pixRefundedAt) || payload?.pixRefundedAt || null,
-            pixRefusedAt: toIsoDate(payload?.pixRefusedAt) || payload?.pixRefusedAt || null
+            pixRefusedAt: toIsoDate(payload?.pixRefusedAt) || payload?.pixRefusedAt || null,
+            journey: readable?.display?.journey || null,
+            charge: readable?.display?.charge || null,
+            payments: Array.isArray(readable?.display?.payments) ? readable.display.payments : [],
+            selection: readable?.display?.selection || null,
+            paymentSummary: readable?.display?.paymentSummary || '-'
         },
         shipping,
         reward,
