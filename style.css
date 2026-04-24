@@ -4445,6 +4445,12 @@ body[data-page='admin'][data-admin='leads'] .admin-topbar {
     border-color: #e1e7f0;
 }
 
+.lead-chip--success {
+    background: rgba(45, 180, 87, 0.14);
+    color: #1b7a3a;
+    border-color: rgba(45, 180, 87, 0.28);
+}
+
 .lead-chip--accent {
     background: #eefaf8;
     color: #0f7b70;

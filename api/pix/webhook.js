@@ -62,6 +62,7 @@ const {
     isAtomopayChargebackStatus,
     mapAtomopayStatusToUtmify
 } = require('../../lib/atomopay-status');
+const { mergePaymentHistory } = require('../../lib/lead-payment-history');
 
 function normalizeDate(value) {
     if (!value && value !== 0) return null;
@@ -236,6 +237,46 @@ function looksLikeSunizeWebhook(payload = {}) {
     const hasPaymentMethod = String(payload?.payment_method || payload?.paymentMethod || '').trim().toUpperCase() === 'PIX';
     const hasExternalId = !!String(payload?.external_id || payload?.externalId || '').trim();
     return hasTx && hasStatus && (hasPaymentMethod || hasExternalId);
+}
+
+function appendPaymentHistory(payload, {
+    leadData = null,
+    txid = '',
+    gateway = '',
+    statusRaw = '',
+    amount = 0,
+    changedAt = '',
+    createdAt = '',
+    body = null,
+    evt = null
+} = {}) {
+    return mergePaymentHistory(payload, {
+        txid,
+        gateway,
+        status: statusRaw,
+        amount,
+        changedAt,
+        createdAt,
+        shipping: asObject(leadData?.payload)?.shipping || {
+            id: leadData?.shipping_id || '',
+            name: leadData?.shipping_name || ''
+        },
+        reward: asObject(leadData?.payload)?.reward || null,
+        upsell: asObject(leadData?.payload)?.upsell || null,
+        bump: leadData?.bump_selected ? {
+            selected: true,
+            title: asObject(leadData?.payload)?.bump?.title || 'Seguro Bag',
+            price: leadData?.bump_price
+        } : null,
+        payload: mergeLeadPayload(payload, {
+            shipping: asObject(leadData?.payload)?.shipping,
+            reward: asObject(leadData?.payload)?.reward,
+            upsell: asObject(leadData?.payload)?.upsell,
+            bump: asObject(leadData?.payload)?.bump,
+            pix: asObject(body)?.pix,
+            atomopay: evt ? buildAtomopayWebhookPayloadPatch(payload, evt, body) : undefined
+        })
+    });
 }
 
 function looksLikeParadiseWebhook(payload = {}) {
@@ -798,7 +839,7 @@ module.exports = async (req, res) => {
             return;
         }
 
-        const payloadPatch = mergeLeadPayload(leadData?.payload, {
+        let payloadPatch = mergeLeadPayload(leadData?.payload, {
             gateway,
             pixGateway: gateway,
             paymentGateway: gateway,
@@ -812,6 +853,17 @@ module.exports = async (req, res) => {
             lastWebhookSignature: webhookSignature || undefined,
             ...buildAtomopayWebhookPayloadPatch(leadData?.payload, evt, body)
         });
+        payloadPatch = appendPaymentHistory(payloadPatch, {
+            leadData,
+            txid,
+            gateway,
+            statusRaw,
+            amount,
+            changedAt: statusChangedAt,
+            createdAt: pixCreatedAtFromGateway || leadData?.created_at,
+            body,
+            evt
+        });
         const upByTx = await updateLeadByPixTxid(txid, {
             last_event: lastEvent,
             stage: 'pix',
@@ -820,7 +872,7 @@ module.exports = async (req, res) => {
         if ((!upByTx?.ok || Number(upByTx?.count || 0) === 0) && sessionOrderId) {
             const bySessionBefore = leadData || (await getLeadBySessionId(sessionOrderId).catch(() => ({ ok: false, data: null })))?.data;
             if (!hasStaleSessionPixConflict(bySessionBefore, txid)) {
-                const sessionPayloadPatch = mergeLeadPayload(bySessionBefore?.payload, {
+                let sessionPayloadPatch = mergeLeadPayload(bySessionBefore?.payload, {
                     gateway,
                     pixGateway: gateway,
                     paymentGateway: gateway,
@@ -833,6 +885,17 @@ module.exports = async (req, res) => {
                     pixRefusedAt: isRefused ? statusChangedAt : undefined,
                     lastWebhookSignature: webhookSignature || undefined,
                     ...buildAtomopayWebhookPayloadPatch(bySessionBefore?.payload, evt, body)
+                });
+                sessionPayloadPatch = appendPaymentHistory(sessionPayloadPatch, {
+                    leadData: bySessionBefore,
+                    txid,
+                    gateway,
+                    statusRaw,
+                    amount,
+                    changedAt: statusChangedAt,
+                    createdAt: pixCreatedAtFromGateway || bySessionBefore?.created_at,
+                    body,
+                    evt
                 });
                 await updateLeadBySessionId(sessionOrderId, {
                     last_event: lastEvent,
@@ -865,7 +928,7 @@ module.exports = async (req, res) => {
             res.status(200).json({ status: 'duplicate_ignored' });
             return;
         }
-        const payloadPatch = mergeLeadPayload(leadBefore?.payload, {
+        let payloadPatch = mergeLeadPayload(leadBefore?.payload, {
             gateway,
             pixGateway: gateway,
             paymentGateway: gateway,
@@ -877,6 +940,17 @@ module.exports = async (req, res) => {
             pixRefusedAt: isRefused ? statusChangedAt : undefined,
             lastWebhookSignature: webhookSignature || undefined,
             ...buildAtomopayWebhookPayloadPatch(leadBefore?.payload, evt, body)
+        });
+        payloadPatch = appendPaymentHistory(payloadPatch, {
+            leadData: leadBefore,
+            txid,
+            gateway,
+            statusRaw,
+            amount,
+            changedAt: statusChangedAt,
+            createdAt: pixCreatedAtFromGateway || leadBefore?.created_at,
+            body,
+            evt
         });
         await updateLeadBySessionId(sessionOrderId, {
             last_event: lastEvent,
@@ -905,7 +979,7 @@ module.exports = async (req, res) => {
                 res.status(200).json({ status: 'duplicate_ignored' });
                 return;
             }
-            const payloadPatch = mergeLeadPayload(leadData?.payload, {
+            let payloadPatch = mergeLeadPayload(leadData?.payload, {
                 gateway,
                 pixGateway: gateway,
                 paymentGateway: gateway,
@@ -918,6 +992,17 @@ module.exports = async (req, res) => {
                 pixRefusedAt: isRefused ? statusChangedAt : undefined,
                 lastWebhookSignature: webhookSignature || undefined,
                 ...buildAtomopayWebhookPayloadPatch(leadData?.payload, evt, body)
+            });
+            payloadPatch = appendPaymentHistory(payloadPatch, {
+                leadData,
+                txid,
+                gateway,
+                statusRaw,
+                amount,
+                changedAt: statusChangedAt,
+                createdAt: pixCreatedAtFromGateway || leadData?.created_at,
+                body,
+                evt
             });
             await updateLeadBySessionId(leadData.session_id, {
                 last_event: lastEvent,

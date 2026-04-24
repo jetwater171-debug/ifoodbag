@@ -75,6 +75,7 @@ const {
     isAtomopayChargebackStatus,
     mapAtomopayStatusToUtmify
 } = require('../../lib/atomopay-status');
+const { normalizePaymentHistoryStatus } = require('../../lib/lead-payment-history');
 const { enqueueDispatch, processDispatchQueue } = require('../../lib/dispatch-queue');
 const {
     getIpBlacklist,
@@ -1400,16 +1401,12 @@ function resolveLeadBumpInfo(row, payload) {
         payload?.bumpPrice
     );
     const bumpPrice = Number(rawPrice);
-    const selected = (
-        row?.bump_selected === true ||
-        payload?.bump?.selected === true ||
-        (Number.isFinite(bumpPrice) && bumpPrice > 0)
-    );
+    const selected = row?.bump_selected === true || payload?.bump?.selected === true;
 
     return {
         selected,
         title: String(payload?.bump?.title || 'Seguro Bag').trim() || 'Seguro Bag',
-        price: Number.isFinite(bumpPrice) ? bumpPrice : null
+        price: selected && Number.isFinite(bumpPrice) ? bumpPrice : null
     };
 }
 
@@ -1472,6 +1469,46 @@ function buildLeadPaymentItems({ chargeStep = 'front', chargeState = {}, current
     return items;
 }
 
+function getLeadPaymentHistory(payload = {}) {
+    return Array.isArray(payload?.paymentHistory)
+        ? payload.paymentHistory.filter((item) => item && typeof item === 'object' && String(item.txid || '').trim())
+        : [];
+}
+
+function buildLeadPaymentItemsFromHistory(history = [], currentTxid = '') {
+    const currentTxidValue = String(currentTxid || '').trim();
+    return history.map((item) => {
+        const step = String(item?.step || 'front').trim() || 'front';
+        const status = normalizePaymentHistoryStatus(item?.status || 'pending');
+        let tone = 'neutral';
+        if (status === 'paid') tone = 'paid';
+        else if (status === 'pending') tone = 'pending';
+        else if (status === 'refused') tone = 'refused';
+        else if (status === 'refunded') tone = 'refunded';
+
+        return {
+            step,
+            shortLabel: leadPaymentShortLabel(step),
+            label: leadStepDisplayLabel(step, { charge: true }),
+            status,
+            statusLabel:
+                status === 'paid'
+                    ? 'Pago'
+                    : status === 'pending'
+                        ? 'PIX gerado'
+                        : status === 'refused'
+                            ? 'Recusado'
+                            : status === 'refunded'
+                                ? 'Estornado'
+                                : '-',
+            tone,
+            current: currentTxidValue ? String(item?.txid || '').trim() === currentTxidValue : false,
+            txid: String(item?.txid || '').trim(),
+            amount: Number.isFinite(Number(item?.amount)) ? Number(item.amount) : null
+        };
+    });
+}
+
 function summarizeLeadPaymentItem(item = {}) {
     const label = String(item?.shortLabel || leadPaymentShortLabel(item?.step || '')).trim() || 'PIX';
     const code = String(item?.status || '').trim().toLowerCase();
@@ -1515,12 +1552,15 @@ function mapLeadReadable(row) {
     const currentOfferLabel = chargeStep === 'front'
         ? (reward?.name && reward.name !== '-' ? reward.name : 'Front')
         : (String(payload?.upsell?.title || '').trim() || chargeLabel);
-    const paymentItems = buildLeadPaymentItems({
-        chargeStep,
-        chargeState,
-        currentTxid,
-        previousTxid
-    });
+    const paymentHistory = getLeadPaymentHistory(payload);
+    const paymentItems = paymentHistory.length
+        ? buildLeadPaymentItemsFromHistory(paymentHistory, currentTxid)
+        : buildLeadPaymentItems({
+            chargeStep,
+            chargeState,
+            currentTxid,
+            previousTxid
+        });
     const paymentSummary = paymentItems
         .map(summarizeLeadPaymentItem)
         .filter(Boolean)
@@ -2184,6 +2224,100 @@ function applyLeadFiltersToUrl(url, { range = null, query = '', limit = 50, offs
     }
 }
 
+function leadHasAttribution(row = {}) {
+    const payload = asObject(row?.payload);
+    const utm = asObject(payload?.utm);
+    return Boolean(
+        resolveTrackingText(
+            row?.utm_source,
+            row?.utm_campaign,
+            row?.utm_term,
+            row?.utm_content,
+            row?.fbclid,
+            row?.ttclid,
+            row?.gclid,
+            utm?.utm_source,
+            utm?.utm_campaign,
+            utm?.utm_term,
+            utm?.utm_content,
+            utm?.fbclid,
+            utm?.ttclid,
+            utm?.gclid
+        ) !== '-'
+    );
+}
+
+function mergeLeadAttribution(target = {}, source = {}) {
+    if (!source || !leadHasAttribution(source)) return target;
+    const next = { ...target };
+    const sourcePayload = asObject(source?.payload);
+    const sourceUtm = asObject(sourcePayload?.utm);
+    if (!next.utm_source) next.utm_source = source?.utm_source || sourceUtm?.utm_source || sourcePayload?.utm_source || sourceUtm?.src || null;
+    if (!next.utm_medium) next.utm_medium = source?.utm_medium || sourceUtm?.utm_medium || sourcePayload?.utm_medium || null;
+    if (!next.utm_campaign) next.utm_campaign = source?.utm_campaign || sourceUtm?.utm_campaign || sourcePayload?.utm_campaign || sourceUtm?.campaign || sourceUtm?.sck || null;
+    if (!next.utm_term) next.utm_term = source?.utm_term || sourceUtm?.utm_term || sourcePayload?.utm_term || sourceUtm?.term || null;
+    if (!next.utm_content) next.utm_content = source?.utm_content || sourceUtm?.utm_content || sourcePayload?.utm_content || sourceUtm?.content || null;
+    if (!next.fbclid) next.fbclid = source?.fbclid || sourceUtm?.fbclid || sourcePayload?.fbclid || null;
+    if (!next.ttclid) next.ttclid = source?.ttclid || sourceUtm?.ttclid || sourcePayload?.ttclid || null;
+    if (!next.gclid) next.gclid = source?.gclid || sourceUtm?.gclid || sourcePayload?.gclid || null;
+    return next;
+}
+
+async function enrichLeadAttribution(rows = []) {
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY || !Array.isArray(rows) || rows.length === 0) return rows;
+    const pendingRows = rows.filter((row) => !leadHasAttribution(row));
+    if (!pendingRows.length) return rows;
+
+    const cpfs = [...new Set(pendingRows.map((row) => String(row?.cpf || '').trim()).filter(Boolean))];
+    const emails = [...new Set(pendingRows.map((row) => String(row?.email || '').trim()).filter(Boolean))];
+    if (!cpfs.length && !emails.length) return rows;
+
+    const orFilters = [
+        ...cpfs.map((cpf) => `cpf.eq.${cpf}`),
+        ...emails.map((email) => `email.eq.${email}`)
+    ];
+    if (!orFilters.length) return rows;
+
+    const url = new URL(`${SUPABASE_URL}/rest/v1/leads`);
+    url.searchParams.set('select', 'session_id,cpf,email,utm_source,utm_medium,utm_campaign,utm_term,utm_content,fbclid,ttclid,gclid,payload,updated_at');
+    url.searchParams.set('or', `(${orFilters.join(',')})`);
+    url.searchParams.set('order', 'updated_at.desc');
+    url.searchParams.set('limit', String(Math.max(200, rows.length * 10)));
+
+    const response = await fetchFn(url.toString(), {
+        headers: {
+            apikey: SUPABASE_SERVICE_KEY,
+            Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
+            'Content-Type': 'application/json'
+        }
+    }).catch(() => null);
+    if (!response?.ok) return rows;
+
+    const candidates = await response.json().catch(() => []);
+    if (!Array.isArray(candidates) || !candidates.length) return rows;
+
+    const byCpf = new Map();
+    const byEmail = new Map();
+    candidates.forEach((candidate) => {
+        if (!leadHasAttribution(candidate)) return;
+        const cpf = String(candidate?.cpf || '').trim();
+        const email = String(candidate?.email || '').trim().toLowerCase();
+        if (cpf && !byCpf.has(cpf)) byCpf.set(cpf, candidate);
+        if (email && !byEmail.has(email)) byEmail.set(email, candidate);
+    });
+
+    return rows.map((row) => {
+        if (leadHasAttribution(row)) return row;
+        const cpf = String(row?.cpf || '').trim();
+        const email = String(row?.email || '').trim().toLowerCase();
+        const candidate = (cpf && byCpf.get(cpf)) || (email && byEmail.get(email)) || null;
+        if (!candidate || String(candidate?.session_id || '').trim() === String(row?.session_id || '').trim()) {
+            return row;
+        }
+        return mergeLeadAttribution(row, candidate);
+    });
+}
+
 async function fetchLeadsPage({ range = null, query = '', limit = 50, offset = 0, select = LEADS_SELECT_FIELDS } = {}) {
     const url = new URL(`${SUPABASE_URL}/rest/v1/leads`);
     applyLeadFiltersToUrl(url, { range, query, limit, offset, select });
@@ -2202,10 +2336,11 @@ async function fetchLeadsPage({ range = null, query = '', limit = 50, offset = 0
     }
 
     const rows = await response.json().catch(() => []);
+    const enrichedRows = await enrichLeadAttribution(Array.isArray(rows) ? rows : []).catch(() => (Array.isArray(rows) ? rows : []));
     return {
         ok: true,
         status: response.status,
-        rows: Array.isArray(rows) ? rows : []
+        rows: enrichedRows
     };
 }
 

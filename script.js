@@ -5184,9 +5184,7 @@ function initAdmin() {
         const chargeOfferLabel = formatDetailValue(detail?.payment?.charge?.offerLabel || display?.charge?.offerLabel);
         const chargeStatusLabel = formatDetailValue(detail?.payment?.charge?.statusLabel || display?.charge?.statusLabel);
         const selectionSummary = formatDetailValue(detail?.payment?.selection?.summary || display?.selection?.summary);
-        const baseAmountValue = Number(detail?.payment?.baseAmount);
         const currentAmountValue = Number(detail?.payment?.amount);
-        const baseAmountText = Number.isFinite(baseAmountValue) ? formatCurrency(baseAmountValue) : '-';
         const valueText = Number.isFinite(currentAmountValue) ? formatCurrency(currentAmountValue) : '-';
         const clientIp = formatDetailValue(detail?.device?.clientIp);
         const blockedEntry = detail?.block?.entry || null;
@@ -5245,7 +5243,6 @@ function initAdmin() {
         if (leadDetailSummary) {
             leadDetailSummary.innerHTML = buildLeadSummaryCardsHtml([
                 { label: 'Valor atual', value: valueText },
-                { label: 'Valor base', value: baseAmountText },
                 { label: 'Selecao base', value: selectionSummary },
                 { label: 'Cobranca atual', value: chargeOfferLabel },
                 { label: 'Pagamentos', value: paymentSummary },
@@ -5313,7 +5310,6 @@ function initAdmin() {
                 { label: 'Cobranca atual', value: chargeLabel },
                 { label: 'Oferta atual', value: chargeOfferLabel, wide: true },
                 { label: 'Status atual', value: chargeStatusLabel, accent: true },
-                { label: 'Valor base', value: baseAmountText, accent: true },
                 { label: 'Gateway label', value: gatewayLabel, accent: true },
                 { label: 'Gateway key', value: detail?.payment?.gateway, mono: true },
                 { label: 'Status funil', value: detail?.payment?.status, accent: true },
@@ -5981,19 +5977,16 @@ function initAdmin() {
             const sessionId = String(row.session_id || '').trim();
             const display = getLeadDisplayData(row);
             const paymentItems = Array.isArray(display?.payments) ? display.payments : [];
-            const paymentSummary = formatDetailValue(display?.paymentSummary, '');
             const journeyLabel = formatDetailValue(display?.journey?.label);
             const journeyRaw = formatDetailValue(display?.journey?.raw || row.etapa);
             const chargeLabel = formatDetailValue(display?.charge?.label);
             const chargeOfferLabel = formatDetailValue(display?.charge?.offerLabel || chargeLabel);
             const rewardName = formatDetailValue(display?.selection?.reward?.name);
             const shippingName = formatDetailValue(display?.selection?.shipping?.name || row.frete);
-            const bumpSelected = display?.selection?.bump?.selected === true;
+            const bumpSelected = display?.selection?.bump?.selected === true && Number(display?.selection?.bump?.price || 0) > 0;
             const bumpTitle = formatDetailValue(display?.selection?.bump?.title, 'Seguro Bag');
             const currentAmount = Number(display?.charge?.amount ?? row.valor_total);
             const currentAmountText = Number.isFinite(currentAmount) ? formatCurrency(currentAmount) : '-';
-            const baseAmount = Number(display?.selection?.baseAmount ?? row.valor_base);
-            const baseAmountText = Number.isFinite(baseAmount) ? formatCurrency(baseAmount) : '-';
             const txid = formatDetailValue(display?.charge?.txid || row.pix_txid, '');
             const campaign = String(row.utm_campaign_name || row.utm_campaign || '-').trim() || '-';
             const source = String(row.utm_source_label || row.utm_source || '-').trim() || '-';
@@ -6006,7 +5999,7 @@ function initAdmin() {
             const sessionNote = sessionId ? `Sessao ${formatLeadShortCode(sessionId, 10)}` : '-';
             const txidNote = txid ? `TXID ${formatLeadShortCode(txid, 10)}` : 'Sem TXID';
             const offerTags = [];
-            if (bumpSelected) offerTags.push(`<span class="lead-chip lead-chip--soft">${esc(bumpTitle)}</span>`);
+            if (bumpSelected) offerTags.push(`<span class="lead-chip lead-chip--success">${esc(bumpTitle)}</span>`);
             if (chargeLabel !== 'Front') offerTags.push(`<span class="lead-chip lead-chip--accent">${esc(chargeOfferLabel)}</span>`);
             tr.classList.add('admin-table-row--clickable');
             tr.tabIndex = 0;
@@ -6054,9 +6047,6 @@ function initAdmin() {
                     <div class="lead-value">
                         <strong class="lead-value__primary">${esc(currentAmountText)}</strong>
                         <span class="lead-value__label">${esc(chargeOfferLabel)}</span>
-                        ${Number.isFinite(baseAmount) && (chargeLabel !== 'Front' || baseAmountText !== currentAmountText)
-                            ? `<span class="lead-value__secondary">Base ${esc(baseAmountText)}</span>`
-                            : ''}
                     </div>
                 </td>
                 <td class="lead-cell">

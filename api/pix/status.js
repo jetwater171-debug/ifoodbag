@@ -60,6 +60,7 @@ const {
 const { enqueueDispatch, processDispatchQueue } = require('../../lib/dispatch-queue');
 const { getSettings } = require('../../lib/settings-store');
 const { buildPurchaseDispatchJobs } = require('../../lib/meta-capi');
+const { mergePaymentHistory } = require('../../lib/lead-payment-history');
 
 function asObject(input) {
     return input && typeof input === 'object' && !Array.isArray(input) ? input : {};
@@ -414,6 +415,51 @@ function buildAtomopayStatusPayloadPatch(basePayload, txid, statusRaw, changedAt
 
 function buildPatchFromGatewayStatus(leadData, txid, gateway, statusRaw, nextStatus, changedAtIso, rawPayload = {}) {
     const payload = asObject(leadData?.payload);
+    const mergedPayload = mergePaymentHistory({
+        ...payload,
+        gateway,
+        pixGateway: gateway,
+        paymentGateway: gateway,
+        pixTxid: txid || payload.pixTxid || undefined,
+        pixStatus: statusRaw || payload.pixStatus || null,
+        pixStatusChangedAt: changedAtIso,
+        pixPaidAt: nextStatus === 'paid' ? (payload.pixPaidAt || changedAtIso) : payload.pixPaidAt || undefined,
+        pixRefundedAt: nextStatus === 'refunded' ? (payload.pixRefundedAt || changedAtIso) : payload.pixRefundedAt || undefined,
+        pixRefusedAt: nextStatus === 'refused' ? (payload.pixRefusedAt || changedAtIso) : payload.pixRefusedAt || undefined,
+        ...(gateway === 'atomopay'
+            ? buildAtomopayStatusPayloadPatch(payload, txid, statusRaw, changedAtIso, rawPayload)
+            : {})
+    }, {
+        txid,
+        gateway,
+        status: statusRaw || nextStatus,
+        amount: normalizeMoneyToBrl(
+            rawPayload?.amount ||
+            rawPayload?.amount_in_reais ||
+            rawPayload?.amountInReais ||
+            rawPayload?.data?.amount ||
+            rawPayload?.data?.amount_in_reais ||
+            rawPayload?.data?.amountInReais ||
+            rawPayload?.total_amount ||
+            rawPayload?.totalAmount ||
+            rawPayload?.valor_bruto ||
+            rawPayload?.deposito_liquido ||
+            payload?.pixAmount ||
+            leadData?.pix_amount ||
+            payload?.pix?.amount ||
+            0
+        ),
+        changedAt: changedAtIso,
+        createdAt: payload?.pixCreatedAt || leadData?.created_at,
+        shipping: payload?.shipping || { id: leadData?.shipping_id || '', name: leadData?.shipping_name || '' },
+        reward: payload?.reward || null,
+        upsell: payload?.upsell || null,
+        bump: leadData?.bump_selected ? {
+            selected: true,
+            title: asObject(payload?.bump)?.title || 'Seguro Bag',
+            price: leadData?.bump_price
+        } : null
+    });
     return {
         last_event:
             nextStatus === 'paid'
@@ -424,21 +470,7 @@ function buildPatchFromGatewayStatus(leadData, txid, gateway, statusRaw, nextSta
                         ? 'pix_refused'
                         : payload?.last_event || 'pix_pending',
         stage: 'pix',
-        payload: {
-            ...payload,
-            gateway,
-            pixGateway: gateway,
-            paymentGateway: gateway,
-            pixTxid: txid || payload.pixTxid || undefined,
-            pixStatus: statusRaw || payload.pixStatus || null,
-            pixStatusChangedAt: changedAtIso,
-            pixPaidAt: nextStatus === 'paid' ? (payload.pixPaidAt || changedAtIso) : payload.pixPaidAt || undefined,
-            pixRefundedAt: nextStatus === 'refunded' ? (payload.pixRefundedAt || changedAtIso) : payload.pixRefundedAt || undefined,
-            pixRefusedAt: nextStatus === 'refused' ? (payload.pixRefusedAt || changedAtIso) : payload.pixRefusedAt || undefined,
-            ...(gateway === 'atomopay'
-                ? buildAtomopayStatusPayloadPatch(payload, txid, statusRaw, changedAtIso, rawPayload)
-                : {})
-        }
+        payload: mergedPayload
     };
 }
 

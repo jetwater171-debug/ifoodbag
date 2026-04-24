@@ -33,6 +33,7 @@ const {
     getAtomopayStatus,
     resolveAtomopayPixPayload
 } = require('../../lib/atomopay-status');
+const { mergePaymentHistory } = require('../../lib/lead-payment-history');
 
 function resolveGateway(rawBody = {}, payments = {}) {
     const candidates = resolveGatewayCandidates(rawBody, payments);
@@ -1566,6 +1567,27 @@ module.exports = async (req, res) => {
 
             const pixCreatedAt = new Date().toISOString();
 
+            const existingLead = sessionId
+                ? (await getLeadBySessionId(sessionId).catch(() => ({ ok: false, data: null })))?.data
+                : null;
+            const paymentHistoryPayload = mergePaymentHistory(existingLead?.payload, {
+                txid,
+                gateway,
+                status: statusRaw || 'pending',
+                amount: totalAmount,
+                createdAt: pixCreatedAt,
+                changedAt: pixCreatedAt,
+                shipping: normalizedShipping,
+                reward: normalizedReward,
+                upsell: upsellEnabled ? {
+                    enabled: true,
+                    kind: String(upsell?.kind || 'frete_1dia'),
+                    title: String(upsell?.title || 'Prioridade de envio'),
+                    previousTxid: String(upsell?.previousTxid || '')
+                } : null,
+                bump: normalizedBump.selected ? normalizedBump : null
+            });
+
             await upsertLead({
                 ...(rawBody || {}),
                 addPaymentInfoEventId,
@@ -1593,6 +1615,7 @@ module.exports = async (req, res) => {
                 paymentCode: paymentCode || undefined,
                 paymentCodeBase64: paymentCodeBase64 || undefined,
                 paymentQrUrl: paymentQrUrl || undefined,
+                paymentHistory: paymentHistoryPayload.paymentHistory,
                 ...(providerSnapshot ? { atomopay: providerSnapshot } : {}),
                 pix: {
                     ...asObject(rawBody?.pix),
