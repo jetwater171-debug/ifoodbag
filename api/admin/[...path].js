@@ -2195,6 +2195,19 @@ function buildSalesRanking(map, totalPaid = 0, { limit = 10, includeZero = false
     }));
 }
 
+function buildSalesRevenueRanking(map, totalPaid = 0, { limit = 10 } = {}) {
+    const rows = buildSalesRanking(map, totalPaid, { limit: 1000 })
+        .filter((item) => Number(item?.count || 0) > 0);
+
+    rows.sort((a, b) => {
+        if (Number(b?.amount || 0) !== Number(a?.amount || 0)) return Number(b?.amount || 0) - Number(a?.amount || 0);
+        if (Number(b?.count || 0) !== Number(a?.count || 0)) return Number(b?.count || 0) - Number(a?.count || 0);
+        return String(a?.label || '').localeCompare(String(b?.label || ''), 'pt-BR');
+    });
+
+    return rows.slice(0, Math.max(1, Number(limit) || 10));
+}
+
 function buildMetaAudienceRecommendation({
     totalPaid = 0,
     totalRevenue = 0,
@@ -2202,11 +2215,13 @@ function buildMetaAudienceRecommendation({
     cities = [],
     devices = [],
     ageBuckets = [],
+    exactAges = [],
     states = [],
     cepPrefixes = [],
     missing = {}
 } = {}) {
     const topAge = Array.isArray(ageBuckets) ? ageBuckets[0] : null;
+    const topExactAge = Array.isArray(exactAges) ? exactAges[0] : null;
     const topDevice = Array.isArray(devices) ? devices.find((item) => Number(item?.count || 0) > 0) : null;
     const topLocations = Array.isArray(cities) ? cities.slice(0, 5) : [];
     const topStates = Array.isArray(states) ? states.slice(0, 5) : [];
@@ -2219,11 +2234,18 @@ function buildMetaAudienceRecommendation({
         : /pc|desktop/i.test(deviceLabel)
             ? 'Desktop'
             : 'Todos';
-    const minAge = topAge?.min || 18;
-    const maxAge = topAge?.max || 65;
-    const ageLabel = topAge
-        ? (topAge.key === '65+' ? '65+ anos' : `${minAge}-${maxAge} anos`)
-        : '18-65+';
+    const exactAgeNumber = Number(topExactAge?.key || 0);
+    const suggestedMinAge = exactAgeNumber
+        ? Math.max(18, exactAgeNumber - 3)
+        : (topAge?.min || 18);
+    const suggestedMaxAge = exactAgeNumber
+        ? Math.min(65, exactAgeNumber + 6)
+        : (topAge?.max || 65);
+    const ageLabel = topExactAge
+        ? `${suggestedMinAge}-${suggestedMaxAge} anos`
+        : (topAge
+            ? (topAge.key === '65+' ? '65+ anos' : `${topAge.min}-${topAge.max} anos`)
+            : '18-65+');
     const primaryLocation = topLocations[0]?.label || topStates[0]?.label || 'Brasil';
     const audienceNameParts = [
         primaryLocation,
@@ -2248,10 +2270,18 @@ function buildMetaAudienceRecommendation({
                 : (topStates.length ? topStates.map((item) => item.label) : ['Brasil']),
             age: {
                 label: ageLabel,
-                min: topAge?.min || 18,
-                max: topAge?.max || 65,
-                note: topAge
-                    ? `${topAge.count} vendas (${Number(topAge.share || 0).toFixed(1)}% da base paga com idade calculada).`
+                min: suggestedMinAge,
+                max: suggestedMaxAge,
+                winner: topExactAge ? {
+                    label: topExactAge.label,
+                    count: Number(topExactAge.count || 0),
+                    amount: Number(topExactAge.amount || 0),
+                    share: Number(topExactAge.share || 0)
+                } : null,
+                note: topExactAge
+                    ? `${topExactAge.label} foi a idade que mais gerou dinheiro: R$ ${Number(topExactAge.amount || 0).toFixed(2).replace('.', ',')} em ${Number(topExactAge.count || 0)} vendas. Faixa sugerida no Meta: ${ageLabel}.`
+                    : topAge
+                        ? `${topAge.count} vendas (${Number(topAge.share || 0).toFixed(1)}% da base paga com idade calculada).`
                     : 'Sem data de nascimento suficiente; use 18-65+ ate juntar mais vendas.'
             },
             gender: 'Todos',
@@ -2272,6 +2302,7 @@ function buildMetaAudienceRecommendation({
         },
         evidence: {
             ages: ageBuckets,
+            exactAges,
             locations: topLocations,
             states: topStates,
             cepPrefixes: topCepPrefixes,
@@ -3526,6 +3557,7 @@ async function getSalesInsights(req, res) {
     const cityMap = new Map();
     const stateMap = new Map();
     const ageMap = new Map();
+    const exactAgeMap = new Map();
     const cepPrefixMap = new Map();
     const deviceMap = new Map([
         ['iphone', { key: 'iphone', label: 'iPhone', count: 0, amount: 0 }],
@@ -3617,6 +3649,11 @@ async function getSalesInsights(req, res) {
         const age = parseBirthDateToAge(birth, now);
         const ageBucket = resolveMetaAgeBucket(age);
         if (ageBucket) {
+            accumulateSalesBucket(exactAgeMap, String(age), `${age} anos`, {
+                amount,
+                upsell: hasUpsell,
+                orderBump: hasOrderBump
+            });
             accumulateSalesBucket(ageMap, ageBucket.key, ageBucket.label, {
                 amount,
                 upsell: hasUpsell,
@@ -3653,6 +3690,7 @@ async function getSalesInsights(req, res) {
     const cities = buildSalesRanking(cityMap, totalPaid, { limit: 10 });
     const states = buildSalesRanking(stateMap, totalPaid, { limit: 8 });
     const ageBuckets = buildSalesRanking(ageMap, totalPaid, { limit: 8 });
+    const exactAges = buildSalesRevenueRanking(exactAgeMap, totalPaid, { limit: 10 });
     const cepPrefixes = buildSalesRanking(cepPrefixMap, totalPaid, { limit: 8 });
     const devices = buildSalesRanking(deviceMap, totalPaid, { limit: 3, includeZero: true });
     const audience = buildMetaAudienceRecommendation({
@@ -3663,6 +3701,7 @@ async function getSalesInsights(req, res) {
         devices,
         states,
         ageBuckets,
+        exactAges,
         cepPrefixes,
         missing: missingAudience
     });
@@ -3688,6 +3727,7 @@ async function getSalesInsights(req, res) {
             cities,
             states,
             ageBuckets,
+            exactAges,
             cepPrefixes,
             devices
         },

@@ -6747,7 +6747,7 @@ function initAdmin() {
         return rows.slice(0, 5).map((item) => `
             <span>
                 <strong>${escapeHtml(item?.label || '-')}</strong>
-                ${Number(item?.count || 0)} vendas | ${Number(item?.share || 0).toFixed(1)}%
+                ${Number(item?.count || 0)} vendas | ${Number(item?.share || 0).toFixed(1)}% | ${escapeHtml(formatCurrency(Number(item?.amount || 0)))}
             </span>
         `).join('');
     };
@@ -6764,6 +6764,7 @@ function initAdmin() {
         const evidence = audience?.evidence || {};
         const missing = audience?.missing || {};
         const notes = Array.isArray(audience?.notes) ? audience.notes : [];
+        const ageWinner = setup?.age?.winner || null;
         const placements = Array.isArray(setup?.placements) && setup.placements.length
             ? setup.placements.join(', ')
             : 'Advantage+ placements';
@@ -6784,8 +6785,9 @@ function initAdmin() {
                     <p>Gênero: ${escapeHtml(setup.gender || 'Todos')} | Idioma: ${escapeHtml(setup.language || 'Português (Brasil)')}</p>
                 </article>
                 <article class="public-audience-card">
-                    <span>Idade e dispositivo</span>
+                    <span>Idade campeã e dispositivo</span>
                     <strong>${escapeHtml(setup?.age?.label || '18-65+')}</strong>
+                    ${ageWinner ? `<p>Idade exata que mais faturou: <b>${escapeHtml(ageWinner.label || '-')}</b> | ${escapeHtml(formatCurrency(Number(ageWinner.amount || 0)))} | ${Number(ageWinner.count || 0)} vendas</p>` : ''}
                     <p>${escapeHtml(setup?.age?.note || '')}</p>
                     <p>Dispositivo: ${escapeHtml(setup.device || 'Todos')}</p>
                 </article>
@@ -6808,7 +6810,8 @@ function initAdmin() {
                 <article class="public-audience-card">
                     <span>Provas usadas</span>
                     <div class="public-audience-stack">
-                        <span>Idades: ${renderPublicAudienceList(evidence.ages || [], 'sem nascimento suficiente')}</span>
+                        <span>Idades por faturamento: ${renderPublicAudienceList(evidence.exactAges || [], 'sem nascimento suficiente')}</span>
+                        <span>Faixas Meta: ${renderPublicAudienceList(evidence.ages || [], 'sem faixa suficiente')}</span>
                         <span>Dispositivos: ${renderPublicAudienceList(evidence.devices || [], 'sem user agent')}</span>
                         <span>CEPs: ${renderPublicAudienceList(evidence.cepPrefixes || [], 'sem CEP suficiente')}</span>
                     </div>
