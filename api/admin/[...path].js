@@ -261,6 +261,7 @@ const SALES_INSIGHTS_SELECT_FIELDS = [
     'updated_at',
     'created_at'
 ].join(',');
+const GATEWAY_SALES_SELECT_FIELDS = LEADS_SELECT_FIELDS;
 const MAX_LEADS_EXPORT_ROWS = 200000;
 const LEAD_EXPORT_SEGMENTS = {
     all: {
@@ -1517,6 +1518,147 @@ function summarizeLeadPaymentItem(item = {}) {
     if (code === 'refused') return `${label} RECUSADO`;
     if (code === 'refunded') return `${label} ESTORNADO`;
     return '';
+}
+
+function normalizeGatewaySalesFilter(value = '') {
+    const normalized = String(value || '').trim().toLowerCase();
+    if (normalized === 'ghostspay') return 'ghostspay';
+    if (normalized === 'sunize') return 'sunize';
+    if (normalized === 'paradise') return 'paradise';
+    if (normalized === 'atomopay') return 'atomopay';
+    return '';
+}
+
+function resolveGatewaySaleOfferLabel(row, payload, item = {}) {
+    const step = String(item?.step || '').trim().toLowerCase();
+    if (step && step !== 'front') {
+        return String(item?.upsellTitle || item?.shippingName || payload?.upsell?.title || leadStepDisplayLabel(step, { charge: true }) || 'Upsell').trim();
+    }
+    return String(item?.rewardName || payload?.rewardName || payload?.reward?.name || resolveLeadRewardInfo(row, payload)?.name || 'Front').trim();
+}
+
+function extractGatewaySalesEntries(row = {}) {
+    const payload = asObject(row?.payload);
+    const currentGateway = resolveLeadGateway(row, payload);
+    const currentTxid = resolveLeadCurrentPixTxid(row, payload);
+    const currentStage = resolveLeadCurrentStageInfo(row, payload);
+    const currentChargeStep = resolveLeadChargeStep(row, payload);
+    const paymentHistory = getLeadPaymentHistory(payload);
+    const entries = [];
+    const seen = new Set();
+    const sessionId = String(row?.session_id || payload?.sessionId || payload?.orderId || '').trim();
+    const leadName = String(row?.name || payload?.personal?.name || '').trim();
+    const leadEmail = String(row?.email || payload?.personal?.email || '').trim();
+    const leadCpf = String(row?.cpf || payload?.personal?.cpf || '').trim();
+    const leadPhone = String(row?.phone || payload?.personal?.phoneDigits || payload?.personal?.phone || '').trim();
+    const utmSource = resolveTrackingText(row?.utm_source, payload?.utm?.utm_source, payload?.utm_source, payload?.utm?.src, payload?.src);
+    const utmCampaign = resolveTrackingText(row?.utm_campaign, payload?.utm?.utm_campaign, payload?.utm_campaign, payload?.utm?.campaign, payload?.campaign, payload?.utm?.sck);
+    const utmTerm = resolveTrackingText(row?.utm_term, payload?.utm?.utm_term, payload?.utm_term, payload?.utm?.term, payload?.term);
+    const baseJourney = {
+        key: currentStage?.key || normalizeLeadJourneyToken(row?.stage || ''),
+        label: currentStage?.label || '-',
+        page: currentStage?.page || '-'
+    };
+
+    const pushEntry = (item = {}, source = 'history') => {
+        const status = normalizePaymentHistoryStatus(item?.status || '');
+        if (status !== 'paid') return;
+
+        const gateway = normalizeGatewaySalesFilter(
+            item?.gateway ||
+            currentGateway ||
+            payload?.paymentGateway ||
+            payload?.pixGateway ||
+            payload?.pix?.gateway
+        );
+        if (!gateway) return;
+
+        const txid = String(item?.txid || '').trim() || currentTxid;
+        if (!txid) return;
+
+        const amountValue = Number(item?.amount);
+        const amount = Number.isFinite(amountValue)
+            ? Number(amountValue.toFixed(2))
+            : (Number.isFinite(Number(row?.pix_amount)) ? Number(Number(row.pix_amount).toFixed(2)) : 0);
+        if (!(amount > 0)) return;
+
+        const step = String(item?.step || currentChargeStep || 'front').trim() || 'front';
+        const paidAt = (
+            toIsoDate(item?.paidAt) ||
+            toIsoDate(item?.lastStatusAt) ||
+            toIsoDate(payload?.pixPaidAt) ||
+            resolveEventTime(row, payload) ||
+            toIsoDate(row?.updated_at) ||
+            ''
+        );
+        const createdAt = (
+            toIsoDate(item?.createdAt) ||
+            toIsoDate(payload?.pixCreatedAt) ||
+            toIsoDate(payload?.pix?.createdAt) ||
+            toIsoDate(payload?.pix?.created_at) ||
+            toIsoDate(row?.created_at) ||
+            ''
+        );
+        const dedupeKey = [
+            gateway,
+            txid,
+            step,
+            createdAt,
+            paidAt,
+            amount.toFixed(2)
+        ].join('|');
+        if (seen.has(dedupeKey)) return;
+        seen.add(dedupeKey);
+
+        entries.push({
+            source,
+            gateway,
+            gatewayLabel: gatewayLabel(gateway),
+            sessionId,
+            txid,
+            step,
+            stepLabel: leadStepDisplayLabel(step, { charge: true }) || 'PIX',
+            offerLabel: resolveGatewaySaleOfferLabel(row, payload, item),
+            amount,
+            paidAt,
+            createdAt,
+            lead: {
+                name: leadName || '-',
+                email: leadEmail || '-',
+                cpf: leadCpf || '-',
+                phone: leadPhone || '-'
+            },
+            shippingName: String(item?.shippingName || row?.shipping_name || payload?.shipping?.name || '').trim(),
+            rewardName: String(item?.rewardName || payload?.rewardName || payload?.reward?.name || '').trim(),
+            bumpTitle: String(item?.bumpTitle || '').trim(),
+            journey: baseJourney,
+            utm: {
+                source: utmSource || '-',
+                campaign: utmCampaign || '-',
+                term: utmTerm || '-'
+            },
+            updatedAt: toIsoDate(row?.updated_at) || '',
+            rawStatus: status
+        });
+    };
+
+    if (paymentHistory.length) {
+        paymentHistory.forEach((item) => pushEntry(item, 'history'));
+    } else if (isLeadPaid(row, payload)) {
+        pushEntry({
+            gateway: currentGateway,
+            txid: currentTxid,
+            step: currentChargeStep || 'front',
+            amount: row?.pix_amount,
+            paidAt: payload?.pixPaidAt || payload?.approvedDate || row?.updated_at,
+            createdAt: payload?.pixCreatedAt || row?.created_at,
+            shippingName: row?.shipping_name || payload?.shipping?.name || '',
+            rewardName: payload?.rewardName || payload?.reward?.name || '',
+            bumpTitle: row?.bump_selected === true ? (payload?.bump?.title || 'Seguro Bag') : ''
+        }, 'fallback');
+    }
+
+    return entries;
 }
 
 function mapLeadReadable(row) {
@@ -3323,6 +3465,132 @@ async function getSalesInsights(req, res) {
     });
 }
 
+async function getGatewaySales(req, res) {
+    if (req.method !== 'GET') {
+        res.status(405).json({ error: 'Method not allowed' });
+        return;
+    }
+    if (!requireAdmin(req, res)) return;
+
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+        res.status(500).json({ error: 'Supabase nao configurado.' });
+        return;
+    }
+
+    const range = parseLeadsDateRange(req.query || {});
+    if (!range.ok) {
+        res.status(400).json({ error: range.error || 'Filtro de data invalido.' });
+        return;
+    }
+
+    const requestedGateway = normalizeGatewaySalesFilter(firstQueryValue(req.query?.gateway));
+    const query = String(firstQueryValue(req.query?.q) || '').trim().toLowerCase();
+    const maxRows = clamp(firstQueryValue(req.query?.max) || 80000, 1, MAX_LEADS_EXPORT_ROWS);
+    const result = await fetchAllLeadsForExport({
+        range,
+        maxRows,
+        pageSize: 1000,
+        select: GATEWAY_SALES_SELECT_FIELDS
+    });
+
+    if (!result.ok) {
+        res.status(502).json({ error: 'Falha ao montar vendas por gateway.', detail: result.detail || '' });
+        return;
+    }
+
+    const summaryMap = new Map([
+        ['ghostspay', { gateway: 'ghostspay', gatewayLabel: gatewayLabel('ghostspay'), salesCount: 0, grossRevenue: 0, lastPaidAt: '' }],
+        ['sunize', { gateway: 'sunize', gatewayLabel: gatewayLabel('sunize'), salesCount: 0, grossRevenue: 0, lastPaidAt: '' }],
+        ['paradise', { gateway: 'paradise', gatewayLabel: gatewayLabel('paradise'), salesCount: 0, grossRevenue: 0, lastPaidAt: '' }],
+        ['atomopay', { gateway: 'atomopay', gatewayLabel: gatewayLabel('atomopay'), salesCount: 0, grossRevenue: 0, lastPaidAt: '' }]
+    ]);
+    const allEntries = [];
+
+    (Array.isArray(result.rows) ? result.rows : []).forEach((row) => {
+        const sales = extractGatewaySalesEntries(row);
+        sales.forEach((entry) => {
+            allEntries.push(entry);
+            const bucket = summaryMap.get(entry.gateway);
+            if (!bucket) return;
+            bucket.salesCount += 1;
+            bucket.grossRevenue = Number((bucket.grossRevenue + Number(entry.amount || 0)).toFixed(2));
+            const currentTs = bucket.lastPaidAt ? Date.parse(bucket.lastPaidAt) : 0;
+            const nextTs = entry.paidAt ? Date.parse(entry.paidAt) : 0;
+            if (!bucket.lastPaidAt || (nextTs && nextTs > currentTs)) {
+                bucket.lastPaidAt = entry.paidAt || bucket.lastPaidAt;
+            }
+        });
+    });
+
+    const filteredEntries = allEntries.filter((entry) => {
+        if (requestedGateway && entry.gateway !== requestedGateway) return false;
+        if (!query) return true;
+        const haystack = [
+            entry.txid,
+            entry.sessionId,
+            entry.lead?.name,
+            entry.lead?.email,
+            entry.lead?.cpf,
+            entry.lead?.phone,
+            entry.offerLabel,
+            entry.stepLabel,
+            entry.utm?.campaign,
+            entry.utm?.term
+        ]
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase();
+        return haystack.includes(query);
+    });
+
+    filteredEntries.sort((a, b) => {
+        const aTs = Date.parse(a?.paidAt || a?.createdAt || '') || 0;
+        const bTs = Date.parse(b?.paidAt || b?.createdAt || '') || 0;
+        if (bTs !== aTs) return bTs - aTs;
+        return String(b?.txid || '').localeCompare(String(a?.txid || ''));
+    });
+
+    const summary = Array.from(summaryMap.values())
+        .sort((a, b) => {
+            if (b.grossRevenue !== a.grossRevenue) return b.grossRevenue - a.grossRevenue;
+            return b.salesCount - a.salesCount;
+        });
+
+    const totalGrossRevenue = summary.reduce((acc, item) => Number((acc + Number(item.grossRevenue || 0)).toFixed(2)), 0);
+    const totalSales = summary.reduce((acc, item) => acc + Number(item.salesCount || 0), 0);
+    const lastPaidAt = summary.reduce((latest, item) => {
+        const latestTs = latest ? Date.parse(latest) : 0;
+        const itemTs = item?.lastPaidAt ? Date.parse(item.lastPaidAt) : 0;
+        return itemTs > latestTs ? item.lastPaidAt : latest;
+    }, '');
+
+    res.status(200).json({
+        ok: true,
+        summary,
+        detail: {
+            gateway: requestedGateway || '',
+            gatewayLabel: requestedGateway ? gatewayLabel(requestedGateway) : '',
+            totalSales: filteredEntries.length,
+            totalGrossRevenue: Number(
+                filteredEntries.reduce((acc, item) => Number((acc + Number(item.amount || 0)).toFixed(2)), 0).toFixed(2)
+            ),
+            query
+        },
+        meta: {
+            scannedRows: Number(result.rows?.length || 0),
+            truncated: result.truncated === true,
+            totalSales,
+            totalGrossRevenue,
+            lastPaidAt,
+            range: {
+                from: range.fromDate || '',
+                to: range.toDate || ''
+            }
+        },
+        items: filteredEntries
+    });
+}
+
 async function login(req, res) {
     if (req.method !== 'POST') {
         res.status(405).json({ error: 'Method not allowed' });
@@ -4843,6 +5111,8 @@ module.exports = async (req, res) => {
             return getBackredirects(req, res);
         case 'sales-insights':
             return getSalesInsights(req, res);
+        case 'gateway-sales':
+            return getGatewaySales(req, res);
         case 'utmfy-test':
             return utmfyTest(req, res);
         case 'utmfy-sale':

@@ -3969,6 +3969,19 @@ function initAdmin() {
     const salesPositioningList = document.getElementById('sales-positioning-list');
     const salesCityList = document.getElementById('sales-city-list');
     const salesDeviceList = document.getElementById('sales-device-list');
+    const gatewaySalesGrid = document.getElementById('gateway-sales-grid');
+    const gatewaySalesBase = document.getElementById('gateway-sales-base');
+    const gatewaySalesUpdated = document.getElementById('gateway-sales-updated');
+    const gatewaySalesTopGateway = document.getElementById('gateway-sales-top-gateway');
+    const gatewaySalesCurrentFilter = document.getElementById('gateway-sales-current-filter');
+    const gatewaySalesTotalRevenue = document.getElementById('gateway-sales-total-revenue');
+    const gatewaySalesTotalCount = document.getElementById('gateway-sales-total-count');
+    const gatewaySalesSelectedChip = document.getElementById('gateway-sales-selected-chip');
+    const gatewaySalesSearch = document.getElementById('gateway-sales-search');
+    const gatewaySalesDetailRevenue = document.getElementById('gateway-sales-detail-revenue');
+    const gatewaySalesDetailCount = document.getElementById('gateway-sales-detail-count');
+    const gatewaySalesStatus = document.getElementById('gateway-sales-status');
+    const gatewaySalesBody = document.getElementById('gateway-sales-body');
     const adminPage = document.body.getAttribute('data-admin') || '';
     const testPixelBtn = document.getElementById('admin-test-pixel');
     const testPixelStatus = document.getElementById('admin-test-pixel-status');
@@ -4036,6 +4049,11 @@ function initAdmin() {
     let currentLeadDetail = null;
     let currentIpBlacklist = [];
     let gatewayTestRunning = false;
+    let gatewaySalesState = {
+        selectedGateway: '',
+        query: '',
+        loading: false
+    };
 
     const ensurePushcutTemplateFields = () => {
         const pushcutSection = document.querySelector('.pushcut-settings');
@@ -4196,6 +4214,7 @@ function initAdmin() {
     const wantsPages = !!pagesGrid;
     const wantsBackredirects = !!backredirectGrid;
     const wantsSalesInsights = !!(salesPositioningList || salesCityList || salesDeviceList);
+    const wantsGatewaySales = !!(gatewaySalesGrid || gatewaySalesBody);
 
     const normalizeGatewayKey = (value) => {
         const normalized = String(value || '').trim().toLowerCase();
@@ -6258,6 +6277,7 @@ function initAdmin() {
         syncOverviewRangeUi();
         if (wantsLeads) await loadLeads({ reset: true });
         if (wantsSalesInsights) await loadSalesInsights();
+        if (wantsGatewaySales) await loadGatewaySales({ keepSelection: true });
     };
 
     const initializeOverviewRange = () => {
@@ -6775,6 +6795,173 @@ function initAdmin() {
         }
     };
 
+    const renderGatewaySalesCards = (summary = []) => {
+        if (!gatewaySalesGrid) return;
+        const rows = Array.isArray(summary) ? summary : [];
+        if (!rows.length) {
+            gatewaySalesGrid.innerHTML = '<div class="sales-ranking-empty">Sem vendas pagas no periodo.</div>';
+            return;
+        }
+
+        gatewaySalesGrid.innerHTML = rows.map((item) => {
+            const gateway = String(item?.gateway || '').trim();
+            const active = gateway && gateway === gatewaySalesState.selectedGateway;
+            return `
+                <button class="gateway-sales-card${active ? ' is-active' : ''}" type="button" data-gateway-sales-card="${escapeHtml(gateway)}">
+                    <div class="gateway-sales-card__top">
+                        <strong>${escapeHtml(item?.gatewayLabel || gateway || '-')}</strong>
+                        <span>${Number(item?.salesCount || 0)} vendas</span>
+                    </div>
+                    <div class="gateway-sales-card__value">${escapeHtml(formatCurrency(Number(item?.grossRevenue || 0)))}</div>
+                    <div class="gateway-sales-card__meta">
+                        <span>Ultimo pago</span>
+                        <b>${escapeHtml(formatDateTime(item?.lastPaidAt) || '-')}</b>
+                    </div>
+                </button>
+            `;
+        }).join('');
+    };
+
+    const renderGatewaySalesTable = (items = []) => {
+        if (!gatewaySalesBody) return;
+        const rows = Array.isArray(items) ? items : [];
+        if (!rows.length) {
+            gatewaySalesBody.innerHTML = '<tr><td colspan="6" class="admin-muted">Nenhuma venda encontrada para esse filtro.</td></tr>';
+            return;
+        }
+
+        gatewaySalesBody.innerHTML = rows.map((item) => {
+            const leadName = String(item?.lead?.name || '-').trim() || '-';
+            const leadMeta = [
+                String(item?.lead?.email || '').trim(),
+                String(item?.lead?.cpf || '').trim(),
+                String(item?.sessionId || '').trim() ? `Sessao ${String(item.sessionId).trim()}` : ''
+            ].filter(Boolean);
+            const offerMeta = [
+                String(item?.stepLabel || '').trim(),
+                String(item?.shippingName || '').trim(),
+                String(item?.journey?.label || '').trim() ? `Jornada ${String(item.journey.label).trim()}` : ''
+            ].filter(Boolean);
+            const campaignMeta = [
+                String(item?.utm?.source || '').trim(),
+                String(item?.utm?.campaign || '').trim(),
+                String(item?.utm?.term || '').trim()
+            ].filter((value) => value && value !== '-');
+
+            return `
+                <tr>
+                    <td>
+                        <div class="gateway-sales-cell">
+                            <strong>${escapeHtml(formatDateTime(item?.paidAt) || '-')}</strong>
+                            <span>${escapeHtml(formatDateTime(item?.createdAt) || '-')}</span>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="gateway-sales-cell">
+                            <strong>${escapeHtml(leadName)}</strong>
+                            <span>${escapeHtml(leadMeta.join(' | ') || '-')}</span>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="gateway-sales-cell">
+                            <strong>${escapeHtml(item?.offerLabel || '-')}</strong>
+                            <span>${escapeHtml(offerMeta.join(' | ') || '-')}</span>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="gateway-sales-cell">
+                            <strong>${escapeHtml(item?.gatewayLabel || '-')}</strong>
+                            <span>${escapeHtml(campaignMeta.join(' | ') || '-')}</span>
+                        </div>
+                    </td>
+                    <td class="gateway-sales-cell gateway-sales-cell--mono">
+                        <strong>${escapeHtml(item?.txid || '-')}</strong>
+                    </td>
+                    <td>
+                        <div class="gateway-sales-cell gateway-sales-cell--value">
+                            <strong>${escapeHtml(formatCurrency(Number(item?.amount || 0)))}</strong>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    };
+
+    const loadGatewaySales = async ({ keepSelection = false } = {}) => {
+        if (!wantsGatewaySales || gatewaySalesState.loading) return;
+        gatewaySalesState.loading = true;
+        if (gatewaySalesStatus) gatewaySalesStatus.textContent = 'Carregando vendas por gateway...';
+
+        const url = new URL('/api/admin/gateway-sales', window.location.origin);
+        const activeRange = getActiveOverviewRange();
+        if (activeRange.from) url.searchParams.set('from', activeRange.from);
+        if (activeRange.to) url.searchParams.set('to', activeRange.to);
+        if (gatewaySalesState.selectedGateway) url.searchParams.set('gateway', gatewaySalesState.selectedGateway);
+        if (gatewaySalesState.query) url.searchParams.set('q', gatewaySalesState.query);
+        url.searchParams.set('max', '80000');
+
+        const res = await adminFetch(url.toString());
+        const payload = await res.json().catch(() => ({}));
+        gatewaySalesState.loading = false;
+
+        if (!res.ok || payload?.ok === false) {
+            renderGatewaySalesCards([]);
+            renderGatewaySalesTable([]);
+            if (gatewaySalesBase) gatewaySalesBase.textContent = 'Base: 0 vendas';
+            if (gatewaySalesUpdated) gatewaySalesUpdated.textContent = '-';
+            if (gatewaySalesTopGateway) gatewaySalesTopGateway.textContent = '-';
+            if (gatewaySalesCurrentFilter) gatewaySalesCurrentFilter.textContent = gatewaySalesState.selectedGateway ? gatewayLabelForUi(gatewaySalesState.selectedGateway) : 'Todos';
+            if (gatewaySalesTotalRevenue) gatewaySalesTotalRevenue.textContent = formatCurrency(0);
+            if (gatewaySalesTotalCount) gatewaySalesTotalCount.textContent = '0 vendas';
+            if (gatewaySalesDetailRevenue) gatewaySalesDetailRevenue.textContent = formatCurrency(0);
+            if (gatewaySalesDetailCount) gatewaySalesDetailCount.textContent = '0 vendas';
+            if (gatewaySalesSelectedChip) gatewaySalesSelectedChip.textContent = gatewaySalesState.selectedGateway ? gatewayLabelForUi(gatewaySalesState.selectedGateway) : 'Todos';
+            if (gatewaySalesStatus) gatewaySalesStatus.textContent = payload?.error || 'Falha ao carregar vendas por gateway.';
+            return;
+        }
+
+        const summary = Array.isArray(payload?.summary) ? payload.summary : [];
+        const meta = payload?.meta || {};
+        const detail = payload?.detail || {};
+        const items = Array.isArray(payload?.items) ? payload.items : [];
+        if (!gatewaySalesState.selectedGateway && !keepSelection && summary[0]?.gateway) {
+            gatewaySalesState.selectedGateway = String(summary[0].gateway || '').trim();
+            return loadGatewaySales({ keepSelection: true });
+        }
+
+        renderGatewaySalesCards(summary);
+        renderGatewaySalesTable(items);
+
+        if (gatewaySalesBase) {
+            gatewaySalesBase.textContent = meta?.truncated
+                ? `Base: ${Number(meta?.totalSales || 0)} vendas (amostra)`
+                : `Base: ${Number(meta?.totalSales || 0)} vendas`;
+        }
+        if (gatewaySalesUpdated) gatewaySalesUpdated.textContent = formatDateTime(meta?.lastPaidAt);
+        if (gatewaySalesTopGateway) gatewaySalesTopGateway.textContent = summary[0]?.gatewayLabel || '-';
+        if (gatewaySalesCurrentFilter) gatewaySalesCurrentFilter.textContent = detail?.gatewayLabel || 'Todos';
+        if (gatewaySalesTotalRevenue) gatewaySalesTotalRevenue.textContent = formatCurrency(Number(meta?.totalGrossRevenue || 0));
+        if (gatewaySalesTotalCount) gatewaySalesTotalCount.textContent = `${Number(meta?.totalSales || 0)} vendas`;
+        if (gatewaySalesSelectedChip) gatewaySalesSelectedChip.textContent = detail?.gatewayLabel || 'Todos';
+        if (gatewaySalesDetailRevenue) gatewaySalesDetailRevenue.textContent = formatCurrency(Number(detail?.totalGrossRevenue || 0));
+        if (gatewaySalesDetailCount) gatewaySalesDetailCount.textContent = `${Number(detail?.totalSales || 0)} vendas`;
+        if (gatewaySalesStatus) {
+            const parts = [];
+            if (detail?.gatewayLabel) parts.push(`Mostrando ${detail.gatewayLabel}`);
+            else parts.push('Mostrando todos os gateways');
+            if (detail?.query) parts.push(`busca: ${detail.query}`);
+            gatewaySalesStatus.textContent = parts.join(' | ');
+        }
+
+        if (overviewRangeStatus && hasOverviewRangeControls) {
+            overviewRangeStatus.textContent = describeOverviewRange({
+                preset: overviewRange.preset,
+                from: activeRange.from || '',
+                to: activeRange.to || ''
+            });
+        }
+    };
+
     leadsBody?.addEventListener('click', (event) => {
         const row = event.target?.closest?.('tr[data-session-id]');
         if (!row) return;
@@ -6847,6 +7034,29 @@ function initAdmin() {
         }
         showToast('Codigo PIX copiado.', 'success');
     });
+    gatewaySalesGrid?.addEventListener('click', (event) => {
+        const card = event.target?.closest?.('[data-gateway-sales-card]');
+        if (!card) return;
+        const gateway = String(card.getAttribute('data-gateway-sales-card') || '').trim();
+        if (!gateway) return;
+        gatewaySalesState.selectedGateway = gateway;
+        loadGatewaySales({ keepSelection: true });
+    });
+    let gatewaySalesSearchDebounce = 0;
+    gatewaySalesSearch?.addEventListener('input', () => {
+        window.clearTimeout(gatewaySalesSearchDebounce);
+        gatewaySalesSearchDebounce = window.setTimeout(() => {
+            gatewaySalesState.query = String(gatewaySalesSearch.value || '').trim();
+            loadGatewaySales({ keepSelection: true });
+        }, 220);
+    });
+    gatewaySalesSearch?.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        window.clearTimeout(gatewaySalesSearchDebounce);
+        gatewaySalesState.query = String(gatewaySalesSearch.value || '').trim();
+        loadGatewaySales({ keepSelection: true });
+    });
     leadDetailLookupBtn?.addEventListener('click', consultLeadTransaction);
     leadDetailBlockBtn?.addEventListener('click', blockCurrentLeadIp);
     leadDetailUnblockBtn?.addEventListener('click', async () => {
@@ -6887,6 +7097,7 @@ function initAdmin() {
         if (ipBlacklistBody) await loadIpBlacklist();
         if (wantsPages) await loadPageCounts();
         if (wantsSalesInsights) await loadSalesInsights();
+        if (wantsGatewaySales) await loadGatewaySales();
         if (wantsBackredirects) await loadBackredirects();
     });
 
@@ -6927,6 +7138,7 @@ function initAdmin() {
         saveOverviewRange();
         if (wantsLeads) await loadLeads({ reset: true });
         if (wantsSalesInsights) await loadSalesInsights();
+        if (wantsGatewaySales) await loadGatewaySales({ keepSelection: true });
     });
     overviewRangeApply?.addEventListener('click', () => {
         applyOverviewRangeAndReload();
@@ -6937,6 +7149,7 @@ function initAdmin() {
         saveOverviewRange();
         if (wantsLeads) await loadLeads({ reset: true });
         if (wantsSalesInsights) await loadSalesInsights();
+        if (wantsGatewaySales) await loadGatewaySales({ keepSelection: true });
     });
     overviewRangeFrom?.addEventListener('change', () => {
         if (overviewRange.preset !== 'custom') return;
@@ -7011,6 +7224,7 @@ function initAdmin() {
             if (ipBlacklistBody) loadIpBlacklist();
             if (wantsPages) loadPageCounts();
             if (wantsSalesInsights) loadSalesInsights();
+            if (wantsGatewaySales) loadGatewaySales();
             if (wantsBackredirects) loadBackredirects();
             // Keep overview fresh without manual reload.
             const refreshIntervalMs = 10000;
@@ -7019,6 +7233,7 @@ function initAdmin() {
                 if (wantsLeads) loadLeads({ reset: true });
                 if (wantsPages) loadPageCounts();
                 if (wantsSalesInsights) loadSalesInsights();
+                if (wantsGatewaySales) loadGatewaySales({ keepSelection: true });
                 if (wantsBackredirects) loadBackredirects();
             }, refreshIntervalMs);
         } else {

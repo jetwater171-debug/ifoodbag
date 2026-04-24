@@ -7,14 +7,14 @@
   <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#111111" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <title>iFood Entregadores - Vendas</title>
+  <title>iFood Entregadores - Publico</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/style.css?v=4.3" />
 <script src="/backguard.js?v=1.5"></script>
 </head>
-<body data-page="admin" data-admin="sales">
+<body data-page="admin" data-admin="public">
   <div class="admin-shell">
     <aside class="admin-sidebar">
       <div class="admin-brand">
@@ -44,8 +44,8 @@
     <main class="admin-main">
       <header class="admin-topbar">
         <div>
-          <h1>Vendas por gateway</h1>
-          <p>Compare o faturamento bruto real de cada gateway e abra as vendas individuais para auditar divergencias.</p>
+          <h1>Inteligencia de publico</h1>
+          <p>Descubra o que mais vende por posicionamento, cidade e tipo de aparelho.</p>
         </div>
       </header>
 
@@ -63,24 +63,25 @@
       <div id="admin-panel" class="admin-panel hidden">
         <section class="admin-section admin-section--overview">
           <div class="admin-section-header">
-            <h2>Resumo bruto</h2>
-            <span id="gateway-sales-base" class="admin-chip">Base: 0 vendas</span>
+            <h2>Radar de vendas</h2>
+            <span id="sales-base" class="admin-chip">Base: 0 vendas</span>
           </div>
 
           <div class="admin-hero">
             <div class="admin-hero-info">
-              <h3>Auditoria de faturamento</h3>
-              <p>O total abaixo considera as vendas pagas por gateway. Quando houver historico de cobrancas, cada pagamento entra separado para nao mascarar front repetido na mesma sessao.</p>
+              <h3>O que mais converte agora</h3>
+              <p>O ranking considera apenas vendas aprovadas e usa os dados que ja estao salvos no lead, incluindo ticket medio e liderancas de upsell/order bump.</p>
               <div class="admin-hero-tags">
-                <span class="admin-tag">Ultima venda: <strong id="gateway-sales-updated">-</strong></span>
-                <span class="admin-tag">Gateway lider: <strong id="gateway-sales-top-gateway">-</strong></span>
-                <span class="admin-tag">Filtro atual: <strong id="gateway-sales-current-filter">Todos</strong></span>
+                <span class="admin-tag">Ultima venda: <strong id="sales-updated">-</strong></span>
+                <span class="admin-tag">Posicionamento lider: <strong id="sales-top-positioning-label">-</strong></span>
+                <span class="admin-tag">Cidade lider: <strong id="sales-top-city-label">-</strong></span>
+                <span class="admin-tag">Aparelho lider: <strong id="sales-top-device-label">-</strong></span>
               </div>
             </div>
             <div class="admin-hero-highlight">
-              <span>Faturamento bruto</span>
-              <strong id="gateway-sales-total-revenue">R$ 0,00</strong>
-              <em id="gateway-sales-total-count">0 vendas</em>
+              <span>Vendas aprovadas</span>
+              <strong id="sales-paid-total">0</strong>
+              <em id="sales-revenue-total">R$ 0,00</em>
             </div>
           </div>
 
@@ -110,43 +111,56 @@
             <span id="overview-range-status" class="admin-muted"></span>
           </div>
 
-          <div id="gateway-sales-grid" class="gateway-sales-grid"></div>
+          <div class="admin-kpi-grid">
+            <div class="admin-kpi admin-kpi--accent">
+              <span>Melhor posicionamento</span>
+              <strong id="sales-positioning-winner">-</strong>
+              <em id="sales-positioning-detail">Sem vendas ainda</em>
+            </div>
+            <div class="admin-kpi admin-kpi--accent">
+              <span>Melhor cidade</span>
+              <strong id="sales-city-winner">-</strong>
+              <em id="sales-city-detail">Sem vendas ainda</em>
+            </div>
+            <div class="admin-kpi admin-kpi--accent">
+              <span>Aparelho lider</span>
+              <strong id="sales-device-winner">-</strong>
+              <em id="sales-device-detail">Sem vendas ainda</em>
+            </div>
+          </div>
         </section>
 
         <section class="admin-section admin-section--card">
           <div class="admin-section-header">
-            <h2>Vendas do gateway</h2>
-            <span id="gateway-sales-selected-chip" class="admin-chip">Todos</span>
+            <h2>Ranking detalhado</h2>
+            <span class="admin-chip">Aprovadas</span>
           </div>
-          <div class="gateway-sales-toolbar">
-            <div class="input-group">
-              <input type="search" id="gateway-sales-search" class="floating-input" placeholder=" " autocomplete="off" />
-              <label for="gateway-sales-search" class="floating-label">Buscar por lead, email, CPF, sessao ou TXID</label>
-            </div>
-            <div class="gateway-sales-summary">
-              <strong id="gateway-sales-detail-revenue">R$ 0,00</strong>
-              <span id="gateway-sales-detail-count">0 vendas</span>
-            </div>
-          </div>
-          <div id="gateway-sales-status" class="admin-muted admin-hint">Selecione um gateway para abrir a tabela.</div>
-          <div class="admin-table-wrap gateway-sales-table-wrap">
-            <table class="admin-table gateway-sales-table">
-              <thead>
-                <tr>
-                  <th>Pago em</th>
-                  <th>Lead</th>
-                  <th>Oferta</th>
-                  <th>Campanha</th>
-                  <th>TXID</th>
-                  <th>Valor</th>
-                </tr>
-              </thead>
-              <tbody id="gateway-sales-body">
-                <tr>
-                  <td colspan="6" class="admin-muted">Aguardando dados.</td>
-                </tr>
-              </tbody>
-            </table>
+          <p class="admin-hint">Posicionamento usa `utm_term`. O tipo de aparelho consolida tudo em iPhone, Android ou PC. Cada ranking tambem mostra ticket medio e tags de lideranca em upsell/order bump.</p>
+
+          <div class="sales-ranking-grid">
+            <article class="sales-ranking-card">
+              <div class="admin-section-header">
+                <h3>Posicionamentos</h3>
+                <span class="admin-chip">UTM term</span>
+              </div>
+              <div id="sales-positioning-list" class="sales-ranking-list"></div>
+            </article>
+
+            <article class="sales-ranking-card">
+              <div class="admin-section-header">
+                <h3>Cidades</h3>
+                <span class="admin-chip">Geo</span>
+              </div>
+              <div id="sales-city-list" class="sales-ranking-list"></div>
+            </article>
+
+            <article class="sales-ranking-card">
+              <div class="admin-section-header">
+                <h3>Aparelhos</h3>
+                <span class="admin-chip">Device</span>
+              </div>
+              <div id="sales-device-list" class="sales-ranking-list"></div>
+            </article>
           </div>
         </section>
       </div>
