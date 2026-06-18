@@ -10,6 +10,7 @@ const {
     normalizeActiveGatewayId,
     resolveGatewayWithFallback
 } = require('../../lib/payment-gateway-config');
+const { verifyWebhookSignature: verifyBravoPayWebhookSignature } = require('../../lib/bravopay-provider');
 const { getPaymentsConfig } = require('../../lib/payments-config-store');
 const { getSettings } = require('../../lib/settings-store');
 const { buildPurchaseDispatchJobs } = require('../../lib/meta-capi');
@@ -62,6 +63,23 @@ const {
     isAtomopayChargebackStatus,
     mapAtomopayStatusToUtmify
 } = require('../../lib/atomopay-status');
+const {
+    getBravoPayTxid,
+    getBravoPayExternalReference,
+    getBravoPayStatus,
+    getBravoPayUpdatedAt,
+    getBravoPayAmount,
+    getBravoPayFee,
+    getBravoPayNet,
+    getBravoPayTracking,
+    getBravoPayCustomer,
+    isBravoPayPaidStatus,
+    isBravoPayPendingStatus,
+    isBravoPayRefundedStatus,
+    isBravoPayRefusedStatus,
+    isBravoPayChargebackStatus,
+    mapBravoPayStatusToUtmify
+} = require('../../lib/bravopay-status');
 const { mergePaymentHistory } = require('../../lib/lead-payment-history');
 
 function deriveSessionIdFromGatewayReference(value = '') {
@@ -347,6 +365,15 @@ function looksLikeAtomopayWebhook(payload = {}) {
     return hasTx && hasStatus && (!paymentMethod || paymentMethod === 'pix');
 }
 
+function looksLikeBravoPayWebhook(payload = {}) {
+    const type = String(payload?.type || '').trim().toLowerCase();
+    const data = asObject(payload?.data);
+    const hasEvent = /^transaction\./.test(type);
+    const hasTx = Boolean(String(data?.id || '').trim());
+    const hasObject = String(data?.object || '').trim().toLowerCase() === 'transaction';
+    return hasEvent && hasTx && hasObject;
+}
+
 function normalizeMoneyToBrl(value) {
     if (value === undefined || value === null || value === '') return 0;
     const raw = String(value).trim();
@@ -391,6 +418,24 @@ function buildAtomopayWebhookPayloadPatch(basePayload, evt = {}, rawBody = {}) {
             ...current,
             gateway: 'atomopay',
             hash: String(evt.txid || current.hash || '').trim(),
+            status: String(evt.statusRaw || current.status || '').trim(),
+            amountCents: Number.isFinite(amount) && amount > 0
+                ? Math.round(amount * 100)
+                : current.amountCents,
+            lastWebhook: rawBody
+        }
+    };
+}
+
+function buildBravoPayWebhookPayloadPatch(basePayload, evt = {}, rawBody = {}) {
+    if (evt?.gateway !== 'bravopay') return {};
+    const current = asObject(asObject(basePayload).bravopay);
+    const amount = Number(evt.amount || 0);
+    return {
+        bravopay: {
+            ...current,
+            gateway: 'bravopay',
+            id: String(evt.txid || current.id || '').trim(),
             status: String(evt.statusRaw || current.status || '').trim(),
             amountCents: Number.isFinite(amount) && amount > 0
                 ? Math.round(amount * 100)
@@ -648,6 +693,83 @@ function extractGatewayEvent(gateway, body = {}, query = {}) {
         };
     }
 
+    if (gateway === 'bravopay') {
+        const txid = getBravoPayTxid(body);
+        const statusRaw = getBravoPayStatus(body);
+        const utmifyStatus = mapBravoPayStatusToUtmify(statusRaw);
+        const isPaid = isBravoPayPaidStatus(statusRaw);
+        const isRefunded = isBravoPayRefundedStatus(statusRaw);
+        const isRefused = isBravoPayRefusedStatus(statusRaw) || isBravoPayChargebackStatus(statusRaw);
+        const amount = getBravoPayAmount(body);
+        const gatewayFee = getBravoPayFee(body);
+        const net = getBravoPayNet(body);
+        const tracking = asObject(getBravoPayTracking(body));
+        const customer = asObject(getBravoPayCustomer(body));
+        const externalReference = getBravoPayExternalReference(body);
+        const sessionOrderId = String(
+            tracking?.orderId ||
+            tracking?.sessionId ||
+            deriveSessionIdFromGatewayReference(externalReference) ||
+            externalReference ||
+            ''
+        ).trim();
+        const statusChangedAt =
+            normalizeDate(getBravoPayUpdatedAt(body)) ||
+            normalizeDate(body?.created_at) ||
+            new Date().toISOString();
+        const pixCreatedAtFromGateway =
+            normalizeDate(asObject(body?.data)?.created_at) ||
+            normalizeDate(body?.created_at) ||
+            null;
+        const lastEvent = isPaid ? 'pix_confirmed' : isRefunded ? 'pix_refunded' : isRefused ? 'pix_refused' : 'pix_pending';
+
+        return {
+            gateway,
+            txid,
+            statusRaw,
+            utmifyStatus,
+            isPaid,
+            isRefunded,
+            isRefused,
+            amount,
+            gatewayFee,
+            userCommission: net > 0 ? net : Math.max(0, Number((amount - gatewayFee).toFixed(2))),
+            sessionOrderId,
+            statusChangedAt,
+            pixCreatedAtFromGateway,
+            lastEvent,
+            webhookEventId: String(body?.id || '').trim(),
+            fallbackIdentity: {
+                cpf: String(customer?.cpf || '').trim(),
+                email: String(customer?.email || '').trim(),
+                phone: String(customer?.phone || '').trim()
+            },
+            fallbackPersonal: {
+                name: String(customer?.name || '').trim(),
+                email: String(customer?.email || '').trim(),
+                cpf: String(customer?.cpf || '').trim(),
+                phone: String(customer?.phone || '').trim()
+            },
+            fallbackAddress: {
+                street: '',
+                neighborhood: '',
+                city: '',
+                state: '',
+                cep: ''
+            },
+            fallbackUtm: {
+                utm_source: String(tracking?.utm_source || tracking?.source || '').trim(),
+                utm_medium: String(tracking?.utm_medium || tracking?.medium || '').trim(),
+                utm_campaign: String(tracking?.utm_campaign || tracking?.campaign || '').trim(),
+                utm_term: String(tracking?.utm_term || tracking?.term || '').trim(),
+                utm_content: String(tracking?.utm_content || tracking?.content || '').trim(),
+                fbclid: String(tracking?.fbclid || '').trim(),
+                gclid: String(tracking?.gclid || '').trim(),
+                ttclid: String(tracking?.ttclid || '').trim()
+            }
+        };
+    }
+
     if (gateway === 'ghostspay') {
         const txid = getGhostspayTxid(body);
         const statusRaw = getGhostspayStatus(body);
@@ -759,20 +881,35 @@ function resolveWebhookGateway(query = {}, body = {}, payments = {}) {
     }
     if (looksLikeParadiseWebhook(body)) return 'paradise';
     if (looksLikeSunizeWebhook(body)) return 'sunize';
+    if (looksLikeBravoPayWebhook(body)) return 'bravopay';
     if (looksLikeGhostspayWebhook(body)) return 'ghostspay';
     if (looksLikeAtomopayWebhook(body)) return 'atomopay';
     return resolveGatewayWithFallback(payments.activeGateway, payments);
 }
 
-module.exports = async (req, res) => {
+async function readRawBody(req) {
+    if (typeof req.body === 'string') return req.body;
+    if (req.body && typeof req.body === 'object' && Object.keys(req.body).length > 0) {
+        return JSON.stringify(req.body);
+    }
+    const chunks = [];
+    for await (const chunk of req) {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    }
+    return Buffer.concat(chunks).toString('utf8');
+}
+
+const pixWebhookHandler = async (req, res) => {
     if (req.method !== 'POST') {
         res.status(405).json({ status: 'method_not_allowed' });
         return;
     }
 
     let body = {};
+    let rawBody = '';
     try {
-        body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {};
+        rawBody = await readRawBody(req);
+        body = rawBody ? JSON.parse(rawBody || '{}') : {};
     } catch (_error) {
         body = {};
     }
@@ -781,18 +918,27 @@ module.exports = async (req, res) => {
     const gateway = resolveWebhookGateway(req.query || {}, body, payments);
     const gatewayConfig = payments?.gateways?.[gateway] || {};
 
-    const token = String(req.query?.token || '').trim();
-    const headerToken = String(req.headers?.['x-webhook-token'] || '').trim();
-    const expectedToken = String(gatewayConfig.webhookToken || '').trim();
-    const tokenRequired = gatewayConfig.webhookTokenRequired !== false;
-    const tokenOk = !tokenRequired
-        ? true
-        : expectedToken
-            ? ((token && token === expectedToken) || (headerToken && headerToken === expectedToken))
-            : true;
-    if (!tokenOk) {
-        res.status(401).json({ status: 'unauthorized' });
-        return;
+    if (gateway === 'bravopay') {
+        const signature = String(req.headers?.['x-bravopay-signature'] || '').trim();
+        const secret = String(gatewayConfig.webhookSecret || gatewayConfig.webhookToken || '').trim();
+        if (!secret || !verifyBravoPayWebhookSignature(rawBody, signature, secret)) {
+            res.status(401).json({ status: 'invalid_signature' });
+            return;
+        }
+    } else {
+        const token = String(req.query?.token || '').trim();
+        const headerToken = String(req.headers?.['x-webhook-token'] || '').trim();
+        const expectedToken = String(gatewayConfig.webhookToken || '').trim();
+        const tokenRequired = gatewayConfig.webhookTokenRequired !== false;
+        const tokenOk = !tokenRequired
+            ? true
+            : expectedToken
+                ? ((token && token === expectedToken) || (headerToken && headerToken === expectedToken))
+                : true;
+        if (!tokenOk) {
+            res.status(401).json({ status: 'unauthorized' });
+            return;
+        }
     }
 
     const evt = extractGatewayEvent(gateway, body, req.query || {});
@@ -863,7 +1009,8 @@ module.exports = async (req, res) => {
             pixRefundedAt: isRefunded ? statusChangedAt : undefined,
             pixRefusedAt: isRefused ? statusChangedAt : undefined,
             lastWebhookSignature: webhookSignature || undefined,
-            ...buildAtomopayWebhookPayloadPatch(leadData?.payload, evt, body)
+            ...buildAtomopayWebhookPayloadPatch(leadData?.payload, evt, body),
+            ...buildBravoPayWebhookPayloadPatch(leadData?.payload, evt, body)
         });
         payloadPatch = appendPaymentHistory(payloadPatch, {
             leadData,
@@ -896,7 +1043,8 @@ module.exports = async (req, res) => {
                     pixRefundedAt: isRefunded ? statusChangedAt : undefined,
                     pixRefusedAt: isRefused ? statusChangedAt : undefined,
                     lastWebhookSignature: webhookSignature || undefined,
-                    ...buildAtomopayWebhookPayloadPatch(bySessionBefore?.payload, evt, body)
+                    ...buildAtomopayWebhookPayloadPatch(bySessionBefore?.payload, evt, body),
+                    ...buildBravoPayWebhookPayloadPatch(bySessionBefore?.payload, evt, body)
                 });
                 sessionPayloadPatch = appendPaymentHistory(sessionPayloadPatch, {
                     leadData: bySessionBefore,
@@ -951,7 +1099,8 @@ module.exports = async (req, res) => {
             pixRefundedAt: isRefunded ? statusChangedAt : undefined,
             pixRefusedAt: isRefused ? statusChangedAt : undefined,
             lastWebhookSignature: webhookSignature || undefined,
-            ...buildAtomopayWebhookPayloadPatch(leadBefore?.payload, evt, body)
+            ...buildAtomopayWebhookPayloadPatch(leadBefore?.payload, evt, body),
+            ...buildBravoPayWebhookPayloadPatch(leadBefore?.payload, evt, body)
         });
         payloadPatch = appendPaymentHistory(payloadPatch, {
             leadData: leadBefore,
@@ -1003,7 +1152,8 @@ module.exports = async (req, res) => {
                 pixRefundedAt: isRefunded ? statusChangedAt : undefined,
                 pixRefusedAt: isRefused ? statusChangedAt : undefined,
                 lastWebhookSignature: webhookSignature || undefined,
-                ...buildAtomopayWebhookPayloadPatch(leadData?.payload, evt, body)
+                ...buildAtomopayWebhookPayloadPatch(leadData?.payload, evt, body),
+                ...buildBravoPayWebhookPayloadPatch(leadData?.payload, evt, body)
             });
             payloadPatch = appendPaymentHistory(payloadPatch, {
                 leadData,
@@ -1261,4 +1411,11 @@ module.exports = async (req, res) => {
     }
 
     res.status(200).json({ status: 'success', gateway });
+};
+
+module.exports = pixWebhookHandler;
+module.exports.config = {
+    api: {
+        bodyParser: false
+    }
 };

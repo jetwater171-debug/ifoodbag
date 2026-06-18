@@ -29,10 +29,18 @@ const {
     resolvePostbackUrl: resolveAtomopayPostbackUrl
 } = require('../../lib/atomopay-provider');
 const {
+    requestCreateTransaction: requestBravoPayCreate,
+    requestTransactionById: requestBravoPayStatus
+} = require('../../lib/bravopay-provider');
+const {
     describeAtomopayPayload,
     getAtomopayStatus,
     resolveAtomopayPixPayload
 } = require('../../lib/atomopay-status');
+const {
+    getBravoPayStatus,
+    resolveBravoPayPixPayload
+} = require('../../lib/bravopay-status');
 const { mergePaymentHistory } = require('../../lib/lead-payment-history');
 
 function resolveGateway(rawBody = {}, payments = {}) {
@@ -53,6 +61,7 @@ function resolveGatewayCandidates(rawBody = {}, payments = {}) {
         if (gateway === 'sunize') return hasSunizeCredentials(config);
         if (gateway === 'paradise') return hasParadiseCredentials(config);
         if (gateway === 'atomopay') return hasAtomopayCredentials(config);
+        if (gateway === 'bravopay') return hasBravoPayCredentials(config);
         return false;
     };
 
@@ -76,7 +85,7 @@ function resolveGatewayCandidates(rawBody = {}, payments = {}) {
 
     const allDisabled = priority.every((gateway) => !isEnabled(gateway));
     if (allDisabled) {
-        const operationalFallback = ['ghostspay', 'sunize', 'paradise', 'atomopay'];
+        const operationalFallback = ['ghostspay', 'sunize', 'paradise', 'atomopay', 'bravopay'];
         const credentialFallbacks = [];
         for (const gateway of operationalFallback) {
             if (hasGatewayCredentials(gateway)) credentialFallbacks.push(gateway);
@@ -111,6 +120,10 @@ function hasAtomopayCredentials(config = {}) {
         String(config.offerHash || '').trim() &&
         String(config.productHash || '').trim()
     );
+}
+
+function hasBravoPayCredentials(config = {}) {
+    return Boolean(String(config.apiKey || '').trim());
 }
 
 function sanitizeDigits(value = '') {
@@ -172,6 +185,20 @@ function buildAtomopayTrackingFields(rawBody = {}) {
         utm_campaign: pickText(rawBody?.utm?.utm_campaign, rawBody?.utm_campaign),
         utm_term: pickText(rawBody?.utm?.utm_term, rawBody?.utm_term),
         utm_content: pickText(rawBody?.utm?.utm_content, rawBody?.utm_content)
+    };
+    return Object.fromEntries(Object.entries(fields).filter(([, value]) => Boolean(String(value || '').trim())));
+}
+
+function buildBravoPayUtmFields(rawBody = {}) {
+    const fields = {
+        source: pickText(rawBody?.utm?.utm_source, rawBody?.utm_source),
+        medium: pickText(rawBody?.utm?.utm_medium, rawBody?.utm_medium),
+        campaign: pickText(rawBody?.utm?.utm_campaign, rawBody?.utm_campaign),
+        term: pickText(rawBody?.utm?.utm_term, rawBody?.utm_term),
+        content: pickText(rawBody?.utm?.utm_content, rawBody?.utm_content),
+        fbclid: pickText(rawBody?.utm?.fbclid, rawBody?.fbclid),
+        gclid: pickText(rawBody?.utm?.gclid, rawBody?.gclid),
+        ttclid: pickText(rawBody?.utm?.ttclid, rawBody?.ttclid)
     };
     return Object.fromEntries(Object.entries(fields).filter(([, value]) => Boolean(String(value || '').trim())));
 }
@@ -586,6 +613,19 @@ function resolveAtomopayResponse(data = {}) {
     };
 }
 
+function resolveBravoPayResponse(data = {}) {
+    const resolved = resolveBravoPayPixPayload(data);
+    return {
+        txid: String(resolved.txid || '').trim(),
+        paymentCode: String(resolved.paymentCode || '').trim(),
+        paymentCodeBase64: String(resolved.paymentCodeBase64 || '').trim(),
+        paymentQrUrl: String(resolved.paymentQrUrl || '').trim(),
+        status: String(resolved.status || getBravoPayStatus(data) || '').trim(),
+        externalId: String(resolved.externalId || '').trim(),
+        expiresAt: String(resolved.expiresAt || '').trim()
+    };
+}
+
 async function hydrateAtomopayVisual(gatewayConfig, txid, attempts = 4) {
     const cleanTxid = String(txid || '').trim();
     if (!cleanTxid) {
@@ -800,6 +840,19 @@ async function hydratePixVisualByGateway(gateway, gatewayConfig, txid) {
 
     if (gateway === 'atomopay') {
         return hydrateAtomopayVisual(gatewayConfig, txid, 4);
+    }
+
+    if (gateway === 'bravopay') {
+        const quickConfig = {
+            ...gatewayConfig,
+            timeoutMs: Math.max(1200, Math.min(Number(gatewayConfig?.timeoutMs || 12000), 3500))
+        };
+        const { response, data } = await requestBravoPayStatus(quickConfig, txid).catch(() => ({
+            response: { ok: false },
+            data: {}
+        }));
+        if (response?.ok) return resolveBravoPayResponse(data || {});
+        return { paymentCode: '', paymentCodeBase64: '', paymentQrUrl: '', status: '', externalId: '' };
     }
 
     return { paymentCode: '', paymentCodeBase64: '', paymentQrUrl: '', status: '', externalId: '' };
@@ -1584,6 +1637,69 @@ module.exports = async (req, res) => {
                     providerSnapshot.hash = txid || providerSnapshot.hash;
                     providerSnapshot.status = statusRaw || providerSnapshot.status;
                 }
+            } else if (gateway === 'bravopay') {
+                if (!hasBravoPayCredentials(gatewayConfig)) {
+                    console.warn('[pix] bravopay missing credentials', {
+                        hasApiKey: Boolean(String(gatewayConfig.apiKey || '').trim()),
+                        baseUrl: String(gatewayConfig.baseUrl || '').trim()
+                    });
+                    rememberGatewayFailure(gateway, 'bravopay_missing_credentials');
+                    continue;
+                }
+
+                const amountCents = Math.max(500, Math.round(totalAmount * 100));
+                const bravoPayReferenceBase = upsellEnabled ? `${orderId}-upsell` : orderId;
+                externalId = `${bravoPayReferenceBase}-${Date.now()}`;
+                const bravoPayUtm = buildBravoPayUtmFields(rawBody);
+                const bravoPayPayload = {
+                    amount_cents: amountCents,
+                    method: 'pix',
+                    customer: {
+                        email,
+                        name,
+                        cpf,
+                        phone
+                    },
+                    description: String(
+                        gatewayConfig.description ||
+                        (upsellEnabled ? 'Pedido iFood Bag - Upsell' : 'Pedido iFood Bag')
+                    ).trim().slice(0, 300),
+                    external_reference: externalId,
+                    expires_in: Math.max(60, Math.min(86400, Number(gatewayConfig.expiresIn || 3600) || 3600))
+                };
+                if (Object.keys(bravoPayUtm).length > 0) {
+                    bravoPayPayload.utm = bravoPayUtm;
+                }
+
+                ({ response, data } = await requestBravoPayCreate(gatewayConfig, bravoPayPayload, {
+                    idempotencyKey: externalId
+                }));
+                if (!response?.ok || data?.error) {
+                    console.warn('[pix] bravopay create failed', {
+                        status: Number(response?.status || 0),
+                        code: data?.error?.code || '',
+                        reference: externalId,
+                        hasUtm: Boolean(bravoPayPayload.utm && Object.keys(bravoPayPayload.utm).length)
+                    });
+                    rememberGatewayFailure(gateway, 'bravopay_create_failed', response, data);
+                    continue;
+                }
+
+                const bravoPayData = resolveBravoPayResponse(data);
+                txid = bravoPayData.txid;
+                paymentCode = bravoPayData.paymentCode;
+                paymentCodeBase64 = bravoPayData.paymentCodeBase64;
+                paymentQrUrl = bravoPayData.paymentQrUrl;
+                statusRaw = bravoPayData.status || 'pending';
+                externalId = bravoPayData.externalId || externalId;
+                providerSnapshot = {
+                    gateway: 'bravopay',
+                    id: txid,
+                    status: statusRaw || 'pending',
+                    amountCents,
+                    externalReference: externalId,
+                    expiresAt: bravoPayData.expiresAt || ''
+                };
             } else {
                 rememberGatewayFailure(gateway, 'gateway_unavailable');
                 continue;
@@ -1664,7 +1780,8 @@ module.exports = async (req, res) => {
                 paymentCodeBase64: paymentCodeBase64 || undefined,
                 paymentQrUrl: paymentQrUrl || undefined,
                 paymentHistory: paymentHistoryPayload.paymentHistory,
-                ...(providerSnapshot ? { atomopay: providerSnapshot } : {}),
+                ...(providerSnapshot?.gateway === 'atomopay' ? { atomopay: providerSnapshot } : {}),
+                ...(providerSnapshot?.gateway === 'bravopay' ? { bravopay: providerSnapshot } : {}),
                 pix: {
                     ...asObject(rawBody?.pix),
                     idTransaction: txid,

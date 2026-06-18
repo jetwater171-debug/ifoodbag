@@ -6,6 +6,7 @@ const {
     requestTransactionByReference: requestParadiseByReference
 } = require('../../lib/paradise-provider');
 const { requestTransactionById: requestAtomopayStatus } = require('../../lib/atomopay-provider');
+const { requestTransactionById: requestBravoPayStatus } = require('../../lib/bravopay-provider');
 const {
     normalizeActiveGatewayId,
     normalizeGatewayId,
@@ -51,6 +52,17 @@ const {
     mapAtomopayStatusToUtmify,
     resolveAtomopayPixPayload
 } = require('../../lib/atomopay-status');
+const {
+    getBravoPayStatus,
+    getBravoPayUpdatedAt,
+    getBravoPayAmount,
+    isBravoPayPaidStatus,
+    isBravoPayRefundedStatus,
+    isBravoPayRefusedStatus,
+    isBravoPayChargebackStatus,
+    mapBravoPayStatusToUtmify,
+    resolveBravoPayPixPayload
+} = require('../../lib/bravopay-status');
 const {
     getLeadByPixTxid,
     getLeadBySessionId,
@@ -202,6 +214,14 @@ function extractPixFieldsForStatus(gateway, payload = {}) {
             paymentQrUrl: String(resolved.paymentQrUrl || '').trim()
         };
     }
+    if (gateway === 'bravopay') {
+        const resolved = resolveBravoPayPixPayload(payload);
+        return {
+            paymentCode: String(resolved.paymentCode || '').trim(),
+            paymentCodeBase64: String(resolved.paymentCodeBase64 || '').trim(),
+            paymentQrUrl: String(resolved.paymentQrUrl || '').trim()
+        };
+    }
 
     const root = asObject(payload);
     const nested = asObject(root.data);
@@ -344,6 +364,9 @@ function mapGatewayStatusToFrontend(gateway, statusRaw) {
     if (gateway === 'atomopay') {
         return mapUtmifyStatusToFrontend(mapAtomopayStatusToUtmify(statusRaw));
     }
+    if (gateway === 'bravopay') {
+        return mapUtmifyStatusToFrontend(mapBravoPayStatusToUtmify(statusRaw));
+    }
     const normalized = normalizeStatus(statusRaw);
     if (!normalized) return 'waiting_payment';
     if (hasStatusToken(normalized, ['unpaid', 'not_paid', 'nao_pago', 'nao_aprovado', 'unauthorized', 'unconfirmed'])) return 'waiting_payment';
@@ -413,6 +436,24 @@ function buildAtomopayStatusPayloadPatch(basePayload, txid, statusRaw, changedAt
     };
 }
 
+function buildBravoPayStatusPayloadPatch(basePayload, txid, statusRaw, changedAtIso, rawPayload = {}) {
+    const current = asObject(asObject(basePayload).bravopay);
+    const amount = getBravoPayAmount(rawPayload);
+    return {
+        bravopay: {
+            ...current,
+            gateway: 'bravopay',
+            id: String(txid || current.id || '').trim(),
+            status: String(statusRaw || current.status || '').trim(),
+            amountCents: Number.isFinite(amount) && amount > 0
+                ? Math.round(amount * 100)
+                : current.amountCents,
+            lastReconciledAt: changedAtIso,
+            lastStatusResponse: rawPayload
+        }
+    };
+}
+
 function buildPatchFromGatewayStatus(leadData, txid, gateway, statusRaw, nextStatus, changedAtIso, rawPayload = {}) {
     const payload = asObject(leadData?.payload);
     const mergedPayload = mergePaymentHistory({
@@ -428,6 +469,9 @@ function buildPatchFromGatewayStatus(leadData, txid, gateway, statusRaw, nextSta
         pixRefusedAt: nextStatus === 'refused' ? (payload.pixRefusedAt || changedAtIso) : payload.pixRefusedAt || undefined,
         ...(gateway === 'atomopay'
             ? buildAtomopayStatusPayloadPatch(payload, txid, statusRaw, changedAtIso, rawPayload)
+            : {}),
+        ...(gateway === 'bravopay'
+            ? buildBravoPayStatusPayloadPatch(payload, txid, statusRaw, changedAtIso, rawPayload)
             : {})
     }, {
         txid,
@@ -933,6 +977,37 @@ module.exports = async (req, res) => {
             toIsoDate(data?.data?.paid_at) ||
             new Date().toISOString();
         ({ paymentCode, paymentCodeBase64, paymentQrUrl } = extractPixFieldsForStatus(gateway, data));
+    } else if (gateway === 'bravopay') {
+        ({ response, data } = await requestBravoPayStatus(statusGatewayConfig, txid));
+        if (!response?.ok) {
+            const status = Number(response?.status || 0);
+            res.status(status === 404 ? 200 : 502).json({
+                ok: status === 404,
+                status: leadStatus.status || 'waiting_payment',
+                statusRaw: leadStatus.statusRaw || '',
+                txid,
+                gateway,
+                source: 'database_fallback',
+                detail: data?.error?.code || data?.error || data?.message || ''
+            });
+            return;
+        }
+
+        statusRaw = getBravoPayStatus(data);
+        const mapped = mapBravoPayStatusToUtmify(statusRaw);
+        nextStatus = isBravoPayPaidStatus(statusRaw)
+            ? 'paid'
+            : isBravoPayRefundedStatus(statusRaw)
+                ? 'refunded'
+                : (isBravoPayRefusedStatus(statusRaw) || isBravoPayChargebackStatus(statusRaw))
+                    ? 'refused'
+                    : mapUtmifyStatusToFrontend(mapped);
+        changedAtIso =
+            toIsoDate(getBravoPayUpdatedAt(data)) ||
+            toIsoDate(data?.paid_at) ||
+            toIsoDate(data?.data?.paid_at) ||
+            new Date().toISOString();
+        ({ paymentCode, paymentCodeBase64, paymentQrUrl } = extractPixFieldsForStatus(gateway, data));
     } else {
         res.status(503).json({
             ok: false,
@@ -1020,6 +1095,8 @@ module.exports = async (req, res) => {
             ? mapParadiseStatusToUtmify(statusRaw)
             : gateway === 'atomopay'
                 ? mapAtomopayStatusToUtmify(statusRaw)
+                : gateway === 'bravopay'
+                    ? mapBravoPayStatusToUtmify(statusRaw)
             : nextStatus === 'paid'
                 ? 'paid'
                 : nextStatus === 'refunded'

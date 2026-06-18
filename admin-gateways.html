@@ -144,6 +144,11 @@
               <strong id="metric-gateway-atomopay-conv">0%</strong>
               <em id="metric-gateway-atomopay-detail">0 pagos / 0 PIX</em>
             </div>
+            <div class="admin-kpi">
+              <span>Bravo Pay</span>
+              <strong id="metric-gateway-bravopay-conv">0%</strong>
+              <em id="metric-gateway-bravopay-detail">0 pagos / 0 PIX</em>
+            </div>
           </div>
 
           <div class="admin-inline-actions">
@@ -219,6 +224,19 @@
                   <span class="gateway-order-state" data-gateway-order-state="atomopay">-</span>
                   <button class="gateway-order-move" type="button" data-gateway-order-move="up" aria-label="Subir AtomoPay"></button>
                   <button class="gateway-order-move" type="button" data-gateway-order-move="down" aria-label="Descer AtomoPay"></button>
+                </article>
+                <article class="gateway-order-item" data-gateway-order-item="bravopay" draggable="true">
+                  <span class="gateway-order-index">5</span>
+                  <span class="gateway-order-handle" aria-hidden="true"></span>
+                  <span class="gateway-order-name">Bravo Pay</span>
+                  <span class="gateway-order-stats" data-gateway-order-stats="bravopay">
+                    <span class="gateway-order-stat"><strong data-gateway-order-generated="bravopay">0</strong><em>Gerados hoje</em></span>
+                    <span class="gateway-order-stat"><strong data-gateway-order-paid="bravopay">0</strong><em>Aprovados hoje</em></span>
+                    <span class="gateway-order-stat gateway-order-stat--conversion"><strong data-gateway-order-conversion="bravopay">0%</strong><em>Conversao hoje</em><i><b data-gateway-order-conversion-bar="bravopay"></b></i></span>
+                  </span>
+                  <span class="gateway-order-state" data-gateway-order-state="bravopay">-</span>
+                  <button class="gateway-order-move" type="button" data-gateway-order-move="up" aria-label="Subir Bravo Pay"></button>
+                  <button class="gateway-order-move" type="button" data-gateway-order-move="down" aria-label="Descer Bravo Pay"></button>
                 </article>
               </div>
             </div>
@@ -403,8 +421,48 @@
                 </div>
               </div>
             </article>
+            <article class="gateway-card" data-gateway-card="bravopay">
+              <header class="gateway-card-header">
+                <div class="gateway-card-heading">
+                  <h3>Bravo Pay</h3>
+                  <p>Gateway PIX Bravo Pay com idempotencia, UTMs e webhook HMAC.</p>
+                </div>
+                <div class="gateway-card-actions">
+                  <label class="gateway-switch" for="gateway-bravopay-enabled">
+                    <input type="checkbox" id="gateway-bravopay-enabled" />
+                    <span class="gateway-switch-track" aria-hidden="true"></span>
+                    <span class="gateway-switch-text" id="gateway-bravopay-state">Carregando</span>
+                  </label>
+                  <button type="button" class="btn-secondary gateway-config-toggle" data-gateway-config-toggle="bravopay" aria-controls="gateway-config-bravopay" aria-expanded="false">Configurar</button>
+                </div>
+              </header>
+              <div id="gateway-config-bravopay" class="gateway-card-body">
+                <div class="admin-grid gateway-fields-grid">
+                  <div class="input-group">
+                    <input type="text" id="gateway-bravopay-base-url" class="floating-input" placeholder=" " />
+                    <label for="gateway-bravopay-base-url" class="floating-label">Bravo Pay Base URL</label>
+                  </div>
+                  <div class="input-group">
+                    <input type="password" id="gateway-bravopay-api-key" class="floating-input" placeholder=" " autocomplete="new-password" />
+                    <label for="gateway-bravopay-api-key" class="floating-label">Bravo Pay API Key</label>
+                  </div>
+                  <div class="input-group">
+                    <input type="password" id="gateway-bravopay-webhook-secret" class="floating-input" placeholder=" " autocomplete="new-password" />
+                    <label for="gateway-bravopay-webhook-secret" class="floating-label">Webhook Secret HMAC</label>
+                  </div>
+                  <div class="input-group">
+                    <input type="number" id="gateway-bravopay-expires-in" class="floating-input" placeholder=" " min="60" max="86400" step="60" />
+                    <label for="gateway-bravopay-expires-in" class="floating-label">Expiracao PIX em segundos</label>
+                  </div>
+                  <div class="input-group">
+                    <input type="text" id="gateway-bravopay-description" class="floating-input" placeholder=" " />
+                    <label for="gateway-bravopay-description" class="floating-label">Descricao padrao do pedido</label>
+                  </div>
+                </div>
+              </div>
+            </article>
           </div>
-          <p class="admin-hint">GhostsPay, Sunize e Paradise seguem a configuracao atual. AtomoPay aceita token de webhook via query string quando configurado.</p>
+          <p class="admin-hint">GhostsPay, Sunize e Paradise seguem a configuracao atual. AtomoPay aceita token de webhook via query string quando configurado. Bravo Pay usa assinatura HMAC no header X-Bravopay-Signature.</p>
         </section>
       </div>
     </main>
@@ -445,6 +503,10 @@
               <input type="checkbox" id="gateway-test-atomopay" />
               <span>AtomoPay</span>
             </label>
+            <label class="gateway-test-option">
+              <input type="checkbox" id="gateway-test-bravopay" />
+              <span>Bravo Pay</span>
+            </label>
           </div>
         </div>
 
@@ -465,7 +527,7 @@
 
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
-  <script src="/script.js?v=10.7" defer></script>
+  <script src="/script.js?v=10.8" defer></script>
 </body>
 </html>
 
