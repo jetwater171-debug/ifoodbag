@@ -3000,9 +3000,9 @@ function initPixLoading() {
 
     const steps = [
         { pct: 28, text: 'Criando codigo Pix seguro...' },
-        { pct: 58, text: 'Conferindo dados do recebedor...' },
-        { pct: 84, text: 'Preparando a tela de pagamento...' },
-        { pct: 100, text: 'Tudo pronto. Abrindo seu Pix...' }
+        { pct: 58, text: 'Separando o nome do recebedor...' },
+        { pct: 84, text: 'Pix pronto para conferencia...' },
+        { pct: 100, text: 'Leia o aviso e toque no botao para abrir o Pix.' }
     ];
     const timers = steps.map((step, index) => setTimeout(() => {
         if (statusEl) statusEl.textContent = step.text;
@@ -3018,7 +3018,6 @@ function initPixLoading() {
     };
 
     btnContinue?.addEventListener('click', goToPix);
-    setTimeout(goToPix, 5600);
 }
 
 function initPix() {

