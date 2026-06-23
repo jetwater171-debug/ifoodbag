@@ -95,6 +95,7 @@ const funnelRoutes = {
     '/sucesso': 'sucesso.html',
     '/checkout': 'checkout.html',
     '/orderbump': 'orderbump.html',
+    '/pix-loading': 'pix-loading.html',
     '/pix': 'pix.html',
     '/upsell-iof': 'upsell-iof.html',
     '/upsell-correios': 'upsell-correios.html',

@@ -218,6 +218,9 @@ document.addEventListener('DOMContentLoaded', () => {
         case 'orderbump':
             initOrderBump();
             break;
+        case 'pix-loading':
+            initPixLoading();
+            break;
         case 'pix':
             initPix();
             break;
@@ -2897,6 +2900,127 @@ function initUpsell() {
     });
 }
 
+function parsePixEmvField(payload = '', targetTag = '') {
+    const code = String(payload || '').trim();
+    const tag = String(targetTag || '').trim();
+    if (!code || !tag) return '';
+
+    let index = 0;
+    while (index + 4 <= code.length) {
+        const currentTag = code.slice(index, index + 2);
+        const lengthText = code.slice(index + 2, index + 4);
+        if (!/^\d{2}$/.test(currentTag) || !/^\d{2}$/.test(lengthText)) {
+            index += 1;
+            continue;
+        }
+
+        const length = Number(lengthText);
+        const valueStart = index + 4;
+        const valueEnd = valueStart + length;
+        if (!Number.isFinite(length) || length < 0 || valueEnd > code.length) {
+            index += 1;
+            continue;
+        }
+
+        if (currentTag === tag) {
+            return code.slice(valueStart, valueEnd).replace(/\s+/g, ' ').trim();
+        }
+
+        index = valueEnd;
+    }
+
+    return '';
+}
+
+function resolvePixMerchantName(pixData) {
+    const directName = String(
+        pixData?.merchantName ||
+        pixData?.receiverName ||
+        pixData?.recipientName ||
+        pixData?.beneficiaryName ||
+        pixData?.paymentName ||
+        ''
+    ).replace(/\s+/g, ' ').trim();
+    if (directName) return directName.slice(0, 80);
+
+    const paymentCode = String(
+        pixData?.paymentCode ||
+        pixData?.pixCode ||
+        pixData?.copyPaste ||
+        pixData?.copy_paste ||
+        ''
+    ).trim();
+    const merchantName = parsePixEmvField(paymentCode, '59');
+    return merchantName ? merchantName.slice(0, 80) : '';
+}
+
+function resolvePixPaymentTargetUrl(pixData = {}) {
+    return pixData?.isUpsell || pixData?.upsell?.enabled ? 'pix.html' : 'pix-loading.html';
+}
+
+function initPixLoading() {
+    const pix = loadPix();
+    const shipping = loadShipping();
+    const merchantName = resolvePixMerchantName(pix);
+    const merchantNameEl = document.getElementById('pix-loading-merchant-name');
+    const merchantCard = document.getElementById('pix-loading-merchant-card');
+    const merchantFallback = document.getElementById('pix-loading-merchant-fallback');
+    const statusEl = document.getElementById('pix-loading-status');
+    const progressEl = document.getElementById('pix-loading-progress');
+    const btnContinue = document.getElementById('btn-pix-loading-continue');
+
+    if (!pix) {
+        if (statusEl) statusEl.textContent = 'Nao encontramos um PIX ativo. Voltando para o checkout...';
+        setTimeout(() => {
+            setStage('checkout');
+            redirect('checkout.html?forceFrete=1');
+        }, 1200);
+        return;
+    }
+
+    setStage('pix');
+    trackLead('pix_loading_view', {
+        stage: 'pix',
+        shipping,
+        pix: {
+            idTransaction: pix?.idTransaction || '',
+            merchantName
+        },
+        amount: Number(pix?.amount || 0)
+    });
+
+    if (merchantName && merchantNameEl) {
+        merchantNameEl.textContent = merchantName;
+        if (merchantCard) merchantCard.classList.remove('hidden');
+        if (merchantFallback) merchantFallback.classList.add('hidden');
+    } else {
+        if (merchantCard) merchantCard.classList.add('hidden');
+        if (merchantFallback) merchantFallback.classList.remove('hidden');
+    }
+
+    const steps = [
+        { pct: 28, text: 'Criando codigo Pix seguro...' },
+        { pct: 58, text: 'Conferindo dados do recebedor...' },
+        { pct: 84, text: 'Preparando a tela de pagamento...' },
+        { pct: 100, text: 'Tudo pronto. Abrindo seu Pix...' }
+    ];
+    const timers = steps.map((step, index) => setTimeout(() => {
+        if (statusEl) statusEl.textContent = step.text;
+        if (progressEl) progressEl.style.width = `${step.pct}%`;
+        if (index === steps.length - 1 && btnContinue) {
+            btnContinue.classList.remove('hidden');
+        }
+    }, 450 + (index * 1050)));
+
+    const goToPix = () => {
+        timers.forEach((timer) => clearTimeout(timer));
+        redirect('pix.html');
+    };
+
+    btnContinue?.addEventListener('click', goToPix);
+    setTimeout(goToPix, 5600);
+}
+
 function initPix() {
     const pix = loadPix();
     const shipping = loadShipping();
@@ -3732,6 +3856,7 @@ function buildBackRedirectUrl(pageOverride) {
             if (pixPending) return 'pix.html';
             if (shipping) return 'orderbump.html';
             return directCheckoutUrl();
+        case 'pix-loading':
         case 'pix':
             return pixPending ? 'pix.html' : directCheckoutUrl();
         case 'upsell-iof':
@@ -3793,6 +3918,7 @@ function buildBackRedirectFallbackUrl(pageOverride) {
             return withParams('pix.html', (qp) => {
                 qp.set('br', String(Date.now()));
             });
+        case 'pix-loading':
         case 'pix':
             return withParams('checkout.html', (qp) => {
                 qp.set('dc', '1');
@@ -8258,7 +8384,7 @@ async function createPixCharge(shipping, bumpPrice, options = {}) {
         isUpsell
     })) {
         setStage('pix');
-        redirect('pix.html');
+        redirect(resolvePixPaymentTargetUrl(cachedPix));
         return;
     }
 
@@ -8357,7 +8483,7 @@ async function createPixCharge(shipping, bumpPrice, options = {}) {
             pix: pixPayload,
             amount
         });
-        redirect('pix.html');
+        redirect(resolvePixPaymentTargetUrl(pixPayload));
     })();
 
     state.pixCreatePromise = run;
