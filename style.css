@@ -2314,6 +2314,7 @@ body[data-page='pix-loading'] .step {
 }
 
 .pix-loading-spinner {
+    position: relative;
     width: 64px;
     height: 64px;
     margin: 0 auto 2px;
@@ -2322,15 +2323,49 @@ body[data-page='pix-loading'] .step {
     display: flex;
     align-items: center;
     justify-content: center;
+    transition:
+        background-color 0.38s cubic-bezier(0.16, 1, 0.3, 1),
+        box-shadow 0.45s ease,
+        transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.pix-loading-spinner span {
+.pix-loading-spinner-ring {
     width: 38px;
     height: 38px;
     border-radius: 50%;
     border: 4px solid rgba(234, 29, 44, 0.18);
     border-top-color: var(--primary-color);
     animation: spin 0.9s linear infinite;
+    transition:
+        opacity 0.18s ease,
+        transform 0.3s cubic-bezier(0.4, 0, 1, 1);
+}
+
+.pix-loading-spinner-check {
+    position: absolute;
+    width: 21px;
+    height: 12px;
+    border-left: 4px solid #fff;
+    border-bottom: 4px solid #fff;
+    opacity: 0;
+    transform: translateY(-2px) rotate(-45deg) scale(0.35);
+    transform-origin: center;
+}
+
+.pix-loading-spinner.is-complete {
+    background: #22a447;
+    box-shadow: 0 8px 24px rgba(34, 164, 71, 0.28);
+    animation: pixSuccessPop 0.58s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.pix-loading-spinner.is-complete .pix-loading-spinner-ring {
+    opacity: 0;
+    transform: scale(0.55);
+    animation-play-state: paused;
+}
+
+.pix-loading-spinner.is-complete .pix-loading-spinner-check {
+    animation: pixCheckReveal 0.48s 0.16s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .pix-loading-kicker {
@@ -2343,6 +2378,63 @@ body[data-page='pix-loading'] .step {
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.7px;
+    transition:
+        color 0.3s ease,
+        background-color 0.3s ease,
+        transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.pix-loading-kicker.is-complete {
+    color: #167a34;
+    background: rgba(34, 164, 71, 0.12);
+    animation: pixLabelReveal 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes pixSuccessPop {
+    0% {
+        transform: scale(1);
+    }
+
+    42% {
+        transform: scale(0.86);
+    }
+
+    72% {
+        transform: scale(1.09);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
+
+@keyframes pixCheckReveal {
+    0% {
+        opacity: 0;
+        transform: translateY(-2px) rotate(-45deg) scale(0.35);
+    }
+
+    65% {
+        opacity: 1;
+        transform: translateY(-2px) rotate(-45deg) scale(1.16);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateY(-2px) rotate(-45deg) scale(1);
+    }
+}
+
+@keyframes pixLabelReveal {
+    0% {
+        opacity: 0.45;
+        transform: translateY(3px) scale(0.96);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
 }
 
 .pix-loading-card h1 {
@@ -6603,6 +6695,11 @@ body.modal-open {
 
     .spinner {
         animation: spin 0.9s linear infinite !important;
+    }
+
+    .pix-loading-spinner.is-complete .pix-loading-spinner-check {
+        opacity: 1;
+        transform: translateY(-2px) rotate(-45deg) scale(1);
     }
 }
 

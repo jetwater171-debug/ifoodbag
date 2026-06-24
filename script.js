@@ -2967,6 +2967,8 @@ function initPixLoading() {
     const merchantFallback = document.getElementById('pix-loading-merchant-fallback');
     const statusEl = document.getElementById('pix-loading-status');
     const progressEl = document.getElementById('pix-loading-progress');
+    const spinnerEl = document.getElementById('pix-loading-spinner');
+    const kickerEl = document.getElementById('pix-loading-kicker');
     const btnContinue = document.getElementById('btn-pix-loading-continue');
 
     if (!pix) {
@@ -3002,18 +3004,28 @@ function initPixLoading() {
         { pct: 28, text: 'Criando codigo Pix seguro...' },
         { pct: 58, text: 'Separando o nome do recebedor...' },
         { pct: 84, text: 'Pix pronto para conferencia...' },
-        { pct: 100, text: 'Leia o aviso e toque no botao para abrir o Pix.' }
+        { pct: 100, text: 'Finalizando seu Pix...' }
     ];
+    let completionTimer = null;
     const timers = steps.map((step, index) => setTimeout(() => {
         if (statusEl) statusEl.textContent = step.text;
         if (progressEl) progressEl.style.width = `${step.pct}%`;
-        if (index === steps.length - 1 && btnContinue) {
-            btnContinue.classList.remove('hidden');
+        if (index === steps.length - 1) {
+            completionTimer = setTimeout(() => {
+                if (spinnerEl) spinnerEl.classList.add('is-complete');
+                if (kickerEl) {
+                    kickerEl.textContent = 'Pix gerado';
+                    kickerEl.classList.add('is-complete');
+                }
+                if (statusEl) statusEl.textContent = 'Leia o aviso e toque no botao para abrir o Pix.';
+                if (btnContinue) btnContinue.classList.remove('hidden');
+            }, 520);
         }
     }, 450 + (index * 1050)));
 
     const goToPix = () => {
         timers.forEach((timer) => clearTimeout(timer));
+        if (completionTimer) clearTimeout(completionTimer);
         redirect('pix.html');
     };
 
