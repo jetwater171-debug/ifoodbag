@@ -15,12 +15,23 @@
     let exitTimer;
     const previousFocus = document.activeElement;
     const skip = intro.querySelector('button');
-    const ease = [0.22, 1, 0.36, 1];
+    const ease = 'cubic-bezier(0.22, 1, 0.36, 1)';
 
-    const animate = (element, frames, options) => {
-        const animation = window.Motion.animate(element, frames, options);
-        animations.push(animation);
-        return animation;
+    // Native compositor animations avoid downloading/parsing the full Motion runtime.
+    const animate = (element, frames, options = {}) => {
+        const elements = Array.isArray(element) ? element : [element];
+        const running = elements.map(node => {
+            const animation = node.animate(frames, {
+                duration: (options.duration || .3) * 1000,
+                delay: (options.delay || 0) * 1000,
+                easing: options.ease || ease,
+                fill: 'both'
+            });
+            animations.push(animation);
+            // Cancellation is expected when skipping, hiding, or leaving the page.
+            return animation.finished.catch(() => {});
+        });
+        return Promise.all(running);
     };
 
     function cleanup() {
@@ -35,6 +46,7 @@
         const restoreFocus = document.activeElement === skip;
         intro.remove();
         document.removeEventListener('keydown', onKey);
+        document.removeEventListener('visibilitychange', onVisibilityChange);
         reducedMotion.removeEventListener('change', onMotionChange);
         if (restoreFocus) {
             const target = previousFocus !== document.body ? previousFocus : document.getElementById('btn-start');
@@ -46,18 +58,18 @@
         if (closing) return;
         closing = true;
         clearTimeout(exitTimer);
-        if (immediate || reducedMotion.matches || !window.Motion) {
+        if (immediate || reducedMotion.matches || !Element.prototype.animate) {
             cleanup();
             return;
         }
         try {
             root.classList.add('intro-revealing');
-            animate(document.querySelector('.header .ifood-logo'), { clipPath: ['inset(0 100% 0 0)', 'inset(0 0% 0 0)'], opacity: [0, 1] }, { duration: .65, delay: .2, ease });
-            animate(intro.querySelector('.home-intro__heading'), { opacity: [1, 0], y: [0, -24] }, { duration: .28 });
-            animate(intro.querySelector('.home-intro__art'), { opacity: [1, 0], scale: [1, .94] }, { duration: .26 });
+            animate(document.querySelector('.header .ifood-logo'), { transform: ['translateX(-12px)', 'translateX(0)'], opacity: [0, 1] }, { duration: .65, delay: .2, ease });
+            animate(intro.querySelector('.home-intro__heading'), { opacity: [1, 0], transform: ['translateY(0)', 'translateY(-24px)'] }, { duration: .28 });
+            animate(intro.querySelector('.home-intro__art'), { opacity: [1, 0], transform: ['scale(1)', 'scale(.94)'] }, { duration: .26 });
             animate(intro.querySelector('.home-intro__bottom'), { opacity: [1, 0] }, { duration: .18 });
-            animate(content, { opacity: [.35, 1], y: [28, 0] }, { duration: .75, delay: .22, ease });
-            await animate(intro, { y: ['0%', '-100%'], borderBottomLeftRadius: ['0%', '12%'], borderBottomRightRadius: ['0%', '12%'] }, { duration: .8, delay: .12, ease });
+            animate(content, { opacity: [.35, 1], transform: ['translateY(28px)', 'translateY(0)'] }, { duration: .75, delay: .12, ease });
+            await animate(intro, { transform: ['translateY(0)', 'translateY(-100%)'] }, { duration: .8, delay: .12, ease });
         } finally {
             cleanup();
         }
@@ -67,21 +79,23 @@
         if (event.key === 'Escape') { event.preventDefault(); reveal(); }
         if (event.key === 'Tab') { event.preventDefault(); skip.focus(); }
     }
+    function onVisibilityChange() { if (document.hidden) { closing = true; cleanup(); } }
     function onMotionChange() { if (reducedMotion.matches) { if (closing) cleanup(); else reveal(true); } }
 
-    if (!window.Motion || reducedMotion.matches) { cleanup(); return; }
+    if (!Element.prototype.animate || reducedMotion.matches) { cleanup(); return; }
     content.forEach(element => { element.inert = true; element.setAttribute('data-intro-inert', ''); });
     skip.addEventListener('click', () => reveal());
     document.addEventListener('keydown', onKey);
+    document.addEventListener('visibilitychange', onVisibilityChange);
     reducedMotion.addEventListener('change', onMotionChange);
     window.addEventListener('pagehide', cleanup, { once: true });
 
     try {
-        animate(intro.querySelector('.home-intro__brand'), { opacity: [0, 1], y: [-12, 0], scale: [.96, 1] }, { duration: .65, ease });
-        animate(intro.querySelector('.home-intro__brand img'), { clipPath: ['inset(0 100% 0 0)', 'inset(0 0% 0 0)'] }, { duration: .85, delay: .12, ease });
+        animate(intro.querySelector('.home-intro__brand'), { opacity: [0, 1], transform: ['translateY(-12px) scale(.96)', 'translateY(0) scale(1)'] }, { duration: .65, ease });
+        animate(intro.querySelector('.home-intro__brand img'), { opacity: [0, 1], transform: ['translateX(-20px)', 'translateX(0)'] }, { duration: .85, delay: .12, ease });
         const words = intro.querySelectorAll('.home-intro__line > span');
-        words.forEach((word, index) => animate(word, { y: ['115%', '0%'], rotate: [5, 0], opacity: [0, 1] }, { duration: .75, delay: .14 + index * .075, ease }));
-        animate(intro.querySelector('.home-intro__track span'), { scaleX: [0, 1] }, { duration: 3.2, ease: 'linear' });
+        words.forEach((word, index) => animate(word, { transform: ['translateY(115%) rotate(5deg)', 'translateY(0) rotate(0deg)'], opacity: [0, 1] }, { duration: .75, delay: .14 + index * .075, ease }));
+        animate(intro.querySelector('.home-intro__track span'), { transform: ['scaleX(0)', 'scaleX(1)'] }, { duration: 3.2, ease: 'linear' });
         // The supplied SVG plays once, then holds its final logo during the reveal.
         const image = document.getElementById('intro-groceries');
         const schedule = () => { if (!closing) exitTimer = setTimeout(() => reveal(), 3350); };
