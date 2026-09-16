@@ -52,6 +52,7 @@
         }
         try {
             root.classList.add('intro-revealing');
+            animate(document.querySelector('.header .ifood-logo'), { clipPath: ['inset(0 100% 0 0)', 'inset(0 0% 0 0)'], opacity: [0, 1] }, { duration: .65, delay: .2, ease });
             animate(intro.querySelector('.home-intro__heading'), { opacity: [1, 0], y: [0, -24] }, { duration: .28 });
             animate(intro.querySelector('.home-intro__art'), { opacity: [1, 0], scale: [1, .94] }, { duration: .26 });
             animate(intro.querySelector('.home-intro__bottom'), { opacity: [1, 0] }, { duration: .18 });
@@ -76,7 +77,8 @@
     window.addEventListener('pagehide', cleanup, { once: true });
 
     try {
-        animate(intro.querySelector('.home-intro__eyebrow'), { opacity: [0, .75], y: [8, 0] }, { duration: .55, delay: .08, ease });
+        animate(intro.querySelector('.home-intro__brand'), { opacity: [0, 1], y: [-12, 0], scale: [.96, 1] }, { duration: .65, ease });
+        animate(intro.querySelector('.home-intro__brand img'), { clipPath: ['inset(0 100% 0 0)', 'inset(0 0% 0 0)'] }, { duration: .85, delay: .12, ease });
         const words = intro.querySelectorAll('.home-intro__line > span');
         words.forEach((word, index) => animate(word, { y: ['115%', '0%'], rotate: [5, 0], opacity: [0, 1] }, { duration: .75, delay: .14 + index * .075, ease }));
         animate(intro.querySelector('.home-intro__track span'), { scaleX: [0, 1] }, { duration: 3.2, ease: 'linear' });
