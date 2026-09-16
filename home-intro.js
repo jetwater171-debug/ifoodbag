@@ -89,12 +89,14 @@
         animate(intro.querySelector('.home-intro__brand'), { opacity: [0, 1], transform: ['translateY(-12px) scale(.96)', 'translateY(0) scale(1)'] }, { duration: .65, ease });
         animate(intro.querySelector('.home-intro__brand img'), { opacity: [0, 1], transform: ['translateX(-20px)', 'translateX(0)'] }, { duration: .85, delay: .12, ease });
         const words = intro.querySelectorAll('.home-intro__line > span');
-        words.forEach((word, index) => animate(word, { transform: ['translateY(115%) rotate(5deg)', 'translateY(0) rotate(0deg)'], opacity: [0, 1] }, { duration: .75, delay: .14 + index * .075, ease }));
         // Keep the SVG bytes cached, but create a fresh image timeline on every visit.
         // Reusing an animated SVG URL can reuse its already-finished one-shot playback.
         const image = document.getElementById('intro-groceries');
         image.addEventListener('load', () => {
-            if (!closing) exitTimer = setTimeout(() => reveal(), 3350);
+            if (closing) return;
+            // Start the title from the SVG load, not from page initialization.
+            words.forEach((word, index) => animate(word, { transform: ['translateY(115%) rotate(5deg)', 'translateY(0) rotate(0deg)'], opacity: [0, 1] }, { duration: .8, delay: .45 + index * .09, ease }));
+            exitTimer = setTimeout(() => reveal(), 3350);
         }, { once: true });
         image.addEventListener('error', () => reveal(), { once: true });
         fetch(image.dataset.src, { cache: 'force-cache', signal: imageRequest.signal })
