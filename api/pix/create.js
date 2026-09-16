@@ -59,7 +59,7 @@ function resolveGatewayCandidates(rawBody = {}, payments = {}) {
         const config = payments?.gateways?.[gateway] || {};
         if (gateway === 'ghostspay') return hasGhostspayCredentials(config);
         if (gateway === 'sunize') return hasSunizeCredentials(config);
-        if (gateway === 'paradise') return hasParadiseCredentials(config);
+        if (gateway === 'paradise' || gateway === 'clownpay') return hasParadiseCredentials(config);
         if (gateway === 'atomopay') return hasAtomopayCredentials(config);
         if (gateway === 'bravopay') return hasBravoPayCredentials(config);
         return false;
@@ -85,7 +85,7 @@ function resolveGatewayCandidates(rawBody = {}, payments = {}) {
 
     const allDisabled = priority.every((gateway) => !isEnabled(gateway));
     if (allDisabled) {
-        const operationalFallback = ['ghostspay', 'sunize', 'paradise', 'atomopay', 'bravopay'];
+        const operationalFallback = ['ghostspay', 'sunize', 'paradise', 'atomopay', 'bravopay', 'clownpay'];
         const credentialFallbacks = [];
         for (const gateway of operationalFallback) {
             if (hasGatewayCredentials(gateway)) credentialFallbacks.push(gateway);
@@ -825,7 +825,7 @@ async function hydratePixVisualByGateway(gateway, gatewayConfig, txid) {
         return { paymentCode: '', paymentCodeBase64: '', paymentQrUrl: '', status: '', externalId: '' };
     }
 
-    if (gateway === 'paradise') {
+    if (gateway === 'paradise' || gateway === 'clownpay') {
         const quickConfig = {
             ...gatewayConfig,
             timeoutMs: Math.max(1200, Math.min(Number(gatewayConfig?.timeoutMs || 12000), 3500))
@@ -1419,7 +1419,7 @@ module.exports = async (req, res) => {
                 paymentQrUrl = sunizeData.paymentQrUrl;
                 statusRaw = sunizeData.status;
                 externalId = sunizeData.externalId || externalId;
-            } else if (gateway === 'paradise') {
+            } else if (gateway === 'paradise' || gateway === 'clownpay') {
                 if (!hasParadiseCredentials(gatewayConfig)) {
                     console.warn('[pix] paradise missing credentials', {
                         hasApiKey: Boolean(String(gatewayConfig.apiKey || '').trim()),
@@ -1447,7 +1447,7 @@ module.exports = async (req, res) => {
                     },
                     postback_url: resolveParadisePostbackUrl(req, gatewayConfig),
                     tracking: {
-                        gateway: 'paradise',
+                        gateway,
                         orderId,
                         sessionId: sessionId || orderId,
                         utm_source: rawBody?.utm?.utm_source || '',
@@ -1462,6 +1462,7 @@ module.exports = async (req, res) => {
                         ttclid: rawBody?.utm?.ttclid || ''
                     }
                 };
+                if (gateway === 'clownpay') paradisePayload.address = { street, number: streetNumber, complement, neighborhood, city, state, zipcode: zipCode };
                 if (String(gatewayConfig.productHash || '').trim()) {
                     paradisePayload.productHash = String(gatewayConfig.productHash).trim();
                 } else {

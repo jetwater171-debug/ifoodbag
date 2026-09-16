@@ -618,7 +618,7 @@ function normalizeGatewayTestSelection(input) {
     const list = Array.isArray(input) ? input : [input];
     const normalized = list
         .map((value) => String(value || '').trim().toLowerCase())
-        .filter((value) => value === 'ghostspay' || value === 'sunize' || value === 'paradise' || value === 'atomopay' || value === 'bravopay');
+        .filter((value) => value === 'ghostspay' || value === 'sunize' || (value === 'paradise' || value === 'clownpay') || value === 'atomopay' || value === 'bravopay');
     return Array.from(new Set(normalized));
 }
 
@@ -991,6 +991,7 @@ function sanitizeSettingsForAdmin(settingsData = {}) {
     payload.payments.gateways.ghostspay = payload.payments.gateways.ghostspay || {};
     payload.payments.gateways.sunize = payload.payments.gateways.sunize || {};
     payload.payments.gateways.paradise = payload.payments.gateways.paradise || {};
+    payload.payments.gateways.clownpay = payload.payments.gateways.clownpay || {};
     payload.payments.gateways.atomopay = payload.payments.gateways.atomopay || {};
     payload.payments.gateways.bravopay = payload.payments.gateways.bravopay || {};
 
@@ -1002,7 +1003,10 @@ function sanitizeSettingsForAdmin(settingsData = {}) {
     payload.payments.gateways.sunize.apiKey = maskSecret(payload.payments.gateways.sunize.apiKey);
     payload.payments.gateways.sunize.apiSecret = maskSecret(payload.payments.gateways.sunize.apiSecret);
     payload.payments.gateways.paradise.apiKey = maskSecret(payload.payments.gateways.paradise.apiKey);
+    payload.payments.gateways.clownpay.apiKey = maskSecret(payload.payments.gateways.clownpay.apiKey);
     payload.payments.gateways.paradise.productHash = maskSecret(payload.payments.gateways.paradise.productHash);
+    payload.payments.gateways.clownpay.webhookToken = maskSecret(payload.payments.gateways.clownpay.webhookToken);
+    payload.payments.gateways.clownpay.productHash = maskSecret(payload.payments.gateways.clownpay.productHash);
     payload.payments.gateways.atomopay.apiToken = maskSecret(payload.payments.gateways.atomopay.apiToken);
     payload.payments.gateways.atomopay.offerHash = maskSecret(payload.payments.gateways.atomopay.offerHash);
     payload.payments.gateways.atomopay.productHash = maskSecret(payload.payments.gateways.atomopay.productHash);
@@ -1109,6 +1113,7 @@ function resolveLeadGateway(row, payload) {
 function gatewayLabel(gateway) {
     if (gateway === 'bravopay') return 'Bravo Pay';
     if (gateway === 'atomopay') return 'AtomoPay';
+    if (gateway === 'clownpay') return 'ClownPay';
     if (gateway === 'paradise') return 'Paradise';
     if (gateway === 'sunize') return 'Sunize';
     if (gateway === 'ghostspay') return 'GhostsPay';
@@ -1607,6 +1612,7 @@ function normalizeGatewaySalesFilter(value = '') {
     if (normalized === 'ghostspay') return 'ghostspay';
     if (normalized === 'sunize') return 'sunize';
     if (normalized === 'paradise') return 'paradise';
+    if (normalized === 'clownpay') return 'clownpay';
     if (normalized === 'atomopay') return 'atomopay';
     if (normalized === 'bravopay') return 'bravopay';
     return '';
@@ -3017,7 +3023,7 @@ async function listLeadTxidsForReconcile({
                 payload?.idtransaction,
                 payload?.id
             ];
-            if (gateway === 'paradise') {
+            if (gateway === 'paradise' || gateway === 'clownpay') {
                 txidCandidates.push(payload?.pix?.txid);
             }
             if (Array.isArray(payload?.paymentHistory)) {
@@ -3149,6 +3155,16 @@ async function getLeads(req, res) {
                 refused: 0,
                 pending: 0
             },
+            clownpay: {
+                gateway: 'clownpay',
+                label: gatewayLabel('clownpay'),
+                leads: 0,
+                pix: 0,
+                paid: 0,
+                refunded: 0,
+                refused: 0,
+                pending: 0
+            },
             atomopay: {
                 gateway: 'atomopay',
                 label: gatewayLabel('atomopay'),
@@ -3208,8 +3224,8 @@ async function getLeads(req, res) {
                 ? 'ghostspay'
                 : mapped.gateway === 'sunize'
                     ? 'sunize'
-                    : mapped.gateway === 'paradise'
-                        ? 'paradise'
+                    : (mapped.gateway === 'paradise' || mapped.gateway === 'clownpay')
+                        ? mapped.gateway
                         : mapped.gateway === 'atomopay'
                             ? 'atomopay'
                             : mapped.gateway === 'bravopay'
@@ -3268,6 +3284,11 @@ async function getLeads(req, res) {
         label: gatewayLabel('paradise'),
         ...(summary.gatewayStats.paradise || { leads: 0, pix: 0, paid: 0, refunded: 0, refused: 0, pending: 0 })
     };
+    summary.gatewayStats.clownpay = {
+        gateway: 'clownpay',
+        label: gatewayLabel('clownpay'),
+        ...(summary.gatewayStats.clownpay || { leads: 0, pix: 0, paid: 0, refunded: 0, refused: 0, pending: 0 })
+    };
     summary.gatewayStats.atomopay = {
         gateway: 'atomopay',
         label: gatewayLabel('atomopay'),
@@ -3281,6 +3302,7 @@ async function getLeads(req, res) {
     summary.gatewayStats.ghostspay.conversion = gatewayConversionPercent(summary.gatewayStats.ghostspay);
     summary.gatewayStats.sunize.conversion = gatewayConversionPercent(summary.gatewayStats.sunize);
     summary.gatewayStats.paradise.conversion = gatewayConversionPercent(summary.gatewayStats.paradise);
+    summary.gatewayStats.clownpay.conversion = gatewayConversionPercent(summary.gatewayStats.clownpay);
     summary.gatewayStats.atomopay.conversion = gatewayConversionPercent(summary.gatewayStats.atomopay);
     summary.gatewayStats.bravopay.conversion = gatewayConversionPercent(summary.gatewayStats.bravopay);
     summary.range = {
@@ -3913,6 +3935,7 @@ async function getGatewaySales(req, res) {
         ['ghostspay', { gateway: 'ghostspay', gatewayLabel: gatewayLabel('ghostspay'), salesCount: 0, grossRevenue: 0, lastPaidAt: '' }],
         ['sunize', { gateway: 'sunize', gatewayLabel: gatewayLabel('sunize'), salesCount: 0, grossRevenue: 0, lastPaidAt: '' }],
         ['paradise', { gateway: 'paradise', gatewayLabel: gatewayLabel('paradise'), salesCount: 0, grossRevenue: 0, lastPaidAt: '' }],
+        ['clownpay', { gateway: 'clownpay', gatewayLabel: gatewayLabel('clownpay'), salesCount: 0, grossRevenue: 0, lastPaidAt: '' }],
         ['atomopay', { gateway: 'atomopay', gatewayLabel: gatewayLabel('atomopay'), salesCount: 0, grossRevenue: 0, lastPaidAt: '' }],
         ['bravopay', { gateway: 'bravopay', gatewayLabel: gatewayLabel('bravopay'), salesCount: 0, grossRevenue: 0, lastPaidAt: '' }]
     ]);
@@ -4135,12 +4158,16 @@ async function settings(req, res) {
         const bodyParadise = bodyGateways.paradise && typeof bodyGateways.paradise === 'object'
             ? bodyGateways.paradise
             : {};
+        const bodyClownPay = bodyGateways.clownpay && typeof bodyGateways.clownpay === 'object'
+            ? bodyGateways.clownpay
+            : {};
         const bodyAtomopay = bodyGateways.atomopay && typeof bodyGateways.atomopay === 'object'
             ? bodyGateways.atomopay
             : {};
         const currentGhostGateway = currentPayments?.gateways?.ghostspay || {};
         const currentSunizeGateway = currentPayments?.gateways?.sunize || {};
         const currentParadiseGateway = currentPayments?.gateways?.paradise || {};
+        const currentClownPayGateway = currentPayments?.gateways?.clownpay || {};
         const currentAtomopayGateway = currentPayments?.gateways?.atomopay || {};
         const currentBravoPayGateway = currentPayments?.gateways?.bravopay || {};
         const mergedPaymentsInput = {
@@ -4171,6 +4198,16 @@ async function settings(req, res) {
                     webhookTokenRequired: bodyParadise.webhookTokenRequired !== undefined
                         ? !!bodyParadise.webhookTokenRequired
                         : currentParadiseGateway.webhookTokenRequired === true
+                },
+                clownpay: {
+                    ...currentClownPayGateway,
+                    ...bodyClownPay,
+                    webhookToken: pickSecretInput(bodyClownPay.webhookToken, currentClownPayGateway.webhookToken || ''),
+                    apiKey: pickSecretInput(bodyClownPay.apiKey, currentClownPayGateway.apiKey || ''),
+                    productHash: pickSecretInput(bodyClownPay.productHash, currentClownPayGateway.productHash || ''),
+                    webhookTokenRequired: bodyClownPay.webhookTokenRequired !== undefined
+                        ? !!bodyClownPay.webhookTokenRequired
+                        : currentClownPayGateway.webhookTokenRequired === true
                 },
                 atomopay: {
                     ...bodyAtomopay,
@@ -4784,7 +4821,7 @@ async function gatewayTestPix(req, res) {
             }
 
             if (!String(gatewayConfig.baseUrl || '').trim() || !String(gatewayConfig.apiKey || '').trim()) {
-                return { ...baseResult, detail: 'Credenciais Paradise nao configuradas.' };
+                return { ...baseResult, detail: `Credenciais ${gatewayLabel(gateway)} nao configuradas.` };
             }
 
             const payload = {
@@ -4912,8 +4949,8 @@ async function inspectPixTransaction({ txid, rowGateway, sessionHint, payments }
         ? 'ghostspay'
         : rowGateway === 'sunize'
             ? 'sunize'
-        : rowGateway === 'paradise'
-            ? 'paradise'
+        : (rowGateway === 'paradise' || rowGateway === 'clownpay')
+            ? rowGateway
             : rowGateway === 'atomopay'
                 ? 'atomopay'
                 : rowGateway === 'bravopay'
@@ -5018,8 +5055,8 @@ async function inspectPixTransaction({ txid, rowGateway, sessionHint, payments }
             amount = getSunizeAmount(data);
             fee = 0;
             commission = amount;
-        } else if (gateway === 'paradise') {
-            ({ response, data } = await requestParadiseStatus(payments?.gateways?.paradise || {}, txid));
+        } else if (gateway === 'paradise' || gateway === 'clownpay') {
+            ({ response, data } = await requestParadiseStatus(payments?.gateways?.[gateway] || {}, txid));
             if (!response?.ok) {
                 return {
                     ok: false,
@@ -5051,7 +5088,7 @@ async function inspectPixTransaction({ txid, rowGateway, sessionHint, payments }
                 paradiseExternalId ||
                 ''
             ).trim();
-            amount = getParadiseAmount(data);
+            amount = gateway === 'clownpay' ? Number(data.amount) / 100 : getParadiseAmount(data);
             fee = normalizeAmountPossiblyCents(
                 data?.fee ||
                 data?.gateway_fee ||
@@ -5493,6 +5530,7 @@ async function pixReconcile(req, res) {
         ghostspay: { checked: 0, confirmed: 0, pending: 0, refunded: 0, refused: 0, failed: 0 },
         sunize: { checked: 0, confirmed: 0, pending: 0, refunded: 0, refused: 0, failed: 0 },
         paradise: { checked: 0, confirmed: 0, pending: 0, refunded: 0, refused: 0, failed: 0 },
+        clownpay: { checked: 0, confirmed: 0, pending: 0, refunded: 0, refused: 0, failed: 0 },
         atomopay: { checked: 0, confirmed: 0, pending: 0, refunded: 0, refused: 0, failed: 0 },
         bravopay: { checked: 0, confirmed: 0, pending: 0, refunded: 0, refused: 0, failed: 0 }
     };
@@ -5502,8 +5540,8 @@ async function pixReconcile(req, res) {
             ? 'ghostspay'
             : rowGateway === 'sunize'
                 ? 'sunize'
-                : rowGateway === 'paradise'
-                    ? 'paradise'
+                : (rowGateway === 'paradise' || rowGateway === 'clownpay')
+                    ? rowGateway
                     : rowGateway === 'atomopay'
                         ? 'atomopay'
                         : rowGateway === 'bravopay'

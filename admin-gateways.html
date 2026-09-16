@@ -140,6 +140,11 @@
               <em id="metric-gateway-paradise-detail">0 pagos / 0 PIX</em>
             </div>
             <div class="admin-kpi">
+              <span>ClownPay</span>
+              <strong id="metric-gateway-clownpay-conv">0%</strong>
+              <em id="metric-gateway-clownpay-detail">0 pagos / 0 PIX</em>
+            </div>
+            <div class="admin-kpi">
               <span>AtomoPay</span>
               <strong id="metric-gateway-atomopay-conv">0%</strong>
               <em id="metric-gateway-atomopay-detail">0 pagos / 0 PIX</em>
@@ -211,6 +216,19 @@
                   <span class="gateway-order-state" data-gateway-order-state="paradise">-</span>
                   <button class="gateway-order-move" type="button" data-gateway-order-move="up" aria-label="Subir Paradise"></button>
                   <button class="gateway-order-move" type="button" data-gateway-order-move="down" aria-label="Descer Paradise"></button>
+                </article>
+                <article class="gateway-order-item" data-gateway-order-item="clownpay" draggable="true">
+                  <span class="gateway-order-index">3</span>
+                  <span class="gateway-order-handle" aria-hidden="true"></span>
+                  <span class="gateway-order-name">ClownPay</span>
+                  <span class="gateway-order-stats" data-gateway-order-stats="clownpay">
+                    <span class="gateway-order-stat"><strong data-gateway-order-generated="clownpay">0</strong><em>Gerados hoje</em></span>
+                    <span class="gateway-order-stat"><strong data-gateway-order-paid="clownpay">0</strong><em>Aprovados hoje</em></span>
+                    <span class="gateway-order-stat gateway-order-stat--conversion"><strong data-gateway-order-conversion="clownpay">0%</strong><em>Conversao hoje</em><i><b data-gateway-order-conversion-bar="clownpay"></b></i></span>
+                  </span>
+                  <span class="gateway-order-state" data-gateway-order-state="clownpay">-</span>
+                  <button class="gateway-order-move" type="button" data-gateway-order-move="up" aria-label="Subir ClownPay"></button>
+                  <button class="gateway-order-move" type="button" data-gateway-order-move="down" aria-label="Descer ClownPay"></button>
                 </article>
                 <article class="gateway-order-item" data-gateway-order-item="atomopay" draggable="true">
                   <span class="gateway-order-index">4</span>
@@ -357,6 +375,50 @@
                 </div>
               </div>
             </article>
+            <article class="gateway-card" data-gateway-card="clownpay">
+              <header class="gateway-card-header">
+                <div class="gateway-card-heading">
+                  <h3>ClownPay</h3>
+                  <p>Gateway PIX ClownPay com webhook nativo e tracking completo.</p>
+                </div>
+                <div class="gateway-card-actions">
+                  <label class="gateway-switch" for="gateway-clownpay-enabled">
+                    <input type="checkbox" id="gateway-clownpay-enabled" />
+                    <span class="gateway-switch-track" aria-hidden="true"></span>
+                    <span class="gateway-switch-text" id="gateway-clownpay-state">Carregando</span>
+                  </label>
+                  <button type="button" class="btn-secondary gateway-config-toggle" data-gateway-config-toggle="clownpay" aria-controls="gateway-config-clownpay" aria-expanded="false">Configurar</button>
+                </div>
+              </header>
+              <div id="gateway-config-clownpay" class="gateway-card-body">
+                <div class="admin-grid gateway-fields-grid">
+                  <div class="input-group">
+                    <input type="text" id="gateway-clownpay-base-url" class="floating-input" placeholder=" " />
+                    <label for="gateway-clownpay-base-url" class="floating-label">ClownPay Base URL</label>
+                  </div>
+                  <div class="input-group">
+                    <input type="password" id="gateway-clownpay-api-key" class="floating-input" placeholder=" " autocomplete="new-password" />
+                    <label for="gateway-clownpay-api-key" class="floating-label">ClownPay X-API-Key</label>
+                  </div>
+                  <div class="input-group">
+                    <input type="password" id="gateway-clownpay-product-hash" class="floating-input" placeholder=" " autocomplete="new-password" />
+                    <label for="gateway-clownpay-product-hash" class="floating-label">ClownPay Product Hash (opcional)</label>
+                  </div>
+                  <div class="input-group">
+                    <input type="text" id="gateway-clownpay-orderbump-hash" class="floating-input" placeholder=" " />
+                    <label for="gateway-clownpay-orderbump-hash" class="floating-label">ClownPay Orderbump Hash (opcional)</label>
+                  </div>
+                  <div class="input-group">
+                    <input type="text" id="gateway-clownpay-source" class="floating-input" placeholder=" " />
+                    <label for="gateway-clownpay-source" class="floating-label">ClownPay Source (padrao: api_externa)</label>
+                  </div>
+                  <div class="input-group">
+                    <input type="text" id="gateway-clownpay-description" class="floating-input" placeholder=" " />
+                    <label for="gateway-clownpay-description" class="floating-label">Descricao padrao do pedido (opcional)</label>
+                  </div>
+                </div>
+              </div>
+            </article>
             <article class="gateway-card" data-gateway-card="atomopay">
               <header class="gateway-card-header">
                 <div class="gateway-card-heading">
@@ -462,7 +524,7 @@
               </div>
             </article>
           </div>
-          <p class="admin-hint">GhostsPay, Sunize e Paradise seguem a configuracao atual. AtomoPay aceita token de webhook via query string quando configurado. Bravo Pay usa assinatura HMAC no header X-Bravopay-Signature.</p>
+          <p class="admin-hint">GhostsPay, Sunize e Paradise seguem a configuracao atual. AtomoPay aceita token de webhook via query string quando configurado. ClownPay confirma os webhooks consultando a API. Bravo Pay usa assinatura HMAC no header X-Bravopay-Signature.</p>
         </section>
       </div>
     </main>
@@ -498,6 +560,10 @@
             <label class="gateway-test-option">
               <input type="checkbox" id="gateway-test-paradise" />
               <span>Paradise</span>
+            </label>
+            <label class="gateway-test-option">
+              <input type="checkbox" id="gateway-test-clownpay" />
+              <span>ClownPay</span>
             </label>
             <label class="gateway-test-option">
               <input type="checkbox" id="gateway-test-atomopay" />

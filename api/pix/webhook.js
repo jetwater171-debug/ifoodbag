@@ -522,14 +522,14 @@ function extractGatewayEvent(gateway, body = {}, query = {}) {
         };
     }
 
-    if (gateway === 'paradise') {
+    if (gateway === 'paradise' || gateway === 'clownpay') {
         const txid = getParadiseTxid(body);
         const statusRaw = getParadiseStatus(body);
         const utmifyStatus = mapParadiseStatusToUtmify(statusRaw);
         const isPaid = isParadisePaidStatus(statusRaw);
         const isRefunded = isParadiseRefundedStatus(statusRaw);
         const isRefused = isParadiseRefusedStatus(statusRaw) || isParadiseChargebackStatus(statusRaw);
-        const amount = getParadiseAmount(body);
+        const amount = gateway === 'clownpay' ? Number(body.amount) / 100 : getParadiseAmount(body);
         const metadata = asObject(body?.metadata);
         const tracking = asObject(body?.tracking);
         const customer = asObject(body?.customer);
@@ -937,6 +937,25 @@ const pixWebhookHandler = async (req, res) => {
                 : true;
         if (!tokenOk) {
             res.status(401).json({ status: 'unauthorized' });
+            return;
+        }
+    }
+
+    if (gateway === 'clownpay') {
+        try {
+            body = await require('../../lib/clownpay-provider').verifyWebhook(gatewayConfig, body);
+            const stored = await getLeadByPixTxid(body.transaction_id);
+            if (!stored?.ok || !stored.data) throw new Error('transaction_not_saved');
+            const saved = asObject(stored.data.payload);
+            const savedGateway = saved.pixGateway || saved.gateway || saved.pix?.gateway;
+            const savedReference = saved.pixExternalId || saved.pix?.externalId;
+            const savedAmount = Number(saved.pix?.amount);
+            if (savedGateway !== 'clownpay' || savedReference !== body.external_id ||
+                !Number.isFinite(savedAmount) || Math.round(savedAmount * 100) !== Number(body.amount)) {
+                throw new Error('transaction_mismatch');
+            }
+        } catch (_error) {
+            res.status(503).json({ status: 'verification_failed' });
             return;
         }
     }
