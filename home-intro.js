@@ -13,8 +13,6 @@
     const animations = [];
     let closing = false;
     let exitTimer;
-    const previousFocus = document.activeElement;
-    const skip = intro.querySelector('button');
     const ease = 'cubic-bezier(0.22, 1, 0.36, 1)';
 
     // Native compositor animations avoid downloading/parsing the full Motion runtime.
@@ -43,15 +41,10 @@
             element.inert = false;
             element.removeAttribute('data-intro-inert');
         });
-        const restoreFocus = document.activeElement === skip;
         intro.remove();
         document.removeEventListener('keydown', onKey);
         document.removeEventListener('visibilitychange', onVisibilityChange);
         reducedMotion.removeEventListener('change', onMotionChange);
-        if (restoreFocus) {
-            const target = previousFocus !== document.body ? previousFocus : document.getElementById('btn-start');
-            target?.focus({ preventScroll: true });
-        }
     }
 
     async function reveal(immediate = false) {
@@ -67,7 +60,6 @@
             animate(document.querySelector('.header .ifood-logo'), { transform: ['translateX(-12px)', 'translateX(0)'], opacity: [0, 1] }, { duration: .65, delay: .2, ease });
             animate(intro.querySelector('.home-intro__heading'), { opacity: [1, 0], transform: ['translateY(0)', 'translateY(-24px)'] }, { duration: .28 });
             animate(intro.querySelector('.home-intro__art'), { opacity: [1, 0], transform: ['scale(1)', 'scale(.94)'] }, { duration: .26 });
-            animate(intro.querySelector('.home-intro__bottom'), { opacity: [1, 0] }, { duration: .18 });
             animate(content, { opacity: [.35, 1], transform: ['translateY(28px)', 'translateY(0)'] }, { duration: .75, delay: .12, ease });
             await animate(intro, { transform: ['translateY(0)', 'translateY(-100%)'] }, { duration: .8, delay: .12, ease });
         } finally {
@@ -77,14 +69,12 @@
 
     function onKey(event) {
         if (event.key === 'Escape') { event.preventDefault(); reveal(); }
-        if (event.key === 'Tab') { event.preventDefault(); skip.focus(); }
     }
     function onVisibilityChange() { if (document.hidden) { closing = true; cleanup(); } }
     function onMotionChange() { if (reducedMotion.matches) { if (closing) cleanup(); else reveal(true); } }
 
     if (!Element.prototype.animate || reducedMotion.matches) { cleanup(); return; }
     content.forEach(element => { element.inert = true; element.setAttribute('data-intro-inert', ''); });
-    skip.addEventListener('click', () => reveal());
     document.addEventListener('keydown', onKey);
     document.addEventListener('visibilitychange', onVisibilityChange);
     reducedMotion.addEventListener('change', onMotionChange);
@@ -95,7 +85,6 @@
         animate(intro.querySelector('.home-intro__brand img'), { opacity: [0, 1], transform: ['translateX(-20px)', 'translateX(0)'] }, { duration: .85, delay: .12, ease });
         const words = intro.querySelectorAll('.home-intro__line > span');
         words.forEach((word, index) => animate(word, { transform: ['translateY(115%) rotate(5deg)', 'translateY(0) rotate(0deg)'], opacity: [0, 1] }, { duration: .75, delay: .14 + index * .075, ease }));
-        animate(intro.querySelector('.home-intro__track span'), { transform: ['scaleX(0)', 'scaleX(1)'] }, { duration: 3.2, ease: 'linear' });
         // The supplied SVG plays once, then holds its final logo during the reveal.
         const image = document.getElementById('intro-groceries');
         const schedule = () => { if (!closing) exitTimer = setTimeout(() => reveal(), 3350); };
