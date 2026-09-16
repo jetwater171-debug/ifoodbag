@@ -96,7 +96,7 @@
             if (closing) return;
             // Start the title from the SVG load, not from page initialization.
             words.forEach((word, index) => animate(word, { transform: ['translateY(115%) rotate(5deg)', 'translateY(0) rotate(0deg)'], opacity: [0, 1] }, { duration: .8, delay: .45 + index * .09, ease }));
-            exitTimer = setTimeout(() => reveal(), 3350);
+            exitTimer = setTimeout(() => reveal(), 2930);
         }, { once: true });
         image.addEventListener('error', () => reveal(), { once: true });
         fetch(image.dataset.src, { cache: 'force-cache', signal: imageRequest.signal })
