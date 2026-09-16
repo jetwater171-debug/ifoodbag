@@ -13,6 +13,8 @@
     const animations = [];
     let closing = false;
     let exitTimer;
+    let imageUrl;
+    const imageRequest = new AbortController();
     const ease = 'cubic-bezier(0.22, 1, 0.36, 1)';
 
     // Native compositor animations avoid downloading/parsing the full Motion runtime.
@@ -33,6 +35,9 @@
     };
 
     function cleanup() {
+        closing = true;
+        imageRequest.abort();
+        if (imageUrl) { URL.revokeObjectURL(imageUrl); imageUrl = null; }
         clearTimeout(exitTimer);
         clearTimeout(window.homeIntroSafety);
         animations.forEach(animation => animation.cancel());
@@ -85,14 +90,24 @@
         animate(intro.querySelector('.home-intro__brand img'), { opacity: [0, 1], transform: ['translateX(-20px)', 'translateX(0)'] }, { duration: .85, delay: .12, ease });
         const words = intro.querySelectorAll('.home-intro__line > span');
         words.forEach((word, index) => animate(word, { transform: ['translateY(115%) rotate(5deg)', 'translateY(0) rotate(0deg)'], opacity: [0, 1] }, { duration: .75, delay: .14 + index * .075, ease }));
-        // The supplied SVG plays once, then holds its final logo during the reveal.
+        // Keep the SVG bytes cached, but create a fresh image timeline on every visit.
+        // Reusing an animated SVG URL can reuse its already-finished one-shot playback.
         const image = document.getElementById('intro-groceries');
-        const schedule = () => { if (!closing) exitTimer = setTimeout(() => reveal(), 3350); };
-        if (image.complete) schedule();
-        else {
-            image.addEventListener('load', schedule, { once: true });
-            image.addEventListener('error', () => reveal(), { once: true });
-        }
+        image.addEventListener('load', () => {
+            if (!closing) exitTimer = setTimeout(() => reveal(), 3350);
+        }, { once: true });
+        image.addEventListener('error', () => reveal(), { once: true });
+        fetch(image.dataset.src, { cache: 'force-cache', signal: imageRequest.signal })
+            .then(response => {
+                if (!response.ok) throw new Error('Intro image unavailable');
+                return response.blob();
+            })
+            .then(blob => {
+                if (closing || !intro.isConnected) return;
+                imageUrl = URL.createObjectURL(new Blob([blob], { type: 'image/svg+xml' }));
+                image.src = imageUrl;
+            })
+            .catch(() => { if (!closing) reveal(); });
     } catch (_error) {
         cleanup();
     }
