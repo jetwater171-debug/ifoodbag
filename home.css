@@ -16,3 +16,23 @@ body[data-page="home"] .trust-card span { font-weight: 500; }
 @media (min-width: 768px) { body[data-page="home"] .container { padding-top: 32px; } }
 
 body[data-page="home"] .footer { background: #fff; border-top: 0; }
+
+/* Compact spacing without hiding content or disabling scrolling. */
+body[data-page="home"] .header { padding: calc(10px + env(safe-area-inset-top)) 16px 8px; }
+body[data-page="home"] .header .ifood-logo--wide { width: 220px; max-width: 70vw; max-height: 39px; height: auto; }
+body[data-page="home"] .container { padding: 8px 16px 8px; }
+body[data-page="home"] .step { padding: 10px 18px; }
+body[data-page="home"] .badge-container { margin-bottom: 10px; }
+body[data-page="home"] .step > p { margin-bottom: 8px; }
+body[data-page="home"] .hero-image { margin-top: 0; margin-bottom: 6px; max-width: 480px; }
+body[data-page="home"] .benefits { margin-bottom: 8px; }
+body[data-page="home"] .action-stack { margin-top: 8px; }
+body[data-page="home"] .trust-strip { margin: 12px 0 0; }
+body[data-page="home"] .trust-card { min-height: 76px; padding: 6px 4px; gap: 6px; }
+body[data-page="home"] .footer { padding: 8px 16px calc(8px + env(safe-area-inset-bottom)); }
+body[data-page="home"] .footer p { margin: 0; font-size: 11px; }
+@media (max-height: 700px) and (max-width: 767px) {
+    body[data-page="home"] .hero-image { max-width: 300px; }
+    body[data-page="home"] .step { padding-top: 4px; padding-bottom: 4px; }
+    body[data-page="home"] .benefit-item { padding: 6px 10px; }
+}
