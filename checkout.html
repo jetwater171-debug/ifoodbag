@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=3.1">
+    <link rel="stylesheet" href="style.css?v=3.2">
     <script src="/backguard.js?v=1.6"></script>
 </head>
 
@@ -114,6 +114,12 @@
             </div>
 
             <div class="checkout-action-panel">
+                <div class="input-group" style="width:100%; text-align:left">
+                    <input id="checkout-cpf" type="text" class="floating-input" placeholder=" " inputmode="numeric" maxlength="14" autocomplete="off" required aria-describedby="checkout-cpf-error">
+                    <label for="checkout-cpf" class="floating-label">CPF do pagador</label>
+                </div>
+                <div id="checkout-cpf-error" class="form-error hidden" role="alert"></div>
+
                 <div class="checkout-action-panel__top">
                     <span class="checkout-action-label">Proximo passo</span>
                     <strong id="checkout-next-step">Informe seu CEP para liberar as opcoes de frete.</strong>
@@ -139,7 +145,7 @@
         <p>&copy; 2026 iFood. Todos os direitos reservados.</p>
     </footer>
 
-    <script src="script.js?v=10.8" defer></script>
+    <script src="script.js?v=10.9" defer></script>
 </body>
 
 </html>

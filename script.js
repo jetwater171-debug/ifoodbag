@@ -2313,6 +2313,17 @@ function initCheckout() {
         syncShippingAfterAddressEdit();
     }
 
+    const checkoutCpf = document.getElementById('checkout-cpf');
+    if (checkoutCpf) {
+        checkoutCpf.value = loadPersonal()?.cpf || '';
+        maskCPF(checkoutCpf);
+        checkoutCpf.addEventListener('input', () => {
+            maskCPF(checkoutCpf);
+            checkoutCpf.removeAttribute('aria-invalid');
+            clearInlineError(document.getElementById('checkout-cpf-error'));
+        });
+    }
+
     btnFinish?.addEventListener('click', () => {
         if (!btnFinish) return;
         if (!shipping) {
@@ -2330,6 +2341,7 @@ function initCheckout() {
             }
             return;
         }
+        if (!requireCheckoutCpf()) return;
         saveBump(checkoutNeutralBump);
         trackLead('checkout_submit', {
             stage: 'checkout',
@@ -8386,48 +8398,22 @@ function clearPixCreateLock(lockKey = '') {
     }
 }
 
-let pixCpfRequest = null;
-function requestPixCpf() {
-    if (validateCPF(String(loadPersonal()?.cpf || ''))) return Promise.resolve();
-    if (pixCpfRequest) return pixCpfRequest;
-    pixCpfRequest = new Promise((resolve, reject) => {
-        const dialog = document.createElement('dialog');
-        dialog.className = 'pix-cpf-dialog';
-        dialog.setAttribute('aria-labelledby', 'pix-cpf-title');
-        dialog.innerHTML = `<form novalidate class="data-form">
-            <h2 id="pix-cpf-title">CPF para gerar o PIX</h2>
-            <p>Informe o CPF de quem vai realizar o pagamento.</p>
-            <div class="input-group"><input id="pix-cpf-input" class="floating-input" type="text" placeholder=" " inputmode="numeric" maxlength="14" autocomplete="off" required aria-describedby="pix-cpf-error"><label class="floating-label" for="pix-cpf-input">CPF</label></div>
-            <p id="pix-cpf-error" class="form-error hidden" role="alert"></p>
-            <button class="btn-primary" type="submit">Gerar PIX</button>
-            <button class="btn-secondary" type="button">Voltar</button>
-        </form>`;
-        document.body.append(dialog);
-        const input = dialog.querySelector('input');
-        const finish = (error) => {
-            dialog.close();
-            dialog.remove();
-            pixCpfRequest = null;
-            if (error) reject(error); else resolve();
-        };
-        input.addEventListener('input', () => maskCPF(input));
-        dialog.querySelector('form').addEventListener('submit', event => {
-            event.preventDefault();
-            if (!validateCPF(input.value)) {
-                showInlineError(dialog.querySelector('#pix-cpf-error'), 'Digite um CPF válido.');
-                input.setAttribute('aria-invalid', 'true');
-                input.focus();
-                return;
-            }
-            savePersonal({ ...(loadPersonal() || {}), cpf: input.value.trim() });
-            finish();
-        });
-        dialog.querySelector('.btn-secondary').addEventListener('click', () => finish(new Error('Geração do PIX cancelada.')));
-        dialog.addEventListener('cancel', event => { event.preventDefault(); finish(new Error('Geração do PIX cancelada.')); });
-        dialog.showModal();
-        input.focus();
-    });
-    return pixCpfRequest;
+function requireCheckoutCpf() {
+    const input = document.getElementById('checkout-cpf');
+    const cpf = input ? input.value.trim() : String(loadPersonal()?.cpf || '');
+    if (!validateCPF(cpf)) {
+        if (input) {
+            showInlineError(document.getElementById('checkout-cpf-error'), 'Informe um CPF válido para continuar.');
+            input.setAttribute('aria-invalid', 'true');
+            input.focus();
+        } else {
+            setStage('checkout');
+            redirect('checkout.html');
+        }
+        return false;
+    }
+    savePersonal({ ...(loadPersonal() || {}), cpf });
+    return true;
 }
 
 async function createPixCharge(shipping, bumpPrice, options = {}) {
@@ -8478,8 +8464,7 @@ async function createPixCharge(shipping, bumpPrice, options = {}) {
     ) {
         return state.pixCreatePromise;
     }
-    await requestPixCpf();
-    // Another caller may have been waiting on the same CPF form.
+    if (!requireCheckoutCpf()) throw new Error('Informe seu CPF no checkout para gerar o PIX.');
     if (state.pixCreatePromise && state.pixCreateKey === lockKey) return state.pixCreatePromise;
     savePixCreateLock(lockKey);
 
