@@ -7184,3 +7184,8 @@ body.modal-open {
     margin: 0;
     font-style: italic;
 }
+
+.pix-cpf-dialog { width: min(420px, calc(100% - 32px)); margin: auto; padding: 28px 22px; border: 0; border-radius: 22px; color: #222; max-height: 90dvh; overflow-y: auto; }
+.pix-cpf-dialog::backdrop { background: rgba(0,0,0,.45); }
+.pix-cpf-dialog .data-form { width: 100%; }
+.pix-cpf-dialog .btn-secondary { margin-top: 10px; }

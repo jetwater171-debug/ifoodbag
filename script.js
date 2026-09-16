@@ -1036,24 +1036,18 @@ function initPersonal() {
 
     const form = document.getElementById('personal-form');
     const fullname = document.getElementById('fullname');
-    const cpf = document.getElementById('cpf');
     const email = document.getElementById('email');
     const phone = document.getElementById('phone');
-    const birthdate = document.getElementById('birthdate');
     const errorBox = document.getElementById('personal-error');
 
     const personal = loadPersonal();
     if (personal) {
         if (fullname) fullname.value = personal.name || '';
-        if (cpf) cpf.value = personal.cpf || '';
         if (email) email.value = personal.email || '';
         if (phone) phone.value = personal.phone || '';
-        if (birthdate) birthdate.value = personal.birth || '';
     }
 
-    cpf?.addEventListener('input', () => maskCPF(cpf));
     phone?.addEventListener('input', () => maskPhone(phone));
-    birthdate?.addEventListener('input', () => maskDate(birthdate));
     setupEmailAutocomplete(email);
 
     form?.addEventListener('submit', (event) => {
@@ -1061,25 +1055,15 @@ function initPersonal() {
         clearInlineError(errorBox);
 
         const nameValue = fullname?.value.trim() || '';
-        const cpfValue = cpf?.value.trim() || '';
         const emailValue = email?.value.trim() || '';
         const phoneValue = phone?.value.trim() || '';
-        const birthValue = birthdate?.value.trim() || '';
 
         if (nameValue.length < 3) {
             showInlineError(errorBox, 'Por favor, digite seu nome completo.');
             return;
         }
 
-        if (!isValidDate(birthValue)) {
-            showInlineError(errorBox, 'Digite uma data válida (DD/MM/AAAA).');
-            return;
-        }
 
-        if (!validateCPF(cpfValue)) {
-            showInlineError(errorBox, 'CPF inválido. Verifique os números digitados.');
-            return;
-        }
 
         if (!isValidEmail(emailValue)) {
             showInlineError(errorBox, 'Digite um e-mail válido.');
@@ -1092,9 +1076,8 @@ function initPersonal() {
         }
 
         savePersonal({
+            ...(personal || {}),
             name: nameValue,
-            cpf: cpfValue,
-            birth: birthValue,
             email: emailValue,
             phone: phoneValue,
             phoneDigits: phoneValue.replace(/\D/g, '')
@@ -1837,7 +1820,7 @@ function initCheckout() {
     }
 
     const personalMissing =
-        !personal || !personal.name || !personal.cpf || !personal.birth || !personal.email || !personal.phone;
+        !personal || !personal.name || !personal.email || !personal.phone;
 
     if (directCheckout && personalMissing) {
         if (summaryBlock) summaryBlock.classList.add('hidden');
@@ -3820,8 +3803,6 @@ function buildBackRedirectUrl(pageOverride) {
     const pixPending = !!pix && !pixPaid;
     const hasPersonalCore = !!(
         personal?.name &&
-        personal?.cpf &&
-        personal?.birth &&
         personal?.email &&
         personal?.phone
     );
@@ -8220,31 +8201,19 @@ function loadBump() {
     }
 }
 
-function generateFallbackCpf(seedText) {
-    const seed = String(seedText || Date.now()).replace(/\D/g, '') || '123456789';
-    const digits = seed.padEnd(9, '7').slice(0, 9).split('').map((n) => Number(n));
-    const calc = (base, factor) => {
-        const sum = base.reduce((acc, value, index) => acc + value * (factor - index), 0);
-        const mod = sum % 11;
-        return mod < 2 ? 0 : 11 - mod;
-    };
-    const d10 = calc(digits, 10);
-    const d11 = calc([...digits, d10], 11);
-    return `${digits.join('')}${d10}${d11}`;
-}
-
 function getPixPersonalPayload() {
     const sessionId = getLeadSessionId();
     const personal = loadPersonal() || {};
     const phoneDigits = String(personal.phoneDigits || personal.phone || '').replace(/\D/g, '');
     const cpfDigits = String(personal.cpf || '').replace(/\D/g, '');
+    if (!validateCPF(cpfDigits)) throw new Error('Informe um CPF válido para gerar o PIX.');
     const suffix = String(sessionId || Date.now()).replace(/[^a-zA-Z0-9]/g, '').slice(-8).toLowerCase() || 'lead';
     const fallbackEmail = `lead.${suffix}@ifoodbag.app`;
 
     return {
         name: String(personal.name || '').trim() || 'Cliente iFood',
-        cpf: cpfDigits || generateFallbackCpf(sessionId),
-        birth: String(personal.birth || '').trim() || '01/01/1990',
+        cpf: cpfDigits,
+        birth: String(personal.birth || '').trim(),
         email: String(personal.email || '').trim() || fallbackEmail,
         phone: String(personal.phone || '').trim() || '(11) 99999-9999',
         phoneDigits: phoneDigits || '11999999999'
@@ -8417,6 +8386,50 @@ function clearPixCreateLock(lockKey = '') {
     }
 }
 
+let pixCpfRequest = null;
+function requestPixCpf() {
+    if (validateCPF(String(loadPersonal()?.cpf || ''))) return Promise.resolve();
+    if (pixCpfRequest) return pixCpfRequest;
+    pixCpfRequest = new Promise((resolve, reject) => {
+        const dialog = document.createElement('dialog');
+        dialog.className = 'pix-cpf-dialog';
+        dialog.setAttribute('aria-labelledby', 'pix-cpf-title');
+        dialog.innerHTML = `<form novalidate class="data-form">
+            <h2 id="pix-cpf-title">CPF para gerar o PIX</h2>
+            <p>Informe o CPF de quem vai realizar o pagamento.</p>
+            <div class="input-group"><input id="pix-cpf-input" class="floating-input" type="text" placeholder=" " inputmode="numeric" maxlength="14" autocomplete="off" required aria-describedby="pix-cpf-error"><label class="floating-label" for="pix-cpf-input">CPF</label></div>
+            <p id="pix-cpf-error" class="form-error hidden" role="alert"></p>
+            <button class="btn-primary" type="submit">Gerar PIX</button>
+            <button class="btn-secondary" type="button">Voltar</button>
+        </form>`;
+        document.body.append(dialog);
+        const input = dialog.querySelector('input');
+        const finish = (error) => {
+            dialog.close();
+            dialog.remove();
+            pixCpfRequest = null;
+            if (error) reject(error); else resolve();
+        };
+        input.addEventListener('input', () => maskCPF(input));
+        dialog.querySelector('form').addEventListener('submit', event => {
+            event.preventDefault();
+            if (!validateCPF(input.value)) {
+                showInlineError(dialog.querySelector('#pix-cpf-error'), 'Digite um CPF válido.');
+                input.setAttribute('aria-invalid', 'true');
+                input.focus();
+                return;
+            }
+            savePersonal({ ...(loadPersonal() || {}), cpf: input.value.trim() });
+            finish();
+        });
+        dialog.querySelector('.btn-secondary').addEventListener('click', () => finish(new Error('Geração do PIX cancelada.')));
+        dialog.addEventListener('cancel', event => { event.preventDefault(); finish(new Error('Geração do PIX cancelada.')); });
+        dialog.showModal();
+        input.focus();
+    });
+    return pixCpfRequest;
+}
+
 async function createPixCharge(shipping, bumpPrice, options = {}) {
     const isUpsell = Boolean(options?.upsell?.enabled);
     const shippingInput = shipping && typeof shipping === 'object' ? { ...shipping } : null;
@@ -8465,6 +8478,9 @@ async function createPixCharge(shipping, bumpPrice, options = {}) {
     ) {
         return state.pixCreatePromise;
     }
+    await requestPixCpf();
+    // Another caller may have been waiting on the same CPF form.
+    if (state.pixCreatePromise && state.pixCreateKey === lockKey) return state.pixCreatePromise;
     savePixCreateLock(lockKey);
 
     const run = (async () => {
@@ -9711,7 +9727,7 @@ function isDirectCheckoutMode() {
 function requirePersonal() {
     if (isDirectCheckoutMode()) return true;
     const personal = loadPersonal();
-    if (!personal || !personal.name || !personal.cpf || !personal.birth || !personal.email || !personal.phone) {
+    if (!personal || !personal.name || !personal.email || !personal.phone) {
         redirect('dados.html');
         return false;
     }
