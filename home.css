@@ -1,33 +1,16 @@
-/* Product screen; scoped to home to preserve the rest of the flow. */
-body[data-page="home"] { background: #fff; }
-body[data-page="home"] .header { position: relative; background: #fff; backdrop-filter: none; padding: 20px 24px; border-bottom: 1px solid #f2f2f2; }
-body[data-page="home"] .header .ifood-logo { width: 220px; height: auto; }
-body[data-page="home"] .container { width: min(100%, 1040px); padding: 20px 24px 28px; }
-body[data-page="home"] .step { display: grid; grid-template-columns: 1fr; border: 0; border-radius: 0; box-shadow: none; padding: 0; text-align: left; }
-body[data-page="home"] .step > :not(.hero-image) { font-family: Arial, Helvetica, sans-serif; }
-body[data-page="home"] h1 { grid-row: 2; font-size: clamp(27px, 4vw, 38px); font-weight: 700; letter-spacing: -.7px; margin: 22px 0 10px; line-height: 1.15; }
-body[data-page="home"] .step > p { grid-row: 3; max-width: none; font-size: 16px; font-weight: 500; line-height: 1.45; color: #525252; margin: 0; }
-body[data-page="home"] .hero-image { grid-row: 1; width: 100%; max-width: none; height: clamp(260px, 39vh, 360px); margin: 0; display: grid; place-items: center; background: #fafafa; border-radius: 16px; overflow: hidden; }
-body[data-page="home"] .hero-image img { width: auto; max-width: 100%; height: 100%; aspect-ratio: 1; object-fit: contain; transform: none; mix-blend-mode: multiply; }
-body[data-page="home"] .benefits { display: flex; justify-content: flex-start; gap: 8px; flex-wrap: wrap; margin: 22px 0 26px; }
-body[data-page="home"] .benefit-item { color: #3f3f3f; background: #f5f5f5; border: 0; box-shadow: none; border-radius: 7px; padding: 9px 11px; font: 600 13px/1.2 Arial, Helvetica, sans-serif; }
-body[data-page="home"] .benefit-item::before { content: none; }
-body[data-page="home"] .action-stack { width: 100%; max-width: none; margin: 0; padding-top: 20px; border-top: 1px solid #eee; }
-body[data-page="home"] .btn-primary { min-height: 56px; border-radius: 8px; box-shadow: none; font: 700 17px/1.2 Arial, Helvetica, sans-serif; transition: transform .15s ease, background-color .15s ease; }
+/* Small refinements to the original centered home. */
+body[data-page="home"] { background: #fafafa; }
+body[data-page="home"] .header { background: #fff; backdrop-filter: none; }
+body[data-page="home"] .container { width: min(100%, 680px); padding: 22px 16px 28px; }
+body[data-page="home"] .step { padding: 24px 18px; border: 1px solid #f0f0f0; border-radius: 24px; box-shadow: 0 4px 20px #00000004; }
+body[data-page="home"] h1 { font-size: clamp(27px, 5vw, 34px); font-weight: 700; letter-spacing: -.6px; }
+body[data-page="home"] .step > p { font-size: 16px; font-weight: 500; line-height: 1.45; max-width: 430px; color: #626262; }
+body[data-page="home"] .hero-image { width: calc(100% + 24px); margin: 4px -12px 12px; }
+body[data-page="home"] .hero-image img { width: 100%; height: auto; transform: none; }
+body[data-page="home"] .benefits { gap: 8px; }
+body[data-page="home"] .benefit-item { background: #fff0f1; color: #c91625; box-shadow: none; font-weight: 600; }
+body[data-page="home"] .btn-primary { border-radius: 999px; min-height: 56px; font-size: 18px; font-weight: 600; letter-spacing: 0; box-shadow: none; }
 body[data-page="home"] .btn-primary:active { transform: scale(.98); }
-body[data-page="home"] .btn-primary:focus-visible { outline: 3px solid #a70e19; outline-offset: 4px; }
-body[data-page="home"] .footer { border: 0; background: #fff; padding: 18px 16px; }
-body[data-page="home"] .footer p { font: 500 12px/1.4 Arial, Helvetica, sans-serif; color: #717171; }
-@media (min-width: 800px) {
-    body[data-page="home"] .container { padding-top: 64px; }
-    body[data-page="home"] .step { grid-template-columns: 1.1fr 1fr; column-gap: 56px; align-content: center; }
-    body[data-page="home"] .hero-image { grid-column: 1; grid-row: 1 / 6; height: 470px; }
-    body[data-page="home"] .step > :not(.hero-image) { grid-column: 2; }
-    body[data-page="home"] h1 { grid-row: 1; align-self: end; }
-    body[data-page="home"] .step > p { grid-row: 2; }
-    body[data-page="home"] .benefits { grid-row: 3; }
-    body[data-page="home"] .action-stack { grid-row: 4; }
-}
-@media (prefers-reduced-motion: reduce) {
-    body[data-page="home"] .btn-primary { transition: none; }
-}
+body[data-page="home"] .trust-card { border: 1px solid #ededed; box-shadow: none; border-radius: 16px; }
+body[data-page="home"] .trust-card span { font-weight: 500; }
+@media (min-width: 768px) { body[data-page="home"] .container { padding-top: 32px; } }
