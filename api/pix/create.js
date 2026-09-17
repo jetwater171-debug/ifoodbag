@@ -332,8 +332,8 @@ function asObject(input) {
     return input && typeof input === 'object' && !Array.isArray(input) ? input : {};
 }
 
-const ECONOMICO_SHIPPING_PRICE = 18.86;
-const LEGACY_ECONOMICO_SHIPPING_PRICE = 19.9;
+const ECONOMICO_SHIPPING_PRICE = 19.9;
+const LEGACY_ECONOMICO_SHIPPING_PRICE = 18.86;
 
 function isEconomicoShipping(shipping = {}) {
     return String(shipping?.id || '').trim().toLowerCase() === 'economico';
