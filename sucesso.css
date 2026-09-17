@@ -13,10 +13,18 @@ body[data-page="success"] .success-intro { color: #717171; font-size: 15px; font
 
 body[data-page="success"] .product-card { width: 100%; padding: 0; margin: 0; border: 0; border-radius: 0; box-shadow: none; }
 body[data-page="success"] .success-offer-grid { display: flex; flex-direction: column; gap: 12px; }
-body[data-page="success"] .success-reward-card { width: 100%; min-height: 112px; padding: 12px 16px 12px 12px; display: flex; flex-direction: row; align-items: center; gap: 16px; text-align: left; border: 1px solid #e8e8e8; border-radius: 16px; background: #fff; box-shadow: none; transform: none; transition: border-color .16s, background-color .16s; }
+body[data-page="success"] .success-reward-card { position: relative; width: 100%; min-height: 112px; padding: 12px 16px 12px 12px; display: flex; flex-direction: row; align-items: center; gap: 16px; text-align: left; border: 1px solid #e8e8e8; border-radius: 16px; background: #fff; box-shadow: none; transform: none; transition: border-color .16s, background-color .16s; }
+body[data-page="success"] [data-reward-id="bau"],
+body[data-page="success"] [data-reward-id="kit_entregador"] { min-height: 132px; padding-top: 30px; }
 body[data-page="success"] .success-reward-card:hover { border-color: #ea1d2c; background: #fff8f8; box-shadow: none; }
 body[data-page="success"] .success-reward-card:focus-visible { outline: 3px solid #ea1d2c; outline-offset: 3px; }
 body[data-page="success"] .success-reward-card.is-selected { border-color: #ea1d2c; background: #fff4f5; box-shadow: none; transform: none; }
+body[data-page="success"] .success-reward-flame { position: absolute; z-index: 1; top: 8px; left: 14px; display: inline-flex; align-items: center; gap: 4px; height: 18px; padding: 0; pointer-events: none; }
+body[data-page="success"] .success-reward-flame svg { width: 19px; height: 19px; flex: 0 0 19px; }
+body[data-page="success"] .success-flame-shape { fill: #ea1d2c; }
+body[data-page="success"] .success-flame-core { fill: #fff; }
+body[data-page="success"] .success-reward-flame-text { max-width: 0; overflow: hidden; color: #262626; font-size: 11px; font-weight: 600; line-height: 1; white-space: nowrap; opacity: 0; animation: success-flame-unfold .65s cubic-bezier(.2, .8, .2, 1) .2s forwards; }
+@keyframes success-flame-unfold { to { max-width: 80px; opacity: 1; } }
 body[data-page="success"] .success-reward-media,
 body[data-page="success"] [data-reward-id="kit_entregador"] .success-reward-media { width: 88px; height: 88px; min-height: 0; flex: 0 0 88px; display: grid; place-items: center; border-radius: 12px; background: #f8f8f8; overflow: hidden; }
 body[data-page="success"] .success-reward-image,
@@ -33,12 +41,13 @@ body[data-page="success"] .is-selected .success-reward-radio { border: 6px solid
 body[data-page="success"] .action-stack { margin-top: 28px; }
 body[data-page="success"] .btn-primary { min-height: 56px; border-radius: 999px; font-size: 17px; font-weight: 600; box-shadow: none; }
 body[data-page="success"] #btn-checkout:disabled { background: #efb1b6; color: #fff; box-shadow: none; }
-body[data-page="success"] .shipping-note { max-width: none; margin: 14px 0 0; color: #717171; font-size: 13px; line-height: 1.5; text-align: center; }
 body[data-page="success"] .footer { background: #fff; border: 0; padding: 18px 20px calc(18px + env(safe-area-inset-bottom)); }
 body[data-page="success"] .footer p { font-size: 11px; color: #858585; margin: 0; }
 
 @media (max-width: 380px) {
     body[data-page="success"] .success-reward-card { gap: 10px; padding: 10px; }
+    body[data-page="success"] [data-reward-id="bau"],
+    body[data-page="success"] [data-reward-id="kit_entregador"] { min-height: 120px; padding-top: 28px; }
     body[data-page="success"] .success-reward-media,
     body[data-page="success"] [data-reward-id="kit_entregador"] .success-reward-media { width: 72px; height: 80px; flex-basis: 72px; }
     body[data-page="success"] .success-reward-title { font-size: 15px; }
@@ -51,4 +60,5 @@ body[data-page="success"] .footer p { font-size: 11px; color: #858585; margin: 0
 }
 @media (prefers-reduced-motion: reduce) {
     body[data-page="success"] .success-reward-card { transition: none; }
+    body[data-page="success"] .success-reward-flame-text { max-width: none; opacity: 1; animation: none; }
 }
