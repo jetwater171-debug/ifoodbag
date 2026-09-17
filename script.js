@@ -1678,6 +1678,8 @@ function initCheckout() {
     const summaryAddress = document.getElementById('summary-address');
     const summaryCep = document.getElementById('summary-cep');
     const summaryBlock = document.getElementById('summary-block');
+    const summaryItem = document.getElementById('summary-item');
+    const summaryItemImage = document.getElementById('summary-item-image');
     const freightForm = document.getElementById('freight-form');
     const checkoutCep = document.getElementById('checkout-cep');
     const btnCalcFreight = document.getElementById('btn-calc-freight');
@@ -1828,6 +1830,11 @@ function initCheckout() {
     if (summaryName) summaryName.textContent = personal?.name || '-';
     if (summaryCpf) summaryCpf.textContent = personal?.cpf || '-';
     if (summaryBirth) summaryBirth.textContent = personal?.birth || '-';
+    if (summaryItem) summaryItem.textContent = reward?.name || 'Item selecionado';
+    if (summaryItemImage && reward?.asset) {
+        summaryItemImage.src = reward.asset;
+        summaryItemImage.alt = reward?.name || 'Item selecionado';
+    }
     const formatSummaryAddress = () => {
         const base = address?.streetLine || '-';
         const city = address?.cityLine || '-';
