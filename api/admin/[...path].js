@@ -2620,10 +2620,18 @@ function sanitizeLeadSearchValue(value = '') {
         .trim();
 }
 
+function extractCampaignSearchValue(query = '') {
+    const withoutLabel = String(query || '')
+        .trim()
+        .replace(/^\s*(?:(?:campaign|campanha)[_\s-]*id|id[_\s-]*(?:da[_\s-]*)?(?:campaign|campanha))\s*[:#=\-]?\s*/i, '');
+    return sanitizeLeadSearchValue(withoutLabel);
+}
+
 function buildLeadSearchOrFilter(query = '') {
     const text = sanitizeLeadSearchValue(query);
     const digits = String(query || '').replace(/\D/g, '');
-    const filters = [];
+    const campaignText = extractCampaignSearchValue(query);
+    const filters = new Set();
     const textColumns = [
         'name',
         'email',
@@ -2646,17 +2654,33 @@ function buildLeadSearchOrFilter(query = '') {
 
     if (text) {
         textColumns.forEach((column) => {
-            filters.push(`${column}.ilike.*${text}*`);
+            filters.add(`${column}.ilike.*${text}*`);
+        });
+    }
+
+    if (campaignText) {
+        [
+            'utm_campaign',
+            'payload->>campaign_id',
+            'payload->>campaign',
+            'payload->>utm_campaign',
+            'payload->>sck',
+            'payload->utm->>campaign_id',
+            'payload->utm->>campaign',
+            'payload->utm->>utm_campaign',
+            'payload->utm->>sck'
+        ].forEach((column) => {
+            filters.add(`${column}.ilike.*${campaignText}*`);
         });
     }
 
     if (digits && digits !== text) {
         ['phone', 'cpf', 'pix_txid'].forEach((column) => {
-            filters.push(`${column}.ilike.*${digits}*`);
+            filters.add(`${column}.ilike.*${digits}*`);
         });
     }
 
-    return filters.length ? `(${filters.join(',')})` : '';
+    return filters.size ? `(${Array.from(filters).join(',')})` : '';
 }
 
 function applyLeadFiltersToUrl(url, { range = null, query = '', limit = 50, offset = 0, select = LEADS_SELECT_FIELDS } = {}) {
