@@ -12,8 +12,9 @@
     <meta name="description" content="Responda o questionário para verificar sua elegibilidade.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css?v=3.2">
+    <link rel="stylesheet" href="quiz.css?v=1">
 <script src="/backguard.js?v=1.5"></script>
 </head>
 
@@ -37,7 +38,8 @@
                 </div>
             </div>
 
-            <h2 id="question-text">Pergunta aqui</h2>
+            <h2 id="question-text" aria-live="polite" aria-atomic="true">Pergunta aqui</h2>
+            <p class="quiz-hint">Selecione uma opção para continuar.</p>
             <div id="options-container" class="options"></div>
 
 
