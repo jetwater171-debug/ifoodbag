@@ -577,3 +577,71 @@ body[data-page="checkout"] .footer { background: #f7f7f7; }
     body[data-page="checkout"] .checkout-action-panel,
     body[data-page="checkout"] .checkout-reservation-state i { animation: none; }
 }
+
+/* Smooth hand-off to the optional protection step. */
+.checkout-to-bump {
+    --transition-x: 50vw;
+    --transition-y: 50vh;
+    position: fixed;
+    z-index: 9999;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    pointer-events: all;
+    color: #fff;
+    background: linear-gradient(145deg, #ea1d2c 0%, #d91423 100%);
+    clip-path: circle(0 at var(--transition-x) var(--transition-y));
+    transition: clip-path .7s cubic-bezier(.72, 0, .2, 1);
+}
+.checkout-to-bump::before,
+.checkout-to-bump::after {
+    content: '';
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+}
+.checkout-to-bump::before { top: -24vmax; right: -18vmax; width: 62vmax; height: 62vmax; border: 1px solid rgba(255,255,255,.1); background: radial-gradient(circle at 35% 65%, rgba(255,255,255,.12), transparent 62%); }
+.checkout-to-bump::after { left: -21vmax; bottom: -28vmax; width: 66vmax; height: 66vmax; background: radial-gradient(circle at center, rgba(113,0,9,.2), transparent 65%); }
+.checkout-to-bump.is-active { clip-path: circle(155vmax at var(--transition-x) var(--transition-y)); }
+.checkout-to-bump__content { position: relative; z-index: 2; display: grid; width: min(100%, 430px); place-items: center; padding: 28px; opacity: 0; transform: translateY(12px); text-align: center; transition: opacity .28s .34s ease, transform .48s .3s cubic-bezier(.16,1,.3,1); }
+.checkout-to-bump.is-active .checkout-to-bump__content { opacity: 1; transform: translateY(0); }
+.checkout-to-bump__content > img { width: min(225px, 65vw); filter: brightness(0) invert(1); }
+.checkout-to-bump__status { display: grid; width: 100%; gap: 8px; margin-top: 30px; text-align: left; }
+.checkout-to-bump__line { display: grid; grid-template-columns: 28px minmax(0, 1fr) 2px; align-items: center; min-height: 42px; padding: 7px 10px; border: 1px solid transparent; border-radius: 13px; color: rgba(255,255,255,.48); font-size: 14px; font-weight: 600; opacity: .56; transform: translateY(5px); transition: opacity .28s, transform .38s cubic-bezier(.16,1,.3,1), background-color .28s, border-color .28s; }
+.checkout-to-bump__line.is-active { border-color: rgba(255,255,255,.14); color: #fff; background: rgba(255,255,255,.09); opacity: 1; transform: translateY(0); }
+.checkout-to-bump__line.is-done { color: rgba(255,255,255,.88); opacity: 1; transform: translateY(0); }
+.checkout-to-bump__check { display: grid; width: 21px; height: 21px; place-items: center; border-radius: 50%; background: rgba(255,255,255,.13); transition: background-color .25s, transform .35s cubic-bezier(.16,1,.3,1); }
+.checkout-to-bump__check svg { width: 13px; height: 13px; fill: transparent; transition: fill .2s; }
+.checkout-to-bump__line.is-active .checkout-to-bump__check { animation: checkout-transition-pulse 1s ease-in-out infinite; }
+.checkout-to-bump__line.is-done .checkout-to-bump__check { background: #fff; transform: scale(1.02); }
+.checkout-to-bump__line.is-done .checkout-to-bump__check svg { fill: #ea1d2c; }
+.checkout-to-bump__message { display: grid; min-width: 0; gap: 3px; }
+.checkout-to-bump__typed { min-width: 0; line-height: 1.3; }
+.checkout-to-bump__caret { width: 2px; height: 18px; border-radius: 2px; background: transparent; }
+.checkout-to-bump__line.is-active .checkout-to-bump__caret { background: #fff; animation: checkout-transition-caret .62s steps(1) infinite; }
+.checkout-to-bump__line--offer { margin-top: 3px; transform-origin: center; }
+.checkout-to-bump__offer-label { display: block; max-height: 0; overflow: hidden; color: #198744; font-size: 9px; font-weight: 800; letter-spacing: .09em; opacity: 0; text-transform: uppercase; transform: translateY(5px); transition: max-height .35s, opacity .3s .08s, transform .45s .04s cubic-bezier(.16,1,.3,1); }
+.checkout-to-bump__line--offer.is-active { border-color: rgba(255,255,255,.22); background: rgba(255,255,255,.13); }
+.checkout-to-bump__line--offer.is-done { z-index: 2; padding-top: 11px; padding-bottom: 11px; border-color: rgba(255,255,255,.92); color: #d81726; background: #fff; box-shadow: 0 16px 42px rgba(101,0,9,.22); transform: scale(1.035); animation: checkout-offer-unlocked .58s cubic-bezier(.16,1,.3,1) both; }
+.checkout-to-bump__line--offer.is-done .checkout-to-bump__typed { font-size: 15px; font-weight: 750; }
+.checkout-to-bump__line--offer.is-done .checkout-to-bump__check { background: #e8f8ed; box-shadow: 0 0 0 6px rgba(25,135,68,.08); }
+.checkout-to-bump__line--offer.is-done .checkout-to-bump__check svg { fill: #198744; }
+.checkout-to-bump__line--offer.is-done .checkout-to-bump__offer-label { max-height: 18px; opacity: 1; transform: translateY(0); }
+.checkout-to-bump.has-offer::before { animation: checkout-offer-glow .8s ease-out both; }
+.checkout-to-bump__progress { width: calc(100% - 20px); height: 3px; margin-top: 22px; overflow: hidden; border-radius: 99px; background: rgba(255,255,255,.2); }
+.checkout-to-bump__progress i { display: block; width: 100%; height: 100%; border-radius: inherit; background: #fff; transform: translateX(-100%); }
+.checkout-to-bump.is-active .checkout-to-bump__progress i { animation: checkout-transition-progress 4s .35s linear forwards; }
+body[data-page="checkout"] #btn-finish.is-transitioning { transform: scale(1.035); box-shadow: 0 0 0 8px rgba(234,29,44,.12), 0 16px 36px rgba(234,29,44,.32); }
+
+@keyframes checkout-transition-caret { 0%, 48% { opacity: 1; } 49%, 100% { opacity: 0; } }
+@keyframes checkout-transition-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,.16); } 50% { box-shadow: 0 0 0 5px rgba(255,255,255,0); } }
+@keyframes checkout-transition-progress { to { transform: translateX(0); } }
+@keyframes checkout-offer-unlocked { 0% { opacity: .4; transform: scale(.94); } 58% { transform: scale(1.055); } 100% { opacity: 1; transform: scale(1.035); } }
+@keyframes checkout-offer-glow { 0% { opacity: .35; transform: scale(.98); } 55% { opacity: 1; transform: scale(1.04); } 100% { opacity: .7; transform: scale(1); } }
+
+@media (prefers-reduced-motion: reduce) {
+    .checkout-to-bump { clip-path: none; transition: none; }
+    .checkout-to-bump__content { opacity: 1; transform: none; transition: none; }
+    .checkout-to-bump__line, .checkout-to-bump__check, .checkout-to-bump__caret, .checkout-to-bump__progress i { animation: none !important; transition: none; }
+}

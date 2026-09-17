@@ -2362,7 +2362,7 @@ function initCheckout() {
             .then((enabled) => {
                 if (enabled) {
                     setStage('orderbump');
-                    redirect('orderbump.html');
+                    playCheckoutToOrderBumpTransition(btnFinish).then(() => redirect('orderbump.html'));
                     return;
                 }
                 trackLead('orderbump_skipped', {
@@ -2380,15 +2380,134 @@ function initCheckout() {
                 });
             })
             .catch(() => {
-                checkoutSubmitting = false;
-                btnFinish.textContent = idleLabel;
                 setStage('orderbump');
-                redirect('orderbump.html');
+                playCheckoutToOrderBumpTransition(btnFinish).then(() => redirect('orderbump.html'));
             });
     });
 }
 
+function playCheckoutToOrderBumpTransition(button) {
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true;
+    const rect = button?.getBoundingClientRect?.();
+    const originX = rect ? rect.left + (rect.width / 2) : window.innerWidth / 2;
+    const originY = rect ? rect.top + (rect.height / 2) : window.innerHeight / 2;
+    const reward = loadRewardSelection();
+    const reservationCopy = reward?.id === 'bau'
+        ? 'Reservando seu baú'
+        : reward?.id === 'kit_entregador'
+            ? 'Reservando seu kit de entregador'
+            : 'Reservando sua bag';
+    const transitionMessages = [
+        'Concluindo seu pedido',
+        reservationCopy,
+        'Promoção de Seguro Bag liberada'
+    ];
+
+    try {
+        sessionStorage.setItem('ifoodbag.orderbumpIntro', '1');
+    } catch (_error) {
+        // The navigation still works if browser storage is unavailable.
+    }
+
+    button?.classList.add('is-transitioning');
+    if (button) button.textContent = 'Preparando sua última escolha...';
+
+    const transition = document.createElement('div');
+    transition.className = 'checkout-to-bump';
+    transition.setAttribute('aria-hidden', 'true');
+    transition.style.setProperty('--transition-x', `${originX}px`);
+    transition.style.setProperty('--transition-y', `${originY}px`);
+    transition.innerHTML = `
+        <div class="checkout-to-bump__content">
+            <img src="assets/ifoodentregadores-wink-v1.svg" alt="">
+            <div class="checkout-to-bump__status" role="status" aria-live="polite">
+                ${transitionMessages.map((_, index) => `
+                    <div class="checkout-to-bump__line${index === transitionMessages.length - 1 ? ' checkout-to-bump__line--offer' : ''}" data-transition-line="${index}">
+                        <span class="checkout-to-bump__check" aria-hidden="true">
+                            <svg viewBox="0 0 24 24"><path d="m9.2 16.6-4.3-4.3 1.8-1.8 2.5 2.5 7.9-7.9 1.8 1.8-9.7 9.7Z"/></svg>
+                        </span>
+                        <span class="checkout-to-bump__message">
+                            <span class="checkout-to-bump__typed"></span>
+                            ${index === transitionMessages.length - 1 ? '<small class="checkout-to-bump__offer-label">Oferta liberada para você</small>' : ''}
+                        </span>
+                        <i class="checkout-to-bump__caret" aria-hidden="true"></i>
+                    </div>`).join('')}
+            </div>
+            <span class="checkout-to-bump__progress"><i></i></span>
+        </div>`;
+    document.body.appendChild(transition);
+    document.documentElement.style.overflow = 'hidden';
+
+    return new Promise((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => transition.classList.add('is-active')));
+        if (reducedMotion) {
+            transition.querySelectorAll('.checkout-to-bump__line').forEach((line, index) => {
+                const typed = line.querySelector('.checkout-to-bump__typed');
+                if (typed) typed.textContent = transitionMessages[index];
+                line.classList.add('is-done');
+            });
+            window.setTimeout(resolve, 250);
+            return;
+        }
+
+        const wait = (duration) => new Promise((done) => window.setTimeout(done, duration));
+        const typeLine = async (line, message) => {
+            const typed = line?.querySelector('.checkout-to-bump__typed');
+            if (!line || !typed) return;
+            line.classList.add('is-active');
+            for (const character of Array.from(message)) {
+                typed.textContent += character;
+                await wait(24);
+            }
+            await wait(150);
+            line.classList.remove('is-active');
+            line.classList.add('is-done');
+            if (line.classList.contains('checkout-to-bump__line--offer')) {
+                transition.classList.add('has-offer');
+            }
+        };
+
+        (async () => {
+            const animationStartedAt = performance.now();
+            await wait(540);
+            const lines = Array.from(transition.querySelectorAll('.checkout-to-bump__line'));
+            for (let index = 0; index < transitionMessages.length; index += 1) {
+                await typeLine(lines[index], transitionMessages[index]);
+            }
+            await wait(Math.max(300, 4000 - (performance.now() - animationStartedAt)));
+            resolve();
+        })();
+    });
+}
+
+function runOrderBumpIntro() {
+    const root = document.documentElement;
+    const intro = document.getElementById('orderbump-intro');
+    if (!root.classList.contains('orderbump-intro-pending') || !intro) return;
+
+    try {
+        sessionStorage.removeItem('ifoodbag.orderbumpIntro');
+    } catch (_error) {
+        // The animation can finish even if browser storage is unavailable.
+    }
+
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true;
+    if (reducedMotion) {
+        root.classList.remove('orderbump-intro-pending');
+        intro.remove();
+        return;
+    }
+
+    requestAnimationFrame(() => intro.classList.add('is-ready'));
+    window.setTimeout(() => {
+        intro.classList.add('is-leaving');
+        root.classList.remove('orderbump-intro-pending');
+    }, 180);
+    window.setTimeout(() => intro.remove(), 850);
+}
+
 function initOrderBump() {
+    runOrderBumpIntro();
     if (!requirePersonal()) return;
     if (!requireAddress()) return;
     const reward = loadRewardSelection();
@@ -2443,11 +2562,21 @@ function initOrderBump() {
     const btnAccept = document.getElementById('btn-bump-accept');
     const btnDecline = document.getElementById('btn-bump-decline');
     const bumpTotal = document.getElementById('bump-total');
+    const bumpBaseTotal = document.getElementById('bump-base-total');
     const bumpMonthly = document.getElementById('bump-monthly');
     const bumpLoading = document.getElementById('bump-loading');
+    const bumpItemName = document.getElementById('bump-item-name');
+    const bumpItemImage = document.getElementById('bump-item-image');
 
-    if (bumpTotal) bumpTotal.textContent = formatCurrency(shipping.price + rewardExtraPrice + bumpPrice);
+    const baseTotal = Number(shipping.price || 0) + rewardExtraPrice;
+    if (bumpBaseTotal) bumpBaseTotal.textContent = formatCurrency(baseTotal);
+    if (bumpTotal) bumpTotal.textContent = formatCurrency(baseTotal + bumpPrice);
     if (bumpMonthly) bumpMonthly.textContent = formatCurrency(bumpPrice);
+    if (bumpItemName) bumpItemName.textContent = reward.name || 'Bag do iFood';
+    if (bumpItemImage) {
+        bumpItemImage.src = reward.asset || 'assets/bagfoto.webp';
+        bumpItemImage.alt = reward.pixAlt || reward.name || 'Item reservado';
+    }
 
     const proceedToPix = (selected) => {
         if (btnAccept) btnAccept.disabled = true;
