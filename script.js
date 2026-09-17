@@ -1568,7 +1568,6 @@ function initSuccess() {
     const personal = loadPersonal();
     const rewardCards = Array.from(document.querySelectorAll('.success-reward-card'));
     const leadName = document.getElementById('lead-name');
-    const timer = document.getElementById('timer');
     const btnCheckout = document.getElementById('btn-checkout');
     let selectedReward = loadRewardSelection();
 
@@ -1612,8 +1611,6 @@ function initSuccess() {
             });
         });
     });
-
-    startTimer(300, timer);
 
     btnCheckout?.addEventListener('click', () => {
         const reward = loadRewardSelection();

