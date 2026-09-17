@@ -19,16 +19,23 @@ body[data-page="success"] [data-reward-id="kit_entregador"] { min-height: 132px;
 body[data-page="success"] .success-reward-card:hover { border-color: #ea1d2c; background: #fff8f8; box-shadow: none; }
 body[data-page="success"] .success-reward-card:focus-visible { outline: 3px solid #ea1d2c; outline-offset: 3px; }
 body[data-page="success"] .success-reward-card.is-selected { border-color: #ea1d2c; background: #fff4f5; box-shadow: none; transform: none; }
-body[data-page="success"] .success-reward-flame { position: absolute; z-index: 1; top: 8px; left: 14px; display: inline-flex; align-items: center; gap: 4px; height: 18px; padding: 0; pointer-events: none; }
+body[data-page="success"] .success-reward-flame { position: absolute; z-index: 1; top: 15px; left: 14px; display: inline-flex; align-items: center; gap: 4px; height: 18px; padding: 0; pointer-events: none; }
 body[data-page="success"] .success-reward-flame svg { width: 19px; height: 19px; flex: 0 0 19px; }
 body[data-page="success"] .success-flame-shape { fill: #ea1d2c; }
 body[data-page="success"] .success-flame-core { fill: #fff; }
-body[data-page="success"] .success-reward-flame-text { max-width: 0; overflow: hidden; color: #262626; font-size: 11px; font-weight: 600; line-height: 1; white-space: nowrap; opacity: 0; animation: success-flame-unfold .65s cubic-bezier(.2, .8, .2, 1) .2s forwards; }
-@keyframes success-flame-unfold { to { max-width: 80px; opacity: 1; } }
+body[data-page="success"] .success-reward-flame-text { max-width: 0; overflow: hidden; color: #262626; font-size: 11px; font-weight: 600; line-height: 1; white-space: nowrap; opacity: 0; animation: success-flame-unfold 3.25s linear infinite; }
+@keyframes success-flame-unfold {
+    0% { max-width: 0; opacity: 0; transform: translateX(-4px); animation-timing-function: cubic-bezier(.16, 1, .3, 1); }
+    20%, 81.5% { max-width: 80px; opacity: 1; transform: translateX(0); }
+    81.5% { animation-timing-function: cubic-bezier(.4, 0, .8, 1); }
+    100% { max-width: 0; opacity: 0; transform: translateX(-4px); }
+}
 body[data-page="success"] .success-reward-media,
-body[data-page="success"] [data-reward-id="kit_entregador"] .success-reward-media { width: 88px; height: 88px; min-height: 0; flex: 0 0 88px; display: grid; place-items: center; border-radius: 12px; background: #f8f8f8; overflow: hidden; }
+body[data-page="success"] [data-reward-id="kit_entregador"] .success-reward-media { width: 88px; height: 88px; min-height: 0; flex: 0 0 88px; display: grid; place-items: center; border-radius: 0; background: transparent; overflow: visible; }
 body[data-page="success"] .success-reward-image,
-body[data-page="success"] [data-reward-id="kit_entregador"] .success-reward-image { width: 100%; height: 100%; max-width: none; max-height: none; object-fit: contain; transform: none; }
+body[data-page="success"] [data-reward-id="kit_entregador"] .success-reward-image { width: 100%; height: 100%; max-width: none; max-height: none; object-fit: contain; transform: scale(1.17); }
+body[data-page="success"] [data-reward-id="bau"] .success-reward-image,
+body[data-page="success"] [data-reward-id="kit_entregador"] .success-reward-image { transform: translateY(2px) scale(1.17); }
 body[data-page="success"] .success-reward-copy { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 8px; }
 body[data-page="success"] .success-reward-title { color: #262626; font-size: 17px; font-weight: 600; line-height: 1.25; }
 body[data-page="success"] .price-row { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 2px; }
