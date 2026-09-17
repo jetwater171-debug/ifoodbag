@@ -1,0 +1,28 @@
+/* Personal information: same restrained visual language as the quiz. */
+body[data-page="personal"] { background: #fff; }
+body[data-page="personal"] .header { position: relative; background: #fff; border: 0; backdrop-filter: none; padding: calc(18px + env(safe-area-inset-top)) 24px 18px; }
+body[data-page="personal"] .ifood-logo--wide { width: 220px; max-width: 72vw; height: auto; }
+body[data-page="personal"] .container { width: min(100%, 560px); padding: 28px 24px 24px; }
+body[data-page="personal"] .step { background: transparent; border: 0; border-radius: 0; box-shadow: none; padding: 0; text-align: left; align-items: stretch; }
+body[data-page="personal"] .step-header { margin-bottom: 32px; }
+body[data-page="personal"] .step-count { color: #717171; font-size: 13px; font-weight: 600; letter-spacing: .02em; margin-bottom: 12px; }
+body[data-page="personal"] .progress-bar { height: 5px; background: #f1f1f1; }
+body[data-page="personal"] .progress { background: #ea1d2c; border-radius: inherit; }
+body[data-page="personal"] h2 { font-size: clamp(26px, 6vw, 32px); line-height: 1.18; font-weight: 700; letter-spacing: -.6px; color: #262626; margin: 0 0 12px; }
+body[data-page="personal"] .step > p { color: #717171; font-size: 15px; font-weight: 500; line-height: 1.5; margin: 0 0 28px; }
+body[data-page="personal"] .data-form { width: 100%; }
+body[data-page="personal"] .input-group { display: flex; flex-direction: column-reverse; gap: 9px; margin-bottom: 20px; }
+body[data-page="personal"] .floating-label,
+body[data-page="personal"] .floating-input:focus ~ .floating-label,
+body[data-page="personal"] .floating-input:not(:placeholder-shown) ~ .floating-label { position: static; transform: none; padding: 0; background: none; color: #3f3f3f; font-size: 15px; font-weight: 600; line-height: 1.3; }
+body[data-page="personal"] .floating-input { width: 100%; min-height: 58px; border: 1px solid #dedede; border-radius: 12px; padding: 15px 16px; background: #fff; color: #262626; font-size: 17px; font-weight: 500; line-height: 1.4; box-shadow: none; transition: border-color .15s, box-shadow .15s; }
+body[data-page="personal"] .floating-input:focus { border-color: #ea1d2c; box-shadow: 0 0 0 3px #ea1d2c0d; outline: none; }
+body[data-page="personal"] .floating-input:focus-visible { outline: 2px solid #ea1d2c; outline-offset: 2px; }
+body[data-page="personal"] .action-stack { margin-top: 28px; }
+body[data-page="personal"] .btn-primary { min-height: 56px; border-radius: 999px; font-size: 17px; font-weight: 600; box-shadow: none; }
+body[data-page="personal"] .form-error { font-size: 14px; line-height: 1.4; border-radius: 10px; }
+body[data-page="personal"] .footer { background: #fff; border: 0; padding: 18px 20px calc(18px + env(safe-area-inset-bottom)); }
+body[data-page="personal"] .footer p { font-size: 11px; color: #858585; margin: 0; }
+@media (max-height: 700px) { body[data-page="personal"] .container { padding-top: 12px; } body[data-page="personal"] .step-header { margin-bottom: 22px; } body[data-page="personal"] .input-group { margin-bottom: 16px; } body[data-page="personal"] .step > p { margin-bottom: 22px; } }
+@media (prefers-reduced-motion: reduce) { body[data-page="personal"] .floating-input { transition: none; } }
+body[data-page="personal"] .floating-label { pointer-events: auto; cursor: text; }

