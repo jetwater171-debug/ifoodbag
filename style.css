@@ -3927,18 +3927,56 @@ body[data-page='admin'][data-admin='smsmais'] .admin-section--card {
 }
 
 .smsmais-card--remarketing { order: 1; }
-.smsmais-card--leads { order: 2; }
-.smsmais-card--history { order: 3; }
-.smsmais-card--test { order: 4; }
-.smsmais-card--voice { order: 5; }
-.smsmais-card--health { order: 6; }
-.smsmais-card--config { order: 7; }
-.smsmais-card--webhook { order: 8; }
-.smsmais-card--queue { order: 9; }
+.smsmais-card--sales { order: 2; }
+.smsmais-card--leads { order: 3; }
+.smsmais-card--history { order: 4; }
+.smsmais-card--test { order: 5; }
+.smsmais-card--voice { order: 6; }
+.smsmais-card--health { order: 7; }
+.smsmais-card--config { order: 8; }
+.smsmais-card--webhook { order: 9; }
+.smsmais-card--queue { order: 10; }
 
+.smsmais-card--sales,
 .smsmais-card--leads,
 .smsmais-card--history {
     grid-column: 1 / -1;
+}
+
+.smsmais-sales-summary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin: 16px 0 14px;
+}
+
+.smsmais-sales-summary > div {
+    min-width: 0;
+    padding: 15px;
+    border: 1px solid #eeeef1;
+    border-radius: 15px;
+    background: #fafafa;
+}
+
+.smsmais-sales-summary span,
+.smsmais-sales-summary strong {
+    display: block;
+}
+
+.smsmais-sales-summary span {
+    margin-bottom: 6px;
+    color: #7b7e86;
+    font-size: 0.72rem;
+}
+
+.smsmais-sales-summary strong {
+    color: #202126;
+    font-size: 1.08rem;
+}
+
+.smsmais-sales-table td:nth-child(4) {
+    color: #087843;
+    font-weight: 800;
 }
 
 .smsmais-card--remarketing {
@@ -7062,6 +7100,7 @@ body.modal-open {
     }
     .smsmais-card--webhook,
     .smsmais-card--remarketing,
+    .smsmais-card--sales,
     .smsmais-card--leads,
     .smsmais-card--history,
     .smsmais-card--queue {
@@ -7076,6 +7115,10 @@ body.modal-open {
     }
     .smsmais-remarketing-controls {
         grid-template-columns: 1fr;
+    }
+
+    .smsmais-sales-summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
     .smsmais-automation-flow {
         align-items: stretch;
@@ -7264,6 +7307,7 @@ body.modal-open {
         min-width: 0;
     }
     .smsmais-card--config .admin-grid,
+    .smsmais-sales-summary,
     .smsmais-metrics,
     .smsmais-webhook-row {
         grid-template-columns: 1fr;

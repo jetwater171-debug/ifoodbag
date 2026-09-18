@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/style.css?v=3.6" />
+  <link rel="stylesheet" href="/style.css?v=3.7" />
   <script src="/backguard.js?v=1.5"></script>
 </head>
 <body data-page="admin" data-admin="smsmais">
@@ -201,6 +201,31 @@
           </div>
         </section>
 
+        <section class="admin-section admin-section--card smsmais-card smsmais-card--sales">
+          <div class="admin-section-header smsmais-list-header">
+            <div>
+              <span class="smsmais-section-kicker">CONVERSÕES</span>
+              <h2>Vendas recuperadas pelo remarketing</h2>
+              <p class="admin-hint">Mostra somente pagamentos confirmados que foram gerados pela tela de recuperação.</p>
+            </div>
+            <button id="smsmais-refresh-sales" class="btn-secondary" type="button">Atualizar vendas</button>
+          </div>
+          <div class="smsmais-sales-summary">
+            <div><span>Vendas recuperadas</span><strong id="smsmais-sales-count">0</strong></div>
+            <div><span>Faturamento recuperado</span><strong id="smsmais-sales-revenue">R$ 0,00</strong></div>
+            <div><span>Ticket médio</span><strong id="smsmais-sales-ticket">R$ 0,00</strong></div>
+            <div><span>Última venda</span><strong id="smsmais-sales-last">—</strong></div>
+          </div>
+          <div class="smsmais-table-wrap">
+            <table class="smsmais-data-table smsmais-sales-table">
+              <thead><tr><th>Lead</th><th>Pedido</th><th>Gateway</th><th>Valor</th><th>Pago em</th></tr></thead>
+              <tbody id="smsmais-sales-body"></tbody>
+            </table>
+            <div id="smsmais-sales-empty" class="smsmais-empty hidden">As vendas recuperadas aparecerão aqui assim que o gateway confirmar o pagamento.</div>
+          </div>
+          <p id="smsmais-sales-status" class="admin-hint"></p>
+        </section>
+
         <section class="admin-section admin-section--card smsmais-card smsmais-card--leads">
           <div class="admin-section-header smsmais-list-header">
             <div>
@@ -315,6 +340,6 @@
   </div>
 
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
-  <script src="/script.js?v=11.9" defer></script>
+  <script src="/script.js?v=12.0" defer></script>
 </body>
 </html>

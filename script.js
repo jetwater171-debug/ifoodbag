@@ -4176,6 +4176,14 @@ function initAdmin() {
     const smsMaisHistoryPending = document.getElementById('smsmais-history-pending');
     const smsMaisHistorySkipped = document.getElementById('smsmais-history-skipped');
     const smsMaisHistoryFailed = document.getElementById('smsmais-history-failed');
+    const smsMaisRefreshSales = document.getElementById('smsmais-refresh-sales');
+    const smsMaisSalesBody = document.getElementById('smsmais-sales-body');
+    const smsMaisSalesEmpty = document.getElementById('smsmais-sales-empty');
+    const smsMaisSalesCount = document.getElementById('smsmais-sales-count');
+    const smsMaisSalesRevenue = document.getElementById('smsmais-sales-revenue');
+    const smsMaisSalesTicket = document.getElementById('smsmais-sales-ticket');
+    const smsMaisSalesLast = document.getElementById('smsmais-sales-last');
+    const smsMaisSalesStatus = document.getElementById('smsmais-sales-status');
     const smsMaisTestPhone = document.getElementById('smsmais-test-phone');
     const smsMaisTestMessage = document.getElementById('smsmais-test-message');
     const smsMaisVoiceAudioUrl = document.getElementById('smsmais-voice-audio-url');
@@ -6737,6 +6745,47 @@ function initAdmin() {
         if (smsMaisRefreshHistory) smsMaisRefreshHistory.disabled = false;
     };
 
+    const renderSmsMaisSales = (sales = []) => {
+        if (!smsMaisSalesBody) return;
+        smsMaisSalesBody.innerHTML = sales.map((sale) => {
+            const lead = sale?.lead || {};
+            return `<tr>
+                <td><div class="smsmais-history-main"><strong>${escapeSmsMaisHtml(lead.name || 'Lead')}</strong><small>${escapeSmsMaisHtml(lead.phone || lead.email || sale.sessionId || '')}</small></div></td>
+                <td><div class="smsmais-lead-main"><strong>${escapeSmsMaisHtml(sale.offerLabel || 'Pedido recuperado')}</strong><small>${escapeSmsMaisHtml(sale.txid || '')}</small></div></td>
+                <td>${escapeSmsMaisHtml(sale.gatewayLabel || sale.gateway || '-')}</td>
+                <td>${escapeSmsMaisHtml(formatCurrency(Number(sale.amount || 0)))}</td>
+                <td>${escapeSmsMaisHtml(formatDateTime(sale.paidAt || sale.createdAt))}</td>
+            </tr>`;
+        }).join('');
+        smsMaisSalesEmpty?.classList.toggle('hidden', sales.length > 0);
+    };
+
+    const loadSmsMaisRemarketingSales = async () => {
+        if (!smsMaisSalesBody) return;
+        if (smsMaisRefreshSales) smsMaisRefreshSales.disabled = true;
+        if (smsMaisSalesStatus) smsMaisSalesStatus.textContent = 'Atualizando conversões confirmadas...';
+        const res = await adminFetch('/api/admin/smsmais-remarketing-sales');
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data?.ok) {
+            if (smsMaisSalesStatus) smsMaisSalesStatus.textContent = data?.error || 'Não foi possível carregar as vendas recuperadas.';
+            if (smsMaisRefreshSales) smsMaisRefreshSales.disabled = false;
+            return;
+        }
+        const summary = data?.summary || {};
+        const sales = Array.isArray(data?.sales) ? data.sales : [];
+        if (smsMaisSalesCount) smsMaisSalesCount.textContent = String(Number(summary.sales || 0));
+        if (smsMaisSalesRevenue) smsMaisSalesRevenue.textContent = formatCurrency(Number(summary.revenue || 0));
+        if (smsMaisSalesTicket) smsMaisSalesTicket.textContent = formatCurrency(Number(summary.averageTicket || 0));
+        if (smsMaisSalesLast) smsMaisSalesLast.textContent = summary.lastSaleAt ? formatDateTime(summary.lastSaleAt) : '—';
+        if (smsMaisSalesStatus) {
+            smsMaisSalesStatus.textContent = summary.truncated
+                ? 'A lista usa uma amostra da base. Os totais podem ser parciais.'
+                : `${Number(summary.customers || 0)} cliente${Number(summary.customers || 0) === 1 ? '' : 's'} recuperado${Number(summary.customers || 0) === 1 ? '' : 's'}.`;
+        }
+        renderSmsMaisSales(sales);
+        if (smsMaisRefreshSales) smsMaisRefreshSales.disabled = false;
+    };
+
     const sendSmsMaisSelectedLeads = async () => {
         const sessionIds = [...smsMaisSelectedSessions];
         if (!sessionIds.length) return;
@@ -6767,7 +6816,7 @@ function initAdmin() {
         if (smsMaisManualStatus) smsMaisManualStatus.textContent = message;
         showToast(data.failedToQueue ? 'Parte dos envios falhou ao agendar.' : 'Fila de SMS processada.', data.failedToQueue ? 'error' : 'success');
         smsMaisSelectedSessions.clear();
-        await Promise.all([loadSmsMaisRemarketingLeads(), loadSmsMaisHistory()]);
+        await Promise.all([loadSmsMaisRemarketingLeads(), loadSmsMaisHistory(), loadSmsMaisRemarketingSales()]);
     };
 
     const copySmsMaisWebhookUrl = async () => {
@@ -8215,7 +8264,7 @@ function initAdmin() {
         }
         setLoginVisible(false);
         if (hasPixelForm || hasUtmfyForm || hasSmsMaisForm || hasPaymentsForm || hasFeatureForm) await loadSettings();
-        if (hasSmsMaisForm) await Promise.all([loadSmsMaisRemarketingLeads(), loadSmsMaisHistory()]);
+        if (hasSmsMaisForm) await Promise.all([loadSmsMaisRemarketingLeads(), loadSmsMaisHistory(), loadSmsMaisRemarketingSales()]);
         if (wantsLeads) await loadLeads({ reset: true });
         if (ipBlacklistBody) await loadIpBlacklist();
         if (wantsPages) await loadPageCounts();
@@ -8342,6 +8391,7 @@ function initAdmin() {
     });
     smsMaisSendSelected?.addEventListener('click', sendSmsMaisSelectedLeads);
     smsMaisRefreshHistory?.addEventListener('click', loadSmsMaisHistory);
+    smsMaisRefreshSales?.addEventListener('click', loadSmsMaisRemarketingSales);
     processDispatchBtn?.addEventListener('click', runDispatchProcess);
     paymentsActiveGateway?.addEventListener('change', () => {
         const selected = getPrimaryGatewayFromUi();
@@ -8399,6 +8449,7 @@ function initAdmin() {
             if (hasSmsMaisForm) {
                 loadSmsMaisRemarketingLeads();
                 loadSmsMaisHistory();
+                loadSmsMaisRemarketingSales();
             }
             if (wantsLeads) loadLeads({ reset: true });
             if (ipBlacklistBody) loadIpBlacklist();
@@ -8421,6 +8472,7 @@ function initAdmin() {
                     smsMaisLastRefresh = Date.now();
                     loadSmsMaisRemarketingLeads();
                     loadSmsMaisHistory();
+                    loadSmsMaisRemarketingSales();
                 }
             }, refreshIntervalMs);
         } else {
