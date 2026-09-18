@@ -22,6 +22,7 @@ const {
     resolveRecoveryOffer,
     resolveRecoveryGrantBasis,
     resolveRecoveryOfferForGrant,
+    resolveRecoverySessionGrant,
     buildRecoveryCreateBody,
     toPublicRecoveryOffer
 } = require('../lib/remarketing-recovery');
@@ -101,6 +102,39 @@ test('pending lead receives a real 20 percent recovery offer', () => {
     assert.equal(publicOffer.customerFirstName, 'Lucas');
     assert.equal('txid' in publicOffer, false);
     assert.equal('sessionId' in publicOffer, false);
+});
+
+test('browser session resolves the same recovery grant without a mounted token', () => {
+    const grant = resolveRecoverySessionGrant(pendingLead(), 'lead-session-1');
+
+    assert.deepEqual(grant, {
+        sessionId: 'lead-session-1',
+        txid: 'pix-old-1',
+        originalAmount: 122.8,
+        discountPercent: 20
+    });
+    assert.equal(resolveRecoveryOfferForGrant(pendingLead(), grant)?.discountedAmount, 98.24);
+});
+
+test('existing guard secret alias can sign mounted recovery links', () => {
+    const currentRecoverySecret = process.env.REMARKETING_TOKEN_SECRET;
+    const currentGuardAlias = process.env.APP_GUARDSECRET;
+    delete process.env.REMARKETING_TOKEN_SECRET;
+    process.env.APP_GUARDSECRET = 'existing-guard-secret';
+    try {
+        const token = issueRecoveryToken({
+            sessionId: 'lead-session-1',
+            txid: 'pix-old-1',
+            originalAmount: 122.8,
+            discountPercent: 20
+        });
+        assert.equal(verifyRecoveryToken(token)?.sessionId, 'lead-session-1');
+    } finally {
+        if (currentRecoverySecret === undefined) delete process.env.REMARKETING_TOKEN_SECRET;
+        else process.env.REMARKETING_TOKEN_SECRET = currentRecoverySecret;
+        if (currentGuardAlias === undefined) delete process.env.APP_GUARDSECRET;
+        else process.env.APP_GUARDSECRET = currentGuardAlias;
+    }
 });
 
 test('paid lead cannot generate a recovery offer', () => {

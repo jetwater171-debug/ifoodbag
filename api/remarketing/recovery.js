@@ -1,8 +1,9 @@
 const { ensurePublicAccess } = require('../../lib/public-access');
 const { getLeadBySessionId } = require('../../lib/lead-store');
-const { verifyRecoveryToken, issueRecoveryProof } = require('../../lib/remarketing-token');
+const { issueRecoveryToken, verifyRecoveryToken, issueRecoveryProof } = require('../../lib/remarketing-token');
 const {
     resolveRecoveryOfferForGrant,
+    resolveRecoverySessionGrant,
     buildRecoveryCreateBody,
     toPublicRecoveryOffer
 } = require('../../lib/remarketing-recovery');
@@ -15,6 +16,16 @@ function firstQueryValue(value) {
 
 function readToken(req) {
     return String(firstQueryValue(req?.query?.token) || req?.body?.token || '').trim();
+}
+
+function readSessionId(req) {
+    return String(
+        firstQueryValue(req?.query?.sessionId) ||
+        firstQueryValue(req?.query?.session_id) ||
+        req?.body?.sessionId ||
+        req?.body?.session_id ||
+        ''
+    ).trim();
 }
 
 async function invokeHandler(handler, req, body) {
@@ -81,7 +92,11 @@ module.exports = async (req, res) => {
     if (!await ensurePublicAccess(req, res, { requireSession: true })) return;
 
     const token = readToken(req);
-    const grant = verifyRecoveryToken(token);
+    const requestedSessionId = readSessionId(req);
+    const usesMountedLink = Boolean(token);
+    let grant = usesMountedLink
+        ? verifyRecoveryToken(token)
+        : (requestedSessionId ? { sessionId: requestedSessionId } : null);
     if (!grant) {
         res.status(401).json({ error: 'Link de recuperacao invalido ou expirado.', code: 'invalid_recovery_link' });
         return;
@@ -93,7 +108,10 @@ module.exports = async (req, res) => {
         return;
     }
 
-    let offer = resolveRecoveryOfferForGrant(lead, grant);
+    if (!usesMountedLink) {
+        grant = resolveRecoverySessionGrant(lead, requestedSessionId);
+    }
+    let offer = grant ? resolveRecoveryOfferForGrant(lead, grant) : null;
     if (!offer) {
         res.status(409).json({ error: 'Este link nao corresponde mais ao pagamento atual.', code: 'recovery_offer_changed' });
         return;
@@ -131,6 +149,9 @@ module.exports = async (req, res) => {
     }
 
     lead = await loadRecoveryLead(grant);
+    if (!usesMountedLink) {
+        grant = resolveRecoverySessionGrant(lead || {}, requestedSessionId);
+    }
     offer = resolveRecoveryOfferForGrant(lead || {}, grant);
     if (!offer) {
         res.status(409).json({
@@ -148,7 +169,24 @@ module.exports = async (req, res) => {
         return;
     }
 
-    const createBody = buildRecoveryCreateBody(lead, offer, token, issueRecoveryProof(token));
+    let recoveryToken = token;
+    if (!recoveryToken) {
+        try {
+            recoveryToken = issueRecoveryToken(grant);
+        } catch (_error) {
+            res.status(503).json({
+                error: 'Nao foi possivel preparar a recuperacao deste pedido.',
+                code: 'recovery_authorization_unavailable'
+            });
+            return;
+        }
+    }
+    const createBody = buildRecoveryCreateBody(
+        lead,
+        offer,
+        recoveryToken,
+        issueRecoveryProof(recoveryToken)
+    );
     const createResult = await invokeHandler(pixCreateHandler, req, createBody);
     if (createResult.statusCode >= 400 || !createResult?.body?.idTransaction) {
         res.status(createResult.statusCode >= 400 ? createResult.statusCode : 502).json({

@@ -1,6 +1,24 @@
 (() => {
   const params = new URLSearchParams(window.location.search);
   const token = params.get('token') || '';
+  const readStoredSessionId = () => {
+    const fromQuery = params.get('sessionId') || params.get('session_id') || '';
+    if (fromQuery) return String(fromQuery).trim();
+    try {
+      const stored = localStorage.getItem('ifoodbag.leadSession') || sessionStorage.getItem('ifoodbag.leadSession') || '';
+      if (stored) return String(stored).trim();
+    } catch (_error) {
+      // Continue with the cookie fallback when storage is unavailable.
+    }
+    try {
+      const prefix = `${encodeURIComponent('ifoodbag.leadSession')}=`;
+      const part = String(document.cookie || '').split(';').map((item) => item.trim()).find((item) => item.startsWith(prefix));
+      return part ? decodeURIComponent(part.slice(prefix.length)).trim() : '';
+    } catch (_error) {
+      return '';
+    }
+  };
+  const sessionId = readStoredSessionId();
   const loading = document.getElementById('recovery-loading');
   const content = document.getElementById('recovery-content');
   const errorBox = document.getElementById('recovery-error');
@@ -40,12 +58,16 @@
 
   const recoveryRequest = async (method = 'GET') => {
     const url = new URL('/api/remarketing/recovery', window.location.origin);
-    if (method === 'GET') url.searchParams.set('token', token);
+    if (method === 'GET') {
+      if (token) url.searchParams.set('token', token);
+      else if (sessionId) url.searchParams.set('sessionId', sessionId);
+    }
+    const requestBody = token ? { token } : { sessionId };
     const response = await fetch(url.toString(), {
       method,
       credentials: 'same-origin',
       headers: method === 'POST' ? { 'Content-Type': 'application/json' } : undefined,
-      body: method === 'POST' ? JSON.stringify({ token }) : undefined
+      body: method === 'POST' ? JSON.stringify(requestBody) : undefined
     });
     const data = await response.json().catch(() => ({}));
     return { response, data };
@@ -203,8 +225,8 @@
   };
 
   const init = async () => {
-    if (!token) {
-      showError('Este link de recuperação está incompleto.');
+    if (!token && !sessionId) {
+      showError('Não encontramos um pedido iniciado neste navegador.');
       return;
     }
     try {
