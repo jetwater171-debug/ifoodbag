@@ -1,7 +1,6 @@
 (() => {
   const params = new URLSearchParams(window.location.search);
   const token = params.get('token') || '';
-  const isDemo = params.get('demo') === '1';
   const loading = document.getElementById('recovery-loading');
   const content = document.getElementById('recovery-content');
   const errorBox = document.getElementById('recovery-error');
@@ -57,14 +56,14 @@
     if (offerName) offerName.textContent = offer?.offerName || 'Pedido selecionado';
     if (description) {
       description.textContent = offer?.customerFirstName
-        ? `${offer.customerFirstName}, encontramos o pedido que você iniciou, mas o pagamento ainda não foi concluído.`
-        : 'Encontramos o pedido que você iniciou, mas o pagamento ainda não foi concluído.';
+        ? `${offer.customerFirstName}, encontramos o pedido que você iniciou, mas o pagamento continua pendente.`
+        : 'Encontramos o pedido que você iniciou, mas o pagamento continua pendente.';
     }
     if (originalPrice) originalPrice.textContent = formatCurrency(offer?.originalAmount);
     if (discountedPrice) discountedPrice.textContent = formatCurrency(offer?.discountedAmount);
     if (savingText) {
       const saving = Math.max(0, Number(offer?.originalAmount || 0) - Number(offer?.discountedAmount || 0));
-      savingText.textContent = `Você economiza ${formatCurrency(saving)} para concluir este pedido.`;
+      savingText.textContent = `Você economiza ${formatCurrency(saving)} e conclui o pedido pelo valor reduzido.`;
     }
   };
 
@@ -122,7 +121,7 @@
     });
   };
 
-  const openNormalPixPage = async (pix, offer, demo = false) => {
+  const openNormalPixPage = async (pix, offer) => {
     const amount = Number(pix?.amount || offer?.discountedAmount || 0);
     const reward = resolveReward(pix, offer);
     const createdAt = Date.now();
@@ -160,7 +159,7 @@
       isUpsell: false,
       upsell: null,
       recovery: true,
-      isDemo: demo
+      isDemo: false
     };
 
     try {
@@ -174,30 +173,13 @@
     }
 
     await playRecoveryPixTransition(generateButton, amount);
-    window.location.assign(demo ? '/pix-loading?demo=1' : '/pix-loading');
+    window.location.assign('/pix-loading');
   };
 
   const generatePix = async () => {
     if (!generateButton) return;
     generateButton.disabled = true;
     generateButton.querySelector('span').textContent = 'Conferindo e gerando Pix...';
-    if (isDemo) {
-      window.setTimeout(async () => {
-        await openNormalPixPage({
-          idTransaction: 'DEMO-REMARKETING',
-          paymentCode: 'DEMONSTRACAO — nenhum Pix real foi gerado',
-          paymentCodeBase64: '',
-          paymentQrUrl: '',
-          amount: 98.24,
-          status: 'waiting_payment',
-          gateway: 'demo',
-          merchantName: 'PAGAMENTOS DIGITAIS LTDA',
-          rewardId: 'kit_entregador',
-          rewardName: 'Kit Entregador iFood'
-        }, currentOffer, true);
-      }, 650);
-      return;
-    }
     const { response, data } = await recoveryRequest('POST').catch(() => ({ response: null, data: {} }));
     if (!response?.ok || !data?.pix) {
       if (data?.code === 'already_paid') {
@@ -212,7 +194,7 @@
 
     try {
       generateButton.querySelector('span').textContent = 'Pix pronto! Abrindo pagamento...';
-      await openNormalPixPage(data.pix, data.offer || currentOffer, false);
+      await openNormalPixPage(data.pix, data.offer || currentOffer);
     } catch (error) {
       generateButton.disabled = false;
       generateButton.querySelector('span').textContent = 'Gerar novo Pix com 20% OFF';
@@ -221,18 +203,6 @@
   };
 
   const init = async () => {
-    if (isDemo) {
-      renderOffer({
-        customerFirstName: 'Lucas',
-        offerName: 'Kit Entregador iFood',
-        originalAmount: 122.80,
-        discountedAmount: 98.24,
-        discountPercent: 20,
-        canRecover: true
-      });
-      showOnly(content);
-      return;
-    }
     if (!token) {
       showError('Este link de recuperação está incompleto.');
       return;

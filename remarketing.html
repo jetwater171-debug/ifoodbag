@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/remarketing.css?v=2" />
+  <link rel="stylesheet" href="/remarketing.css?v=4" />
   <script src="/backguard.js?v=1.6"></script>
 </head>
 <body>
@@ -33,10 +33,18 @@
 
     <section id="recovery-content" class="recovery-content hidden" aria-labelledby="recovery-title">
       <div class="recovery-intro">
-        <span class="recovery-eyebrow">Condição de recuperação</span>
-        <h1 id="recovery-title">Seu pagamento ficou pendente</h1>
-        <p id="recovery-description">Encontramos o pedido que você iniciou, mas o pagamento ainda não foi concluído.</p>
+        <span class="recovery-eyebrow">Aviso de pagamento pendente</span>
+        <h1 id="recovery-title">Seu pedido ainda não está confirmado</h1>
+        <p id="recovery-description">Encontramos o pedido que você iniciou, mas o pagamento continua pendente.</p>
       </div>
+
+      <aside id="recovery-notice" class="recovery-notice" aria-label="Condição especial para concluir o pagamento">
+        <span class="recovery-notice-icon" aria-hidden="true">!</span>
+        <div>
+          <strong id="recovery-notice-title">Resolva sua pendência com uma condição especial</strong>
+          <p id="recovery-notice-text">Para ajudar você a concluir o pagamento, liberamos <b>20% de desconto</b> neste pedido. Gere um novo Pix abaixo e confirme sua compra pelo valor reduzido.</p>
+        </div>
+      </aside>
 
       <article class="recovery-offer-card">
         <div class="recovery-offer-top">
@@ -61,8 +69,8 @@
         <div class="recovery-saving">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21.4 11.6 12.4 2.6A2 2 0 0 0 11 2H4a2 2 0 0 0-2 2v7a2 2 0 0 0 .6 1.4l9 9a2 2 0 0 0 2.8 0l7-7a2 2 0 0 0 0-2.8ZM7.5 9A1.5 1.5 0 1 1 9 7.5 1.5 1.5 0 0 1 7.5 9Z"/></svg>
           <div>
-            <strong>Desconto de recuperação aplicado</strong>
-            <span id="recovery-saving-text">Você economiza 20% para concluir este pedido.</span>
+            <strong>20% de desconto já aplicado</strong>
+            <span id="recovery-saving-text">Conclua o pagamento com 20% de economia.</span>
           </div>
         </div>
 
@@ -90,7 +98,7 @@
     </section>
   </main>
 
-  <footer class="recovery-footer">Ambiente protegido para você retomar seu pedido com segurança.</footer>
-  <script src="/remarketing.js?v=3" defer></script>
+  <footer id="recovery-footer" class="recovery-footer">Ambiente protegido para você retomar seu pedido com segurança.</footer>
+  <script src="/remarketing.js?v=6" defer></script>
 </body>
 </html>
