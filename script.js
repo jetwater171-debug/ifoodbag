@@ -6519,7 +6519,7 @@ function initAdmin() {
             return;
         }
         if (!String(smsMaisTestPhone?.value || '').replace(/\D/g, '')) {
-            if (status) status.textContent = 'Informe e salve o telefone de teste.';
+            if (status) status.textContent = 'Informe o telefone que recebera o teste.';
             showToast('Informe o telefone de teste.', 'error');
             return;
         }
@@ -6532,7 +6532,16 @@ function initAdmin() {
         if (button) button.disabled = true;
         if (status) status.textContent = isVoice ? 'Ligando...' : 'Enviando...';
         const endpoint = isVoice ? '/api/admin/smsmais-voice-test' : '/api/admin/smsmais-test';
-        const res = await adminFetch(endpoint, { method: 'POST' });
+        const res = await adminFetch(endpoint, {
+            method: 'POST',
+            body: JSON.stringify({
+                to: String(smsMaisTestPhone?.value || '').replace(/\D/g, ''),
+                message: isVoice
+                    ? String(smsMaisVoiceMessage?.value || '').trim()
+                    : String(smsMaisTestMessage?.value || '').trim().slice(0, 160),
+                audioUrl: isVoice ? String(smsMaisVoiceAudioUrl?.value || '').trim() : undefined
+            })
+        });
         const data = await res.json().catch(() => ({}));
         if (!res.ok || !data?.ok) {
             const message = smsMaisErrorText(data, isVoice ? 'Falha no torpedo de voz.' : 'Falha no envio do SMS.');

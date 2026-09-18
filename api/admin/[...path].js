@@ -4562,19 +4562,29 @@ async function smsMaisTest(req, res, channel = 'sms') {
         res.status(400).json({ ok: false, error: 'Token da SMSMais nao configurado.' });
         return;
     }
-    if (!String(cfg.testPhone || '').replace(/\D/g, '')) {
-        res.status(400).json({ ok: false, error: 'Telefone de teste nao configurado.' });
+    let body = {};
+    try {
+        body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+    } catch (_error) {
+        res.status(400).json({ ok: false, error: 'JSON invalido.' });
+        return;
+    }
+    const targetPhone = String(body.to || body.phone || cfg.testPhone || '').replace(/\D/g, '');
+    if (!targetPhone) {
+        res.status(400).json({ ok: false, error: 'Informe o telefone que recebera o teste.' });
         return;
     }
 
     const externalId = `admin-${channel}-${Date.now()}`;
     const payload = {
-        to: cfg.testPhone,
+        to: targetPhone,
         externalId,
-        message: channel === 'voice' ? cfg.voiceMessage : cfg.testMessage
+        message: channel === 'voice'
+            ? String(body.message || cfg.voiceMessage || '').trim().slice(0, 160)
+            : String(body.message || cfg.testMessage || '').trim().slice(0, 160)
     };
     const result = channel === 'voice'
-        ? await sendSmsMaisVoice({ ...payload, audioUrl: cfg.voiceAudioUrl }).catch((error) => ({ ok: false, reason: error?.message || 'request_error' }))
+        ? await sendSmsMaisVoice({ ...payload, audioUrl: String(body.audioUrl || cfg.voiceAudioUrl || '').trim() }).catch((error) => ({ ok: false, reason: error?.message || 'request_error' }))
         : await sendSmsMaisSms(payload).catch((error) => ({ ok: false, reason: error?.message || 'request_error' }));
 
     if (!result?.ok) {
