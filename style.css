@@ -3683,8 +3683,146 @@ body[data-page='admin'][data-admin='smsmais'] .admin-main {
 }
 
 .smsmais-card--webhook,
+.smsmais-card--remarketing,
 .smsmais-card--queue {
     grid-column: 1 / -1;
+}
+
+.smsmais-card--remarketing {
+    overflow: hidden;
+    border-color: #f4cbd0;
+    background:
+        radial-gradient(circle at 100% 0, rgba(234, 29, 44, 0.08), transparent 34%),
+        #fff;
+}
+
+.smsmais-card--remarketing .admin-section-header {
+    align-items: flex-start;
+}
+
+.smsmais-card--remarketing .admin-section-header h2 {
+    margin-bottom: 4px;
+}
+
+.smsmais-card--remarketing .admin-section-header .admin-hint {
+    margin: 0;
+}
+
+.smsmais-remarketing-controls {
+    display: grid;
+    grid-template-columns: minmax(240px, 1fr) minmax(220px, 0.7fr);
+    gap: 12px;
+    margin: 16px 0 12px;
+}
+
+.smsmais-remarketing-switch {
+    min-height: 54px;
+    padding: 0 14px;
+    border: 1px solid #eceef2;
+    border-radius: 14px;
+    background: #f8f9fb;
+}
+
+.smsmais-delay-field {
+    margin: 0;
+}
+
+.smsmais-remarketing-message {
+    min-height: 104px;
+    resize: vertical;
+}
+
+.smsmais-template-help {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin-top: 9px;
+    color: #747b86;
+    font-size: 0.76rem;
+}
+
+.smsmais-template-help code {
+    padding: 4px 7px;
+    border: 1px solid #ffd4d8;
+    border-radius: 8px;
+    color: #c91322;
+    background: #fff1f2;
+    font-family: inherit;
+    font-weight: 700;
+}
+
+.smsmais-preview {
+    position: relative;
+    margin-top: 14px;
+    padding: 15px 52px 15px 16px;
+    border: 1px solid #e6e8ed;
+    border-radius: 16px;
+    background: #f7f8fa;
+}
+
+.smsmais-preview > span {
+    color: #8a9099;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.smsmais-preview p {
+    margin: 7px 0 0;
+    color: #25272b;
+    font-size: 0.86rem;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+}
+
+.smsmais-preview small {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    color: #90959d;
+    font-size: 0.7rem;
+}
+
+.smsmais-automation-flow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 14px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    color: #5e646e;
+    background: #fff5f6;
+    font-size: 0.73rem;
+    font-weight: 600;
+}
+
+.smsmais-automation-flow span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.smsmais-automation-flow b {
+    display: grid;
+    width: 22px;
+    height: 22px;
+    place-items: center;
+    border-radius: 50%;
+    color: #fff;
+    background: #ea1d2c;
+    font-size: 0.68rem;
+}
+
+.smsmais-automation-flow i {
+    color: #d69299;
+    font-style: normal;
+}
+
+.smsmais-automation-flow em {
+    font-style: normal;
 }
 
 .smsmais-card--config .admin-grid {
@@ -6614,8 +6752,21 @@ body.modal-open {
         grid-template-columns: 1fr;
     }
     .smsmais-card--webhook,
+    .smsmais-card--remarketing,
     .smsmais-card--queue {
         grid-column: auto;
+    }
+    .smsmais-remarketing-controls {
+        grid-template-columns: 1fr;
+    }
+    .smsmais-automation-flow {
+        align-items: stretch;
+        flex-direction: column;
+    }
+    .smsmais-automation-flow i {
+        padding-left: 8px;
+        transform: rotate(90deg);
+        transform-origin: 12px center;
     }
     .admin-nav {
         flex-direction: row;

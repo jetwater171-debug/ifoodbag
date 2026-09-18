@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/style.css?v=3.4" />
+  <link rel="stylesheet" href="/style.css?v=3.5" />
   <script src="/backguard.js?v=1.5"></script>
 </head>
 <body data-page="admin" data-admin="smsmais">
@@ -139,6 +139,50 @@
           <p class="admin-hint">Informe o mesmo token no campo opcional da SMSMais. O endpoint responde HTTP 200 e registra callbacks sem duplicar.</p>
         </section>
 
+        <section class="admin-section admin-section--card smsmais-card smsmais-card--remarketing">
+          <div class="admin-section-header">
+            <div>
+              <h2>Recuperação automática de Pix</h2>
+              <p class="admin-hint">Se o pagamento continuar pendente, o SMS é enviado após o intervalo configurado.</p>
+            </div>
+            <span class="admin-chip">Remarketing</span>
+          </div>
+          <div class="smsmais-remarketing-controls">
+            <label class="admin-switch smsmais-remarketing-switch">
+              <input type="checkbox" id="smsmais-remarketing-enabled" />
+              <span>Enviar SMS automaticamente</span>
+            </label>
+            <div class="input-group smsmais-delay-field">
+              <input type="number" id="smsmais-remarketing-delay" class="floating-input" min="1" max="1440" step="1" placeholder=" " />
+              <label for="smsmais-remarketing-delay" class="floating-label">Aguardar quantos minutos</label>
+            </div>
+          </div>
+          <div class="input-group">
+            <textarea id="smsmais-remarketing-message" class="floating-input floating-input--textarea smsmais-remarketing-message" placeholder=" " maxlength="320"></textarea>
+            <label for="smsmais-remarketing-message" class="floating-label">Mensagem enviada ao lead</label>
+          </div>
+          <div class="smsmais-template-help">
+            <span>Variáveis disponíveis:</span>
+            <code>{nome}</code>
+            <code>{link}</code>
+            <span>O link com o session ID é incluído automaticamente, mesmo se você não usar {link}.</span>
+          </div>
+          <div class="smsmais-preview" aria-live="polite">
+            <span>Prévia do SMS</span>
+            <p id="smsmais-remarketing-preview"></p>
+            <small id="smsmais-remarketing-count">0/160</small>
+          </div>
+          <div class="smsmais-automation-flow">
+            <span><b>1</b> Pix gerado</span>
+            <i aria-hidden="true">→</i>
+            <span><b>2</b> Aguarda <em id="smsmais-remarketing-delay-flow">10 min</em></span>
+            <i aria-hidden="true">→</i>
+            <span><b>3</b> Confere o gateway</span>
+            <i aria-hidden="true">→</i>
+            <span><b>4</b> Envia apenas se pendente</span>
+          </div>
+        </section>
+
         <section class="admin-section admin-section--card smsmais-card">
           <div class="admin-section-header">
             <h2>Teste de SMS</h2>
@@ -189,7 +233,7 @@
             <h2>Estado da integracao</h2>
             <span class="admin-chip">Backend</span>
           </div>
-          <p class="admin-hint">O provedor ja esta conectado a fila interna pelo canal <code>smsmais</code>. Nenhum disparo automatico esta ativo nesta etapa.</p>
+          <p class="admin-hint">A fila interna processa os lembretes programados, impede duplicidade e cancela o envio quando encontra pagamento confirmado.</p>
           <div class="admin-inline-actions">
             <button id="admin-process-dispatch" class="btn-secondary" type="button">Processar fila agora</button>
             <span id="admin-process-dispatch-status" class="admin-muted"></span>
@@ -201,6 +245,6 @@
   </div>
 
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
-  <script src="/script.js?v=11.7" defer></script>
+  <script src="/script.js?v=11.8" defer></script>
 </body>
 </html>

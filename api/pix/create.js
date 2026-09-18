@@ -8,6 +8,11 @@ const {
     normalizeGatewayId
 } = require('../../lib/payment-gateway-config');
 const { getPaymentsConfig } = require('../../lib/payments-config-store');
+const { getSettings } = require('../../lib/settings-store');
+const {
+    resolveRequestBaseUrl,
+    buildRemarketingSmsJob
+} = require('../../lib/remarketing-sms');
 const {
     requestCreateTransaction: requestGhostspayCreate,
     requestTransactionById: requestGhostspayStatus,
@@ -47,6 +52,20 @@ const { mergePaymentHistory } = require('../../lib/lead-payment-history');
 function resolveGateway(rawBody = {}, payments = {}) {
     const candidates = resolveGatewayCandidates(rawBody, payments);
     return candidates[0] || '';
+}
+
+async function buildConfiguredRemarketingSmsJob({ req, sessionId, txid, createdAt, upsellEnabled }) {
+    if (upsellEnabled) return null;
+    const settings = await getSettings().catch(() => ({}));
+    const smsConfig = settings?.smsmais || {};
+    if (smsConfig.enabled !== true || smsConfig.remarketingEnabled !== true) return null;
+    return buildRemarketingSmsJob({
+        sessionId,
+        txid,
+        createdAt,
+        baseUrl: resolveRequestBaseUrl(req),
+        delayMinutes: smsConfig.remarketingDelayMinutes
+    });
 }
 
 function resolveGatewayCandidates(rawBody = {}, payments = {}) {
@@ -1194,8 +1213,18 @@ module.exports = async (req, res) => {
                     } : null
                 }
             };
-            const queued = await enqueueDispatch(reusableUtmJob).catch(() => null);
-            if (queued?.ok || queued?.fallback) {
+            const reusableSmsJob = await buildConfiguredRemarketingSmsJob({
+                req,
+                sessionId,
+                txid: reusableTxid,
+                createdAt: new Date().toISOString(),
+                upsellEnabled
+            });
+            const [queued, smsQueued] = await Promise.all([
+                enqueueDispatch(reusableUtmJob).catch(() => null),
+                reusableSmsJob ? enqueueDispatch(reusableSmsJob).catch(() => null) : Promise.resolve(null)
+            ]);
+            if (queued?.ok || queued?.fallback || smsQueued?.ok || smsQueued?.fallback) {
                 processDispatchQueue(6).catch(() => null);
             }
             return res.status(200).json(reusable);
@@ -1788,7 +1817,7 @@ module.exports = async (req, res) => {
             const safeRawBody = { ...(rawBody || {}) };
             delete safeRawBody.recoveryToken;
             delete safeRawBody.recoveryProof;
-            await upsertLead({
+            const leadWrite = await upsertLead({
                 ...safeRawBody,
                 addPaymentInfoEventId,
                 shipping: normalizedShipping,
@@ -1908,13 +1937,25 @@ module.exports = async (req, res) => {
                 payload: pushPayload
             };
 
-            const [utmQueued, pushQueued] = await Promise.all([
+            const remarketingSmsJob = leadWrite?.ok
+                ? await buildConfiguredRemarketingSmsJob({
+                    req,
+                    sessionId,
+                    txid,
+                    createdAt: pixCreatedAt,
+                    upsellEnabled
+                })
+                : null;
+
+            const [utmQueued, pushQueued, smsQueued] = await Promise.all([
                 enqueueDispatch(utmJob).catch(() => null),
-                enqueueDispatch(pushJob).catch(() => null)
+                enqueueDispatch(pushJob).catch(() => null),
+                remarketingSmsJob ? enqueueDispatch(remarketingSmsJob).catch(() => null) : Promise.resolve(null)
             ]);
             const shouldProcessQueue = Boolean(
                 utmQueued?.ok || utmQueued?.fallback ||
-                pushQueued?.ok || pushQueued?.fallback
+                pushQueued?.ok || pushQueued?.fallback ||
+                smsQueued?.ok || smsQueued?.fallback
             );
 
             const responsePayload = {

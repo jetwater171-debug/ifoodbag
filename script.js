@@ -4151,6 +4151,12 @@ function initAdmin() {
     const smsMaisTimeout = document.getElementById('smsmais-timeout');
     const smsMaisWebhookToken = document.getElementById('smsmais-webhook-token');
     const smsMaisWebhookUrl = document.getElementById('smsmais-webhook-url');
+    const smsMaisRemarketingEnabled = document.getElementById('smsmais-remarketing-enabled');
+    const smsMaisRemarketingDelay = document.getElementById('smsmais-remarketing-delay');
+    const smsMaisRemarketingMessage = document.getElementById('smsmais-remarketing-message');
+    const smsMaisRemarketingPreview = document.getElementById('smsmais-remarketing-preview');
+    const smsMaisRemarketingCount = document.getElementById('smsmais-remarketing-count');
+    const smsMaisRemarketingDelayFlow = document.getElementById('smsmais-remarketing-delay-flow');
     const smsMaisTestPhone = document.getElementById('smsmais-test-phone');
     const smsMaisTestMessage = document.getElementById('smsmais-test-message');
     const smsMaisVoiceAudioUrl = document.getElementById('smsmais-voice-audio-url');
@@ -4566,6 +4572,9 @@ function initAdmin() {
         smsMaisBalanceEndpoint ||
         smsMaisTimeout ||
         smsMaisWebhookToken ||
+        smsMaisRemarketingEnabled ||
+        smsMaisRemarketingDelay ||
+        smsMaisRemarketingMessage ||
         smsMaisTestPhone ||
         smsMaisTestMessage ||
         smsMaisVoiceAudioUrl ||
@@ -5135,11 +5144,17 @@ function initAdmin() {
             if (smsMaisTimeout) smsMaisTimeout.value = String(Number(data.smsmais?.timeoutMs || 12000));
             if (smsMaisWebhookToken) smsMaisWebhookToken.value = data.smsmais?.webhookToken || '';
             if (smsMaisWebhookUrl) smsMaisWebhookUrl.value = `${window.location.origin}/api/smsmais/webhook`;
+            if (smsMaisRemarketingEnabled) smsMaisRemarketingEnabled.checked = data.smsmais?.remarketingEnabled === true;
+            if (smsMaisRemarketingDelay) smsMaisRemarketingDelay.value = String(Number(data.smsmais?.remarketingDelayMinutes || 10));
+            if (smsMaisRemarketingMessage) {
+                smsMaisRemarketingMessage.value = data.smsmais?.remarketingMessage || 'Oi {nome}, seu pagamento ainda esta pendente. Retome seu pedido: {link}';
+            }
             if (smsMaisTestPhone) smsMaisTestPhone.value = data.smsmais?.testPhone || '';
             if (smsMaisTestMessage) smsMaisTestMessage.value = data.smsmais?.testMessage || '';
             if (smsMaisVoiceAudioUrl) smsMaisVoiceAudioUrl.value = data.smsmais?.voiceAudioUrl || '';
             if (smsMaisVoiceMessage) smsMaisVoiceMessage.value = data.smsmais?.voiceMessage || '';
             updateSmsMaisMessageCount();
+            updateSmsMaisRemarketingPreview();
         }
 
         if (hasPaymentsForm) {
@@ -6226,6 +6241,9 @@ function initAdmin() {
                 balanceEndpoint: smsMaisBalanceEndpoint?.value?.trim() || 'https://smsmais.com/saldo',
                 webhookToken: smsMaisWebhookToken?.value?.trim() || '',
                 timeoutMs: Math.min(Math.max(Number(smsMaisTimeout?.value || 12000), 1500), 30000),
+                remarketingEnabled: !!smsMaisRemarketingEnabled?.checked,
+                remarketingDelayMinutes: Math.min(Math.max(Math.round(Number(smsMaisRemarketingDelay?.value || 10)), 1), 1440),
+                remarketingMessage: smsMaisRemarketingMessage?.value?.trim().slice(0, 320) || '',
                 testPhone: String(smsMaisTestPhone?.value || '').replace(/\D/g, ''),
                 testMessage: smsMaisTestMessage?.value?.trim().slice(0, 160) || '',
                 voiceAudioUrl: smsMaisVoiceAudioUrl?.value?.trim() || '',
@@ -6519,6 +6537,34 @@ function initAdmin() {
         if (!smsMaisMessageCount) return;
         const length = String(smsMaisTestMessage?.value || '').length;
         smsMaisMessageCount.textContent = `${length}/160`;
+    };
+
+    const updateSmsMaisRemarketingPreview = () => {
+        if (!smsMaisRemarketingPreview) return;
+        const sampleLink = `${window.location.origin}/remarketing?sessionId=exemplo-12345678`;
+        const template = String(
+            smsMaisRemarketingMessage?.value ||
+            'Oi {nome}, seu pagamento ainda esta pendente. Retome seu pedido: {link}'
+        )
+            .replace(/[\r\n]+/g, ' ')
+            .replace(/\s{2,}/g, ' ')
+            .trim();
+        const textWithoutLink = template
+            .replace(/\{(?:nome|name)\}/gi, 'Lucas')
+            .replace(/\{link\}/gi, '')
+            .replace(/\s{2,}/g, ' ')
+            .trim();
+        const available = Math.max(0, 160 - sampleLink.length - 1);
+        const clippedText = textWithoutLink
+            .slice(0, available)
+            .trim()
+            .replace(/[,:;.!?\-]+$/g, '')
+            .trim();
+        const preview = clippedText ? `${clippedText} ${sampleLink}` : sampleLink;
+        smsMaisRemarketingPreview.textContent = preview;
+        if (smsMaisRemarketingCount) smsMaisRemarketingCount.textContent = `${preview.length}/160`;
+        const delay = Math.min(Math.max(Math.round(Number(smsMaisRemarketingDelay?.value || 10)), 1), 1440);
+        if (smsMaisRemarketingDelayFlow) smsMaisRemarketingDelayFlow.textContent = `${delay} min`;
     };
 
     const copySmsMaisWebhookUrl = async () => {
@@ -8052,6 +8098,8 @@ function initAdmin() {
     smsMaisBalanceBtn?.addEventListener('click', loadSmsMaisBalance);
     smsMaisCopyWebhook?.addEventListener('click', copySmsMaisWebhookUrl);
     smsMaisTestMessage?.addEventListener('input', updateSmsMaisMessageCount);
+    smsMaisRemarketingMessage?.addEventListener('input', updateSmsMaisRemarketingPreview);
+    smsMaisRemarketingDelay?.addEventListener('input', updateSmsMaisRemarketingPreview);
     processDispatchBtn?.addEventListener('click', runDispatchProcess);
     paymentsActiveGateway?.addEventListener('change', () => {
         const selected = getPrimaryGatewayFromUi();
@@ -8130,6 +8178,7 @@ function initAdmin() {
 
     if (smsMaisWebhookUrl) smsMaisWebhookUrl.value = `${window.location.origin}/api/smsmais/webhook`;
     updateSmsMaisMessageCount();
+    updateSmsMaisRemarketingPreview();
 }
 
 function renderQuestion(questionConfig, refs) {

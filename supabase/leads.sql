@@ -95,6 +95,36 @@ on public.event_dispatch_queue (dedupe_key);
 create index if not exists idx_event_dispatch_queue_pending
 on public.event_dispatch_queue (status, scheduled_at);
 
+-- O plano Hobby da Vercel executa cron apenas uma vez ao dia. O Supabase acorda
+-- o worker a cada minuto para que os trabalhos agendados (como o SMS apos 10 min)
+-- sejam processados no horario correto. A fila e as chaves de deduplicacao tornam
+-- chamadas repetidas seguras.
+create extension if not exists pg_cron with schema extensions;
+create extension if not exists pg_net with schema extensions;
+
+do $$
+begin
+  if not exists (
+    select 1 from cron.job where jobname = 'ifoodbag-dispatch-every-minute'
+  ) then
+    perform cron.schedule(
+      'ifoodbag-dispatch-every-minute',
+      '* * * * *',
+      $job$
+        select net.http_get(
+          url := 'https://ifoodparceiros.vercel.app/api/jobs/dispatch?limit=120',
+          headers := jsonb_build_object(
+            'Accept', 'application/json',
+            'x-vercel-cron', '1'
+          ),
+          timeout_milliseconds := 15000
+        );
+      $job$
+    );
+  end if;
+end
+$$;
+
 drop view if exists public.pageview_counts;
 create view public.pageview_counts as
 select
