@@ -16,7 +16,7 @@ const pixStatusHandler = require('./api/pix/status');
 const pixWebhookHandler = require('./api/pix/webhook');
 const remarketingRecoveryHandler = require('./api/remarketing/recovery');
 const smsMaisWebhookHandler = require('./api/smsmais/webhook');
-const adminApiHandler = require('./api/admin/[...path].js');
+const adminApiHandler = require('./lib/admin-api-handler');
 const clonePixelHandler = require('./api/security/clone-pixel');
 
 const envPath = path.join(__dirname, '.env');

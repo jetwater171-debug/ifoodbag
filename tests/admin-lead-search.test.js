@@ -14,7 +14,7 @@ function internals(file, names) {
 }
 
 const admin = internals(
-    'api/admin/[...path].js',
+    'lib/admin-api-handler.js',
     'extractCampaignSearchValue, buildLeadSearchOrFilter'
 );
 

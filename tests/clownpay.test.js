@@ -16,7 +16,7 @@ function internals(file, names) {
     return mod.exports.test;
 }
 
-const admin = internals('api/admin/[...path].js', 'sanitizeSettingsForAdmin, normalizeGatewayTestSelection, inspectPixTransaction');
+const admin = internals('lib/admin-api-handler.js', 'sanitizeSettingsForAdmin, normalizeGatewayTestSelection, inspectPixTransaction');
 const create = internals('api/pix/create.js', 'resolveGatewayCandidates, resolveParadiseResponse, normalizeParadiseCreateStatus');
 const status = internals('api/pix/status.js', 'mapGatewayStatusToFrontend, resolveStatusGateway');
 const webhook = internals('api/pix/webhook.js', 'extractGatewayEvent');

@@ -1,4 +1,4 @@
-const handler = require('./admin/[...path].js');
+const handler = require('../lib/admin-api-handler');
 
 module.exports = async (req, res) => {
     const query = req.query || {};
