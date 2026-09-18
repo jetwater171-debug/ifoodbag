@@ -3575,6 +3575,10 @@ body[data-page='admin'][data-admin='utmfy'] .admin-topbar {
     border-left: 4px solid #ff6b4a;
 }
 
+body[data-page='admin'][data-admin='smsmais'] .admin-topbar {
+    border-left: 4px solid #ea1d2c;
+}
+
 body[data-page='admin'][data-admin='pages'] .admin-topbar {
     border-left: 4px solid #4c6fff;
 }
@@ -3661,6 +3665,87 @@ body[data-page='admin'][data-admin='leads'] .admin-topbar {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: 12px;
+}
+
+body[data-page='admin'][data-admin='smsmais'] .admin-main {
+    width: 100%;
+}
+
+.smsmais-pc-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(360px, 0.85fr);
+    gap: 18px;
+    align-items: stretch;
+}
+
+.smsmais-card {
+    height: auto;
+}
+
+.smsmais-card--webhook,
+.smsmais-card--queue {
+    grid-column: 1 / -1;
+}
+
+.smsmais-card--config .admin-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.smsmais-card--config .admin-switch {
+    min-height: 54px;
+    padding: 0 4px;
+}
+
+.smsmais-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin: 6px 0 16px;
+}
+
+.smsmais-metrics > div {
+    background: #f7f8fb;
+    border: 1px solid #e8ebf0;
+    border-radius: 14px;
+    padding: 14px;
+    min-width: 0;
+}
+
+.smsmais-metrics span,
+.smsmais-metrics strong {
+    display: block;
+}
+
+.smsmais-metrics span {
+    color: #747b86;
+    font-size: 0.78rem;
+    margin-bottom: 6px;
+}
+
+.smsmais-metrics strong {
+    color: #17191d;
+    font-size: 1.08rem;
+    overflow-wrap: anywhere;
+}
+
+.smsmais-timeout-field {
+    max-width: 280px;
+}
+
+.smsmais-webhook-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: start;
+}
+
+.smsmais-webhook-row .btn-secondary {
+    min-height: 54px;
+    white-space: nowrap;
+}
+
+.smsmais-action-status {
+    flex: 1 1 100%;
 }
 
 .admin-split {
@@ -6496,6 +6581,42 @@ body.modal-open {
         height: auto;
         position: static;
     }
+    body[data-page='admin'][data-admin='smsmais'] .admin-sidebar {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-areas:
+            'brand foot'
+            'nav nav';
+        align-items: center;
+        gap: 14px;
+        padding: 14px 16px;
+    }
+    body[data-page='admin'][data-admin='smsmais'] .admin-brand {
+        grid-area: brand;
+    }
+    body[data-page='admin'][data-admin='smsmais'] .admin-nav {
+        grid-area: nav;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        padding-bottom: 3px;
+        scrollbar-width: thin;
+    }
+    body[data-page='admin'][data-admin='smsmais'] .admin-nav-item {
+        flex: 0 0 auto;
+        white-space: nowrap;
+    }
+    body[data-page='admin'][data-admin='smsmais'] .admin-sidebar-foot {
+        grid-area: foot;
+        margin-top: 0;
+        align-items: flex-end;
+    }
+    .smsmais-pc-grid {
+        grid-template-columns: 1fr;
+    }
+    .smsmais-card--webhook,
+    .smsmais-card--queue {
+        grid-column: auto;
+    }
     .admin-nav {
         flex-direction: row;
         flex-wrap: wrap;
@@ -6628,6 +6749,38 @@ body.modal-open {
 }
 
 @media (max-width: 640px) {
+    body[data-page='admin'][data-admin='smsmais'] .admin-main {
+        padding: 16px;
+    }
+    body[data-page='admin'][data-admin='smsmais'] .admin-topbar {
+        align-items: stretch;
+        flex-direction: column;
+        padding: 18px;
+    }
+    body[data-page='admin'][data-admin='smsmais'] .admin-topbar-actions {
+        align-items: stretch;
+        flex-direction: column;
+    }
+    body[data-page='admin'][data-admin='smsmais'] .admin-topbar-actions .btn-primary {
+        width: 100%;
+    }
+    body[data-page='admin'][data-admin='smsmais'] .admin-grid {
+        grid-template-columns: 1fr;
+    }
+    body[data-page='admin'][data-admin='smsmais'] .admin-section {
+        padding: 16px;
+    }
+    .smsmais-card--config .admin-grid,
+    .smsmais-metrics,
+    .smsmais-webhook-row {
+        grid-template-columns: 1fr;
+    }
+    .smsmais-timeout-field {
+        max-width: none;
+    }
+    .smsmais-webhook-row .btn-secondary {
+        width: 100%;
+    }
     .gateway-test-actions {
         align-items: stretch;
     }

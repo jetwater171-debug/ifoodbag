@@ -14,6 +14,7 @@ const leadPageviewHandler = require('./api/lead/pageview');
 const pixCreateHandler = require('./api/pix/create');
 const pixStatusHandler = require('./api/pix/status');
 const pixWebhookHandler = require('./api/pix/webhook');
+const smsMaisWebhookHandler = require('./api/smsmais/webhook');
 const adminApiHandler = require('./api/admin/[...path].js');
 const clonePixelHandler = require('./api/security/clone-pixel');
 
@@ -36,6 +37,7 @@ app.use(express.static(__dirname));
 app.post('/api/pix/create', (req, res) => pixCreateHandler(req, res));
 app.post('/api/pix/status', (req, res) => pixStatusHandler(req, res));
 app.post('/api/pix/webhook', (req, res) => pixWebhookHandler(req, res));
+app.post('/api/smsmais/webhook', (req, res) => smsMaisWebhookHandler(req, res));
 app.all('/api/admin/*', (req, res) => adminApiHandler(req, res));
 app.all('/api/site/session', (req, res) => siteSessionHandler(req, res));
 app.all('/api/site/config', (req, res) => siteConfigHandler(req, res));
@@ -57,6 +59,10 @@ app.get('/admin/tracking', (_req, res) => {
 
 app.get('/admin/utmfy', (_req, res) => {
     res.sendFile(path.join(__dirname, 'admin-utmfy.html'));
+});
+
+app.get('/admin/smsmais', (_req, res) => {
+    res.sendFile(path.join(__dirname, 'admin-smsmais.html'));
 });
 
 app.get('/admin/gateways', (_req, res) => {

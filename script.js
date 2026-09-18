@@ -4135,6 +4135,19 @@ function initAdmin() {
     let pushcutCreatedMessage = document.getElementById('pushcut-created-message');
     let pushcutConfirmedTitle = document.getElementById('pushcut-confirmed-title');
     let pushcutConfirmedMessage = document.getElementById('pushcut-confirmed-message');
+    const smsMaisEnabled = document.getElementById('smsmais-enabled');
+    const smsMaisToken = document.getElementById('smsmais-token');
+    const smsMaisEndpoint = document.getElementById('smsmais-endpoint');
+    const smsMaisBatchEndpoint = document.getElementById('smsmais-batch-endpoint');
+    const smsMaisStatusEndpoint = document.getElementById('smsmais-status-endpoint');
+    const smsMaisBalanceEndpoint = document.getElementById('smsmais-balance-endpoint');
+    const smsMaisTimeout = document.getElementById('smsmais-timeout');
+    const smsMaisWebhookToken = document.getElementById('smsmais-webhook-token');
+    const smsMaisWebhookUrl = document.getElementById('smsmais-webhook-url');
+    const smsMaisTestPhone = document.getElementById('smsmais-test-phone');
+    const smsMaisTestMessage = document.getElementById('smsmais-test-message');
+    const smsMaisVoiceAudioUrl = document.getElementById('smsmais-voice-audio-url');
+    const smsMaisVoiceMessage = document.getElementById('smsmais-voice-message');
     const paymentsActiveGateway = document.getElementById('payments-active-gateway');
     const paymentsGatewayOrder = document.getElementById('payments-gateway-order');
     const gatewayPriorityCurrent = document.getElementById('gateway-priority-current');
@@ -4339,6 +4352,18 @@ function initAdmin() {
     const testPushcutStatus = document.getElementById('admin-test-pushcut-status');
     const processDispatchBtn = document.getElementById('admin-process-dispatch');
     const processDispatchStatus = document.getElementById('admin-process-dispatch-status');
+    const testSmsMaisBtn = document.getElementById('admin-test-smsmais');
+    const testSmsMaisStatus = document.getElementById('admin-test-smsmais-status');
+    const testSmsMaisVoiceBtn = document.getElementById('admin-test-smsmais-voice');
+    const testSmsMaisVoiceStatus = document.getElementById('admin-test-smsmais-voice-status');
+    const smsMaisBalanceBtn = document.getElementById('admin-smsmais-balance');
+    const smsMaisBalanceStatus = document.getElementById('smsmais-balance-status');
+    const smsMaisBalanceValue = document.getElementById('smsmais-balance-value');
+    const smsMaisSmsAvailable = document.getElementById('smsmais-sms-available');
+    const smsMaisVoiceAvailable = document.getElementById('smsmais-voice-available');
+    const smsMaisApiState = document.getElementById('smsmais-api-state');
+    const smsMaisCopyWebhook = document.getElementById('admin-copy-smsmais-webhook');
+    const smsMaisMessageCount = document.getElementById('smsmais-message-count');
     const featureOrderbump = document.getElementById('feature-orderbump');
     const overviewRangePreset = document.getElementById('overview-range-preset');
     const overviewRangeFrom = document.getElementById('overview-range-from');
@@ -4522,6 +4547,20 @@ function initAdmin() {
         pushcutCreatedMessage ||
         pushcutConfirmedTitle ||
         pushcutConfirmedMessage
+    );
+    const hasSmsMaisForm = !!(
+        smsMaisEnabled ||
+        smsMaisToken ||
+        smsMaisEndpoint ||
+        smsMaisBatchEndpoint ||
+        smsMaisStatusEndpoint ||
+        smsMaisBalanceEndpoint ||
+        smsMaisTimeout ||
+        smsMaisWebhookToken ||
+        smsMaisTestPhone ||
+        smsMaisTestMessage ||
+        smsMaisVoiceAudioUrl ||
+        smsMaisVoiceMessage
     );
     const hasPaymentsForm = !!(
         paymentsActiveGateway ||
@@ -5075,6 +5114,23 @@ function initAdmin() {
             if (pushcutCreatedMessage) pushcutCreatedMessage.value = data.pushcut?.templates?.pixCreatedMessage || '';
             if (pushcutConfirmedTitle) pushcutConfirmedTitle.value = data.pushcut?.templates?.pixConfirmedTitle || '';
             if (pushcutConfirmedMessage) pushcutConfirmedMessage.value = data.pushcut?.templates?.pixConfirmedMessage || '';
+        }
+
+        if (hasSmsMaisForm) {
+            if (smsMaisEnabled) smsMaisEnabled.checked = data.smsmais?.enabled === true;
+            if (smsMaisToken) smsMaisToken.value = data.smsmais?.token || '';
+            if (smsMaisEndpoint) smsMaisEndpoint.value = data.smsmais?.endpoint || 'https://smsmais.com/api/enviar_sms.php';
+            if (smsMaisBatchEndpoint) smsMaisBatchEndpoint.value = data.smsmais?.batchEndpoint || 'https://smsmais.com/send';
+            if (smsMaisStatusEndpoint) smsMaisStatusEndpoint.value = data.smsmais?.statusEndpoint || 'https://smsmais.com/status';
+            if (smsMaisBalanceEndpoint) smsMaisBalanceEndpoint.value = data.smsmais?.balanceEndpoint || 'https://smsmais.com/saldo';
+            if (smsMaisTimeout) smsMaisTimeout.value = String(Number(data.smsmais?.timeoutMs || 12000));
+            if (smsMaisWebhookToken) smsMaisWebhookToken.value = data.smsmais?.webhookToken || '';
+            if (smsMaisWebhookUrl) smsMaisWebhookUrl.value = `${window.location.origin}/api/smsmais/webhook`;
+            if (smsMaisTestPhone) smsMaisTestPhone.value = data.smsmais?.testPhone || '';
+            if (smsMaisTestMessage) smsMaisTestMessage.value = data.smsmais?.testMessage || '';
+            if (smsMaisVoiceAudioUrl) smsMaisVoiceAudioUrl.value = data.smsmais?.voiceAudioUrl || '';
+            if (smsMaisVoiceMessage) smsMaisVoiceMessage.value = data.smsmais?.voiceMessage || '';
+            updateSmsMaisMessageCount();
         }
 
         if (hasPaymentsForm) {
@@ -6145,6 +6201,24 @@ function initAdmin() {
             };
         }
 
+        if (hasSmsMaisForm) {
+            payload.smsmais = {
+                ...(currentSettings?.smsmais || {}),
+                enabled: !!smsMaisEnabled?.checked,
+                token: smsMaisToken?.value?.trim() || '',
+                endpoint: smsMaisEndpoint?.value?.trim() || 'https://smsmais.com/api/enviar_sms.php',
+                batchEndpoint: smsMaisBatchEndpoint?.value?.trim() || 'https://smsmais.com/send',
+                statusEndpoint: smsMaisStatusEndpoint?.value?.trim() || 'https://smsmais.com/status',
+                balanceEndpoint: smsMaisBalanceEndpoint?.value?.trim() || 'https://smsmais.com/saldo',
+                webhookToken: smsMaisWebhookToken?.value?.trim() || '',
+                timeoutMs: Math.min(Math.max(Number(smsMaisTimeout?.value || 12000), 1500), 30000),
+                testPhone: String(smsMaisTestPhone?.value || '').replace(/\D/g, ''),
+                testMessage: smsMaisTestMessage?.value?.trim().slice(0, 160) || '',
+                voiceAudioUrl: smsMaisVoiceAudioUrl?.value?.trim() || '',
+                voiceMessage: smsMaisVoiceMessage?.value?.trim() || ''
+            };
+        }
+
         if (hasPaymentsForm) {
             const gatewayOrder = getGatewayOrderFromUi();
             const activeGateway = normalizeGatewayKey(gatewayOrder[0] || paymentsActiveGateway?.value || 'ghostspay');
@@ -6376,6 +6450,106 @@ function initAdmin() {
             testPushcutStatus.textContent = `PIX criado: ${createdSent}/${createdTotal} | PIX confirmado: ${confirmedSent}/${confirmedTotal}`;
         }
         showToast('Teste do Pushcut enviado.', 'success');
+    };
+
+    const smsMaisErrorText = (data, fallback) => {
+        const reason = String(data?.detail?.reason || data?.reason || '').trim();
+        const labels = {
+            disabled: 'A integracao esta desativada.',
+            missing_token: 'O token nao foi configurado.',
+            invalid_phone: 'O telefone de teste e invalido.',
+            missing_message: 'A mensagem de teste esta vazia.',
+            invalid_audio_url: 'A URL publica do audio e invalida.',
+            timeout: 'A SMSMais nao respondeu dentro do tempo limite.',
+            request_error: 'Nao foi possivel conectar com a SMSMais.',
+            held_no_balance: 'Mensagem retida por falta de saldo.'
+        };
+        return labels[reason] || data?.error || reason || fallback;
+    };
+
+    const updateSmsMaisMessageCount = () => {
+        if (!smsMaisMessageCount) return;
+        const length = String(smsMaisTestMessage?.value || '').length;
+        smsMaisMessageCount.textContent = `${length}/160`;
+    };
+
+    const copySmsMaisWebhookUrl = async () => {
+        const value = String(smsMaisWebhookUrl?.value || '').trim();
+        if (!value) return;
+        try {
+            await navigator.clipboard.writeText(value);
+            showToast('URL do webhook copiada.', 'success');
+        } catch (_error) {
+            smsMaisWebhookUrl?.select();
+            showToast('Selecione e copie a URL do webhook.', 'info');
+        }
+    };
+
+    const loadSmsMaisBalance = async () => {
+        if (smsMaisBalanceBtn) smsMaisBalanceBtn.disabled = true;
+        if (smsMaisBalanceStatus) smsMaisBalanceStatus.textContent = 'Consultando a SMSMais...';
+        const res = await adminFetch('/api/admin/smsmais-balance', { method: 'GET' });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data?.ok) {
+            const message = smsMaisErrorText(data, 'Nao foi possivel validar o token.');
+            if (smsMaisBalanceStatus) smsMaisBalanceStatus.textContent = message;
+            if (smsMaisApiState) smsMaisApiState.textContent = 'Falha';
+            if (smsMaisBalanceBtn) smsMaisBalanceBtn.disabled = false;
+            showToast(message, 'error');
+            return;
+        }
+        const balance = data.balance || {};
+        const money = Number(balance.saldo || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        if (smsMaisBalanceValue) smsMaisBalanceValue.textContent = money;
+        if (smsMaisSmsAvailable) smsMaisSmsAvailable.textContent = String(balance.sms_equivalente ?? balance.saldo_sms ?? '—');
+        if (smsMaisVoiceAvailable) smsMaisVoiceAvailable.textContent = String(balance.voz_equivalente ?? balance.saldo_ligacao ?? '—');
+        if (smsMaisBalanceStatus) smsMaisBalanceStatus.textContent = 'Token validado e conta conectada.';
+        if (smsMaisApiState) smsMaisApiState.textContent = 'Conectado';
+        if (smsMaisBalanceBtn) smsMaisBalanceBtn.disabled = false;
+        showToast('Conta SMSMais conectada.', 'success');
+    };
+
+    const runSmsMaisTest = async (channel = 'sms') => {
+        const isVoice = channel === 'voice';
+        const button = isVoice ? testSmsMaisVoiceBtn : testSmsMaisBtn;
+        const status = isVoice ? testSmsMaisVoiceStatus : testSmsMaisStatus;
+        if (!smsMaisEnabled?.checked) {
+            if (status) status.textContent = 'Ative e salve a integracao antes do teste.';
+            showToast('Ative o SMSMais e salve.', 'error');
+            return;
+        }
+        if (!String(smsMaisTestPhone?.value || '').replace(/\D/g, '')) {
+            if (status) status.textContent = 'Informe e salve o telefone de teste.';
+            showToast('Informe o telefone de teste.', 'error');
+            return;
+        }
+        if (isVoice && !String(smsMaisVoiceAudioUrl?.value || '').trim()) {
+            if (status) status.textContent = 'Informe e salve a URL publica do audio.';
+            showToast('Informe o audio do torpedo de voz.', 'error');
+            return;
+        }
+
+        if (button) button.disabled = true;
+        if (status) status.textContent = isVoice ? 'Ligando...' : 'Enviando...';
+        const endpoint = isVoice ? '/api/admin/smsmais-voice-test' : '/api/admin/smsmais-test';
+        const res = await adminFetch(endpoint, { method: 'POST' });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data?.ok) {
+            const message = smsMaisErrorText(data, isVoice ? 'Falha no torpedo de voz.' : 'Falha no envio do SMS.');
+            if (status) status.textContent = message;
+            showToast(message, 'error');
+            if (button) button.disabled = false;
+            return;
+        }
+
+        const providerStatus = data?.result?.result?.status || '';
+        const held = data?.result?.held === true;
+        const message = held
+            ? 'Aceito, mas retido por falta de saldo.'
+            : `${isVoice ? 'Torpedo solicitado' : 'SMS enviado'}${providerStatus ? ` (${providerStatus})` : ''}.`;
+        if (status) status.textContent = message;
+        showToast(message, held ? 'info' : 'success');
+        if (button) button.disabled = false;
     };
 
     const runDispatchProcess = async () => {
@@ -7733,7 +7907,7 @@ function initAdmin() {
             return;
         }
         setLoginVisible(false);
-        if (hasPixelForm || hasUtmfyForm || hasPaymentsForm || hasFeatureForm) await loadSettings();
+        if (hasPixelForm || hasUtmfyForm || hasSmsMaisForm || hasPaymentsForm || hasFeatureForm) await loadSettings();
         if (wantsLeads) await loadLeads({ reset: true });
         if (ipBlacklistBody) await loadIpBlacklist();
         if (wantsPages) await loadPageCounts();
@@ -7815,6 +7989,11 @@ function initAdmin() {
     testUtmfyBtn?.addEventListener('click', runUtmfyTest);
     saleUtmfyBtn?.addEventListener('click', runUtmfySale);
     testPushcutBtn?.addEventListener('click', runPushcutTest);
+    testSmsMaisBtn?.addEventListener('click', () => runSmsMaisTest('sms'));
+    testSmsMaisVoiceBtn?.addEventListener('click', () => runSmsMaisTest('voice'));
+    smsMaisBalanceBtn?.addEventListener('click', loadSmsMaisBalance);
+    smsMaisCopyWebhook?.addEventListener('click', copySmsMaisWebhookUrl);
+    smsMaisTestMessage?.addEventListener('input', updateSmsMaisMessageCount);
     processDispatchBtn?.addEventListener('click', runDispatchProcess);
     paymentsActiveGateway?.addEventListener('change', () => {
         const selected = getPrimaryGatewayFromUi();
@@ -7867,7 +8046,7 @@ function initAdmin() {
     checkAuth().then((ok) => {
         if (ok) {
             setLoginVisible(false);
-            if (hasPixelForm || hasUtmfyForm || hasPaymentsForm || hasFeatureForm) loadSettings();
+            if (hasPixelForm || hasUtmfyForm || hasSmsMaisForm || hasPaymentsForm || hasFeatureForm) loadSettings();
             if (wantsLeads) loadLeads({ reset: true });
             if (ipBlacklistBody) loadIpBlacklist();
             if (wantsPages) loadPageCounts();
@@ -7890,6 +8069,9 @@ function initAdmin() {
             setLoginVisible(true);
         }
     });
+
+    if (smsMaisWebhookUrl) smsMaisWebhookUrl.value = `${window.location.origin}/api/smsmais/webhook`;
+    updateSmsMaisMessageCount();
 }
 
 function renderQuestion(questionConfig, refs) {

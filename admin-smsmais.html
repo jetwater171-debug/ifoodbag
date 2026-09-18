@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#111111" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <title>Painel - SMSMais</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/style.css?v=3.4" />
+  <script src="/backguard.js?v=1.5"></script>
+</head>
+<body data-page="admin" data-admin="smsmais">
+  <div class="admin-shell">
+    <aside class="admin-sidebar">
+      <div class="admin-brand">
+        <img src="/assets/ifoodentregadores-wink-v1.svg" alt="Marca do painel" />
+        <div>
+          <strong>Dashboard</strong>
+          <span>Entregadores</span>
+        </div>
+      </div>
+      <nav class="admin-nav">
+        <a class="admin-nav-item" data-admin="overview" href="/admin">Visao geral</a>
+        <a class="admin-nav-item" data-admin="tracking" href="/admin/tracking">Tracking</a>
+        <a class="admin-nav-item" data-admin="utmfy" href="/admin/utmfy">UTMfy</a>
+        <a class="admin-nav-item" data-admin="smsmais" href="/admin/smsmais">SMSMais</a>
+        <a class="admin-nav-item" data-admin="gateways" href="/admin/gateways">Gateways</a>
+        <a class="admin-nav-item" data-admin="pages" href="/admin/pages">Paginas</a>
+        <a class="admin-nav-item" data-admin="public" href="/admin/publico">Público</a>
+        <a class="admin-nav-item" data-admin="sales" href="/admin/vendas">Vendas</a>
+        <a class="admin-nav-item" data-admin="backredirects" href="/admin/backredirects">Backredirects</a>
+        <a class="admin-nav-item" data-admin="leads" href="/admin/leads">Leads</a>
+        <a class="admin-nav-item" data-admin="clonadores" href="/admin/clonadores">Clonadores</a>
+      </nav>
+      <div class="admin-sidebar-foot">
+        <span class="admin-pill">Seguro</span>
+        <span class="admin-muted">Painel privado</span>
+      </div>
+    </aside>
+
+    <main class="admin-main">
+      <header class="admin-topbar">
+        <div>
+          <h1>SMSMais</h1>
+          <p>Configure SMS e torpedo de voz sem expor o token no site.</p>
+        </div>
+        <div class="admin-topbar-actions">
+          <button id="admin-smsmais-balance" class="btn-secondary" type="button">Consultar saldo</button>
+          <button id="admin-save" class="btn-primary" type="button">Salvar configuracoes</button>
+          <span id="admin-save-status" class="admin-muted"></span>
+        </div>
+      </header>
+
+      <section id="admin-login" class="admin-login-card">
+        <h2>Acesso restrito</h2>
+        <p class="admin-muted">Digite sua senha para acessar o painel.</p>
+        <div class="input-group">
+          <input type="password" id="admin-password" class="floating-input" placeholder=" " autocomplete="current-password" />
+          <label for="admin-password" class="floating-label">Senha do admin</label>
+        </div>
+        <button id="admin-login-btn" class="btn-primary" type="button">Entrar</button>
+        <div id="admin-login-error" class="form-error hidden"></div>
+      </section>
+
+      <div id="admin-panel" class="admin-panel smsmais-panel hidden">
+        <div class="smsmais-pc-grid">
+        <section class="admin-section admin-section--card smsmais-card smsmais-card--config">
+          <div class="admin-section-header">
+            <h2>Conexao da API</h2>
+            <span class="admin-chip">Producao</span>
+          </div>
+          <p class="admin-hint">Use o Bearer Token de Configuracoes → API. A credencial fica mascarada e somente no backend.</p>
+          <div class="admin-grid">
+            <label class="admin-switch">
+              <input type="checkbox" id="smsmais-enabled" />
+              <span>Integracao ativa</span>
+            </label>
+            <div class="input-group">
+              <input type="password" id="smsmais-token" class="floating-input" placeholder=" " autocomplete="new-password" />
+              <label for="smsmais-token" class="floating-label">Bearer Token</label>
+            </div>
+            <div class="input-group">
+              <input type="url" id="smsmais-endpoint" class="floating-input" placeholder=" " />
+              <label for="smsmais-endpoint" class="floating-label">Endpoint de SMS</label>
+            </div>
+            <div class="input-group">
+              <input type="url" id="smsmais-batch-endpoint" class="floating-input" placeholder=" " />
+              <label for="smsmais-batch-endpoint" class="floating-label">Endpoint de lote /send</label>
+            </div>
+            <div class="input-group">
+              <input type="url" id="smsmais-status-endpoint" class="floating-input" placeholder=" " />
+              <label for="smsmais-status-endpoint" class="floating-label">Endpoint de status</label>
+            </div>
+            <div class="input-group">
+              <input type="url" id="smsmais-balance-endpoint" class="floating-input" placeholder=" " />
+              <label for="smsmais-balance-endpoint" class="floating-label">Endpoint de saldo</label>
+            </div>
+          </div>
+        </section>
+
+        <section class="admin-section admin-section--card smsmais-card smsmais-card--health">
+          <div class="admin-section-header">
+            <h2>Conta e operacao</h2>
+            <span id="smsmais-api-state" class="admin-chip">Aguardando</span>
+          </div>
+          <div class="smsmais-metrics">
+            <div><span>Saldo</span><strong id="smsmais-balance-value">—</strong></div>
+            <div><span>SMS disponiveis</span><strong id="smsmais-sms-available">—</strong></div>
+            <div><span>Voz disponivel</span><strong id="smsmais-voice-available">—</strong></div>
+          </div>
+          <div class="input-group smsmais-timeout-field">
+            <input type="number" id="smsmais-timeout" class="floating-input" min="1500" max="30000" step="500" placeholder=" " />
+            <label for="smsmais-timeout" class="floating-label">Timeout da API (ms)</label>
+          </div>
+          <p id="smsmais-balance-status" class="admin-hint">Salve o token e consulte o saldo para validar a conexao.</p>
+        </section>
+
+        <section class="admin-section admin-section--card smsmais-card smsmais-card--webhook">
+          <div class="admin-section-header">
+            <h2>Webhook de entrega e respostas</h2>
+            <span class="admin-chip">DLR + MO</span>
+          </div>
+          <p class="admin-hint">No painel da SMSMais, cadastre esta mesma URL uma vez para Status de entrega (DLR) e outra para Respostas (MO).</p>
+          <div class="smsmais-webhook-row">
+            <div class="input-group">
+              <input type="url" id="smsmais-webhook-url" class="floating-input" placeholder=" " readonly />
+              <label for="smsmais-webhook-url" class="floating-label">URL do endpoint</label>
+            </div>
+            <button id="admin-copy-smsmais-webhook" class="btn-secondary" type="button">Copiar URL</button>
+          </div>
+          <div class="input-group">
+            <input type="password" id="smsmais-webhook-token" class="floating-input" placeholder=" " autocomplete="new-password" />
+            <label for="smsmais-webhook-token" class="floating-label">Token de autenticacao do webhook</label>
+          </div>
+          <p class="admin-hint">Informe o mesmo token no campo opcional da SMSMais. O endpoint responde HTTP 200 e registra callbacks sem duplicar.</p>
+        </section>
+
+        <section class="admin-section admin-section--card smsmais-card">
+          <div class="admin-section-header">
+            <h2>Teste de SMS</h2>
+            <span class="admin-chip">Teste real</span>
+          </div>
+          <p class="admin-hint">O limite padrao da API e 160 caracteres. Este botao consome saldo.</p>
+          <div class="admin-grid">
+            <div class="input-group">
+              <input type="tel" id="smsmais-test-phone" class="floating-input" placeholder=" " inputmode="numeric" />
+              <label for="smsmais-test-phone" class="floating-label">Telefone de teste</label>
+            </div>
+            <div class="input-group">
+              <textarea id="smsmais-test-message" class="floating-input floating-input--textarea" placeholder=" " maxlength="160"></textarea>
+              <label for="smsmais-test-message" class="floating-label">Mensagem do SMS de teste</label>
+            </div>
+          </div>
+          <div class="admin-inline-actions">
+            <button id="admin-test-smsmais" class="btn-secondary" type="button">Enviar SMS de teste</button>
+            <span id="smsmais-message-count" class="admin-muted">0/160</span>
+            <span id="admin-test-smsmais-status" class="admin-muted smsmais-action-status"></span>
+          </div>
+        </section>
+
+        <section class="admin-section admin-section--card smsmais-card">
+          <div class="admin-section-header">
+            <h2>Torpedo de voz</h2>
+            <span class="admin-chip">MP3 ou WAV</span>
+          </div>
+          <p class="admin-hint">Use uma URL publica direta para o arquivo de audio. Links que abrem uma pagina de compartilhamento nao funcionam.</p>
+          <div class="admin-grid">
+            <div class="input-group">
+              <input type="url" id="smsmais-voice-audio-url" class="floating-input" placeholder=" " />
+              <label for="smsmais-voice-audio-url" class="floating-label">URL publica do audio</label>
+            </div>
+            <div class="input-group">
+              <input type="text" id="smsmais-voice-message" class="floating-input" placeholder=" " />
+              <label for="smsmais-voice-message" class="floating-label">Identificacao da chamada</label>
+            </div>
+          </div>
+          <div class="admin-inline-actions">
+            <button id="admin-test-smsmais-voice" class="btn-secondary" type="button">Testar torpedo de voz</button>
+            <span id="admin-test-smsmais-voice-status" class="admin-muted"></span>
+          </div>
+        </section>
+
+        <section class="admin-section admin-section--card smsmais-card smsmais-card--queue">
+          <div class="admin-section-header">
+            <h2>Estado da integracao</h2>
+            <span class="admin-chip">Backend</span>
+          </div>
+          <p class="admin-hint">O provedor ja esta conectado a fila interna pelo canal <code>smsmais</code>. Nenhum disparo automatico esta ativo nesta etapa.</p>
+          <div class="admin-inline-actions">
+            <button id="admin-process-dispatch" class="btn-secondary" type="button">Processar fila agora</button>
+            <span id="admin-process-dispatch-status" class="admin-muted"></span>
+          </div>
+        </section>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+  <script src="/script.js?v=11.6" defer></script>
+</body>
+</html>

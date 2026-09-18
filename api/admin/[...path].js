@@ -11,6 +11,7 @@ const {
 const { sendUtmfy } = require('../../lib/utmfy');
 const { updateLeadByPixTxid, getLeadByPixTxid, updateLeadBySessionId, getLeadBySessionId } = require('../../lib/lead-store');
 const { sendPushcut } = require('../../lib/pushcut');
+const { sendSmsMaisSms, sendSmsMaisVoice, getSmsMaisBalance } = require('../../lib/smsmais');
 const {
     requestCreateTransaction: requestGhostspayCreate,
     requestTransactionById: requestGhostspayStatus
@@ -996,6 +997,12 @@ function sanitizeSettingsForAdmin(settingsData = {}) {
     payload.payments.gateways.bravopay = payload.payments.gateways.bravopay || {};
 
     payload.utmfy.apiKey = maskSecret(payload.utmfy.apiKey);
+    payload.smsmais = {
+        ...defaultSettings.smsmais,
+        ...asObject(payload.smsmais),
+        token: maskSecret(payload.smsmais?.token),
+        webhookToken: maskSecret(payload.smsmais?.webhookToken)
+    };
 
     payload.payments.gateways.ghostspay.secretKey = maskSecret(payload.payments.gateways.ghostspay.secretKey);
     payload.payments.gateways.ghostspay.basicAuthBase64 = '';
@@ -4263,14 +4270,17 @@ async function settings(req, res) {
         const hasTikTokPixelSection = body.tiktokPixel && typeof body.tiktokPixel === 'object';
         const hasUtmfySection = body.utmfy && typeof body.utmfy === 'object';
         const hasPushcutSection = body.pushcut && typeof body.pushcut === 'object';
+        const hasSmsMaisSection = body.smsmais && typeof body.smsmais === 'object';
         const hasPaymentsSection = body.payments && typeof body.payments === 'object';
         const hasFeaturesSection = body.features && typeof body.features === 'object';
         const bodyPixel = hasPixelSection ? body.pixel : {};
         const bodyTikTokPixel = hasTikTokPixelSection ? body.tiktokPixel : {};
         const currentUtmfy = currentSaved?.utmfy || {};
         const currentPushcut = currentSaved?.pushcut || {};
+        const currentSmsMais = currentSaved?.smsmais || {};
         const bodyUtmfy = hasUtmfySection ? body.utmfy : {};
         const bodyPushcut = hasPushcutSection ? body.pushcut : {};
+        const bodySmsMais = hasSmsMaisSection ? body.smsmais : {};
 
         const payload = {
             ...defaultSettings,
@@ -4341,6 +4351,19 @@ async function settings(req, res) {
                     ...bodyPushcut
                 })
                 : buildPushcutConfig(currentPushcut),
+            smsmais: hasSmsMaisSection
+                ? {
+                    ...defaultSettings.smsmais,
+                    ...currentSmsMais,
+                    ...bodySmsMais,
+                    enabled: !!bodySmsMais.enabled,
+                    token: pickSecretInput(bodySmsMais.token, currentSmsMais.token || ''),
+                    webhookToken: pickSecretInput(bodySmsMais.webhookToken, currentSmsMais.webhookToken || '')
+                }
+                : {
+                    ...defaultSettings.smsmais,
+                    ...currentSmsMais
+                },
             payments: hasPaymentsSection
                 ? mergePaymentSettings(currentSaved?.payments || defaultSettings.payments || {}, mergedPaymentsInput)
                 : mergePaymentSettings(currentSaved?.payments || defaultSettings.payments || {}, {}),
@@ -4521,6 +4544,66 @@ async function pushcutTest(req, res) {
             pix_confirmed: confirmedResult
         }
     });
+}
+
+async function smsMaisTest(req, res, channel = 'sms') {
+    if (req.method !== 'POST') {
+        res.status(405).json({ error: 'Method not allowed' });
+        return;
+    }
+    if (!requireAdmin(req, res)) return;
+
+    const cfg = (await getSettings())?.smsmais || {};
+    if (cfg.enabled !== true) {
+        res.status(400).json({ ok: false, error: 'SMSMais desativado.' });
+        return;
+    }
+    if (!String(cfg.token || '').trim()) {
+        res.status(400).json({ ok: false, error: 'Token da SMSMais nao configurado.' });
+        return;
+    }
+    if (!String(cfg.testPhone || '').replace(/\D/g, '')) {
+        res.status(400).json({ ok: false, error: 'Telefone de teste nao configurado.' });
+        return;
+    }
+
+    const externalId = `admin-${channel}-${Date.now()}`;
+    const payload = {
+        to: cfg.testPhone,
+        externalId,
+        message: channel === 'voice' ? cfg.voiceMessage : cfg.testMessage
+    };
+    const result = channel === 'voice'
+        ? await sendSmsMaisVoice({ ...payload, audioUrl: cfg.voiceAudioUrl }).catch((error) => ({ ok: false, reason: error?.message || 'request_error' }))
+        : await sendSmsMaisSms(payload).catch((error) => ({ ok: false, reason: error?.message || 'request_error' }));
+
+    if (!result?.ok) {
+        res.status(400).json({
+            ok: false,
+            error: channel === 'voice' ? 'Falha ao enviar torpedo de voz.' : 'Falha ao enviar SMS.',
+            detail: result || {}
+        });
+        return;
+    }
+
+    res.status(200).json({ ok: true, channel, result });
+}
+
+async function smsMaisBalance(req, res) {
+    if (req.method !== 'GET') {
+        res.status(405).json({ error: 'Method not allowed' });
+        return;
+    }
+    if (!requireAdmin(req, res)) return;
+    const result = await getSmsMaisBalance().catch((error) => ({
+        ok: false,
+        reason: error?.message || 'request_error'
+    }));
+    if (!result?.ok) {
+        res.status(400).json({ ok: false, error: 'Falha ao consultar saldo da SMSMais.', detail: result || {} });
+        return;
+    }
+    res.status(200).json({ ok: true, balance: result.data?.data || result.data || {} });
 }
 
 async function gatewayTestPix(req, res) {
@@ -5845,6 +5928,12 @@ module.exports = async (req, res) => {
             return utmfySale(req, res);
         case 'pushcut-test':
             return pushcutTest(req, res);
+        case 'smsmais-test':
+            return smsMaisTest(req, res, 'sms');
+        case 'smsmais-voice-test':
+            return smsMaisTest(req, res, 'voice');
+        case 'smsmais-balance':
+            return smsMaisBalance(req, res);
         case 'gateway-test-pix':
             return gatewayTestPix(req, res);
         case 'pix-reconcile':
