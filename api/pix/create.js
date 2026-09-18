@@ -1,5 +1,6 @@
 const { upsertLead, getLeadBySessionId } = require('../../lib/lead-store');
 const { ensurePublicAccess } = require('../../lib/public-access');
+const { verifyRecoveryToken, verifyRecoveryProof } = require('../../lib/remarketing-token');
 const { enqueueDispatch, processDispatchQueue } = require('../../lib/dispatch-queue');
 const {
     normalizeGatewayOrder,
@@ -1007,8 +1008,17 @@ module.exports = async (req, res) => {
         const value = toBrlAmount(amount);
         const upsellEnabled = Boolean(upsell && upsell.enabled);
         const normalizedReward = resolveReward(rawReward);
-        const rewardExtraPrice = upsellEnabled ? 0 : toBrlAmount(normalizedReward.extraPrice);
+        let rewardExtraPrice = upsellEnabled ? 0 : toBrlAmount(normalizedReward.extraPrice);
         const sessionId = String(rawBody?.sessionId || rawBody?.session_id || '').trim();
+        const recoveryGrant = verifyRecoveryToken(rawBody?.recoveryToken || '');
+        const validRecoveryGrant = recoveryGrant &&
+            recoveryGrant.sessionId === sessionId &&
+            verifyRecoveryProof(rawBody?.recoveryToken || '', rawBody?.recoveryProof || '')
+            ? recoveryGrant
+            : null;
+        if (rawBody?.recoveryToken && !validRecoveryGrant) {
+            return res.status(403).json({ error: 'Autorizacao de recuperacao invalida ou expirada.' });
+        }
         const addPaymentInfoEventId = sanitizeEventId(rawBody?.addPaymentInfoEventId || rawBody?.eventId)
             || buildAddPaymentInfoEventId(sessionId);
 
@@ -1033,10 +1043,32 @@ module.exports = async (req, res) => {
         const streetNumber = extra?.noNumber ? 'S/N' : String(extra?.number || '').trim() || 'S/N';
         const complement = extra?.noComplement ? 'Sem complemento' : String(extra?.complement || '').trim() || 'Sem complemento';
 
+        let effectiveShipping = shipping;
         let shippingPrice = normalizeGatewayShippingPrice(shipping, shipping?.price || 0);
         let bumpPrice = bump?.price ? toBrlAmount(bump.price) : 0;
         if (bump?.selected === false) bumpPrice = 0;
         let totalAmount = Number((shippingPrice + rewardExtraPrice + bumpPrice).toFixed(2));
+        if (validRecoveryGrant) {
+            const recoveryAmount = Number((
+                validRecoveryGrant.originalAmount *
+                (1 - validRecoveryGrant.discountPercent / 100)
+            ).toFixed(2));
+            if (!Number.isFinite(recoveryAmount) || recoveryAmount <= 0) {
+                return res.status(400).json({ error: 'Oferta de recuperacao invalida.' });
+            }
+            effectiveShipping = {
+                ...(shipping || {}),
+                id: 'remarketing_recovery',
+                name: 'Condicao de recuperacao do pedido',
+                price: recoveryAmount,
+                basePrice: validRecoveryGrant.originalAmount,
+                originalPrice: validRecoveryGrant.originalAmount
+            };
+            shippingPrice = recoveryAmount;
+            rewardExtraPrice = 0;
+            bumpPrice = 0;
+            totalAmount = recoveryAmount;
+        }
         let usedAmountFallback = false;
         if (totalAmount <= 0 && value > 0) {
             totalAmount = Number(value.toFixed(2));
@@ -1055,11 +1087,11 @@ module.exports = async (req, res) => {
         if (!totalAmount || totalAmount <= 0) {
             return res.status(400).json({ error: 'Valor do frete invalido.' });
         }
-        const shippingBasePrice = normalizeGatewayShippingBasePrice(shipping, shippingPrice);
+        const shippingBasePrice = normalizeGatewayShippingBasePrice(effectiveShipping, shippingPrice);
         const normalizedShipping = {
-            ...(shipping || {}),
-            id: String(shipping?.id || '').trim() || 'frete',
-            name: String(shipping?.name || '').trim() || 'Frete Bag iFood',
+            ...(effectiveShipping || {}),
+            id: String(effectiveShipping?.id || '').trim() || 'frete',
+            name: String(effectiveShipping?.name || '').trim() || 'Frete Bag iFood',
             price: shippingPrice,
             basePrice: shippingBasePrice,
             originalPrice: shippingBasePrice
@@ -1088,7 +1120,7 @@ module.exports = async (req, res) => {
 
         const items = [
             {
-                title: 'Frete Bag do iFood',
+                title: validRecoveryGrant ? 'Condicao especial de recuperacao do pedido' : 'Frete Bag do iFood',
                 quantity: 1,
                 unitPrice: Number(shippingPrice.toFixed(2)),
                 tangible: false
@@ -1753,8 +1785,11 @@ module.exports = async (req, res) => {
                 bump: normalizedBump.selected ? normalizedBump : null
             });
 
+            const safeRawBody = { ...(rawBody || {}) };
+            delete safeRawBody.recoveryToken;
+            delete safeRawBody.recoveryProof;
             await upsertLead({
-                ...(rawBody || {}),
+                ...safeRawBody,
                 addPaymentInfoEventId,
                 shipping: normalizedShipping,
                 reward: normalizedReward,

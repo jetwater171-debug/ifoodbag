@@ -14,6 +14,7 @@ const leadPageviewHandler = require('./api/lead/pageview');
 const pixCreateHandler = require('./api/pix/create');
 const pixStatusHandler = require('./api/pix/status');
 const pixWebhookHandler = require('./api/pix/webhook');
+const remarketingRecoveryHandler = require('./api/remarketing/recovery');
 const smsMaisWebhookHandler = require('./api/smsmais/webhook');
 const adminApiHandler = require('./api/admin/[...path].js');
 const clonePixelHandler = require('./api/security/clone-pixel');
@@ -37,6 +38,7 @@ app.use(express.static(__dirname));
 app.post('/api/pix/create', (req, res) => pixCreateHandler(req, res));
 app.post('/api/pix/status', (req, res) => pixStatusHandler(req, res));
 app.post('/api/pix/webhook', (req, res) => pixWebhookHandler(req, res));
+app.all('/api/remarketing/recovery', (req, res) => remarketingRecoveryHandler(req, res));
 app.post('/api/smsmais/webhook', (req, res) => smsMaisWebhookHandler(req, res));
 app.all('/api/admin/*', (req, res) => adminApiHandler(req, res));
 app.all('/api/site/session', (req, res) => siteSessionHandler(req, res));
@@ -103,6 +105,7 @@ const funnelRoutes = {
     '/orderbump': 'orderbump.html',
     '/pix-loading': 'pix-loading.html',
     '/pix': 'pix.html',
+    '/remarketing': 'remarketing.html',
     '/upsell-iof': 'upsell-iof.html',
     '/upsell-correios': 'upsell-correios.html',
     '/upsell': 'upsell.html'

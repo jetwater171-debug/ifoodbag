@@ -3088,13 +3088,15 @@ function resolvePixPaymentTargetUrl(pixData = {}) {
 
 function initPixLoading() {
     const isPixLoadingDemo = new URLSearchParams(window.location.search).get('demo') === '1';
+    const storedPix = loadPix();
     const pix = isPixLoadingDemo
-        ? {
+        ? (storedPix?.isDemo === true ? storedPix : {
             idTransaction: 'DEMO482731',
             amount: 25.9,
-            merchantName: 'PAGAMENTOS DIGITAIS LTDA'
-        }
-        : loadPix();
+            merchantName: 'PAGAMENTOS DIGITAIS LTDA',
+            isDemo: true
+        })
+        : storedPix;
     const shipping = loadShipping();
     const merchantName = resolvePixMerchantName(pix);
     const merchantNameEl = document.getElementById('pix-loading-merchant-name');
@@ -3138,10 +3140,10 @@ function initPixLoading() {
     }
 
     const steps = [
-        { pct: 28, text: 'Criando código Pix seguro...' },
-        { pct: 58, text: 'Conferindo dados do recebedor...' },
-        { pct: 84, text: 'Pix pronto para revisão...' },
-        { pct: 100, text: 'Finalizando seu Pix...' }
+        { pct: 28, text: 'Preparando seu Pix com segurança...' },
+        { pct: 58, text: 'Identificando o nome do recebedor...' },
+        { pct: 84, text: 'Organizando a conferência no banco...' },
+        { pct: 100, text: 'Tudo pronto para você conferir...' }
     ];
     let completionTimer = null;
     const timers = steps.map((step, index) => setTimeout(() => {
@@ -3151,10 +3153,10 @@ function initPixLoading() {
             completionTimer = setTimeout(() => {
                 if (spinnerEl) spinnerEl.classList.add('is-complete');
                 if (kickerEl) {
-                    kickerEl.textContent = 'Pix pronto';
+                    kickerEl.textContent = 'Nome para conferir';
                     kickerEl.classList.add('is-complete');
                 }
-                if (statusEl) statusEl.textContent = 'Tudo pronto. Confira os dados e abra o Pix.';
+                if (statusEl) statusEl.textContent = 'Nome identificado. Abra o Pix e confira no seu banco.';
                 if (btnContinue) btnContinue.classList.remove('hidden');
             }, 520);
         }
@@ -3163,7 +3165,7 @@ function initPixLoading() {
     const goToPix = () => {
         timers.forEach((timer) => clearTimeout(timer));
         if (completionTimer) clearTimeout(completionTimer);
-        redirect('pix.html');
+        redirect(isPixLoadingDemo ? 'pix.html?demo=1' : 'pix.html');
     };
 
     btnContinue?.addEventListener('click', goToPix);
@@ -3171,6 +3173,7 @@ function initPixLoading() {
 
 function initPix() {
     const pix = loadPix();
+    const isPixDemo = pix?.isDemo === true && new URLSearchParams(window.location.search || '').get('demo') === '1';
     const shipping = loadShipping();
     const storedReward = loadRewardSelection();
     const shouldAutoCreateFromOrderbumpBack = sessionStorage.getItem(STORAGE_KEYS.orderbumpBackAutoPix) === '1';
@@ -3298,12 +3301,14 @@ function initPix() {
         pixCorreiosView.setAttribute('aria-hidden', 'true');
     }
 
-    trackLead('pix_view', {
-        stage: 'pix',
-        shipping,
-        reward,
-        amount: Number(pix?.amount || 0)
-    });
+    if (!isPixDemo) {
+        trackLead('pix_view', {
+            stage: 'pix',
+            shipping,
+            reward,
+            amount: Number(pix?.amount || 0)
+        });
+    }
 
     if (pixAmount) pixAmount.textContent = formatCurrency(pix.amount || 0);
     if (pixIofAmount) pixIofAmount.textContent = formatCurrency(pix.amount || 0);
@@ -3884,6 +3889,8 @@ function initPix() {
     const missingPixVisualData = !String(pix?.paymentCode || '').trim() && !String(pix?.paymentQrUrl || pix?.paymentCodeBase64 || '').trim();
     const pollIntervalMs = missingPixVisualData ? 2500 : 5000;
 
+    if (isPixDemo) return;
+
     ensureApiSession()
         .catch(() => null)
         .finally(() => {
@@ -4247,6 +4254,8 @@ function initAdmin() {
     const leadDetailBlockState = document.getElementById('lead-detail-block-state');
     const leadDetailLookupBtn = document.getElementById('lead-detail-lookup-transaction');
     const leadDetailLookupStatus = document.getElementById('lead-detail-lookup-status');
+    const leadDetailRemarketingBtn = document.getElementById('lead-detail-remarketing-link');
+    const leadDetailRemarketingStatus = document.getElementById('lead-detail-remarketing-status');
     const leadDetailBlockBtn = document.getElementById('lead-detail-block-ip');
     const leadDetailUnblockBtn = document.getElementById('lead-detail-unblock-ip');
     const leadDetailSummary = document.getElementById('lead-detail-summary');
@@ -5701,6 +5710,10 @@ function initAdmin() {
         if (leadDetailLookupBtn) {
             leadDetailLookupBtn.disabled = !detail?.payment?.pixTxid || !detail?.payment?.gateway;
         }
+        if (leadDetailRemarketingBtn) {
+            leadDetailRemarketingBtn.disabled = !sessionId || !detail?.payment?.pixTxid;
+        }
+        if (leadDetailRemarketingStatus) leadDetailRemarketingStatus.textContent = '';
         if (leadDetailLookupStatus) {
             leadDetailLookupStatus.textContent = detail?.payment?.pixTxid
                 ? 'Consulta individual pronta para sincronizar o lead.'
@@ -5904,6 +5917,7 @@ function initAdmin() {
         if (leadDetailPayload) leadDetailPayload.textContent = '{}';
         if (leadDetailBlockState) leadDetailBlockState.classList.add('hidden');
         if (leadDetailLookupStatus) leadDetailLookupStatus.textContent = 'Consulta individual pronta para sincronizar o lead.';
+        if (leadDetailRemarketingStatus) leadDetailRemarketingStatus.textContent = '';
         setLeadDetailModalVisible(true);
 
         const res = await adminFetch(`/api/admin/leads/${encodeURIComponent(cleanSessionId)}`);
@@ -6450,6 +6464,40 @@ function initAdmin() {
             testPushcutStatus.textContent = `PIX criado: ${createdSent}/${createdTotal} | PIX confirmado: ${confirmedSent}/${confirmedTotal}`;
         }
         showToast('Teste do Pushcut enviado.', 'success');
+    };
+
+    const copyLeadRemarketingLink = async () => {
+        const sessionId = String(currentLeadDetail?.sessionId || '').trim();
+        if (!sessionId) {
+            showToast('Sessao do lead nao encontrada.', 'error');
+            return;
+        }
+
+        if (leadDetailRemarketingBtn) leadDetailRemarketingBtn.disabled = true;
+        if (leadDetailRemarketingStatus) leadDetailRemarketingStatus.textContent = 'Gerando link seguro...';
+        const res = await adminFetch(`/api/admin/leads/${encodeURIComponent(sessionId)}/remarketing-link`, {
+            method: 'POST'
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data?.url) {
+            const message = data?.error || 'Nao foi possivel gerar o link de recuperacao.';
+            if (leadDetailRemarketingStatus) leadDetailRemarketingStatus.textContent = message;
+            showToast(message, 'error');
+            if (leadDetailRemarketingBtn) leadDetailRemarketingBtn.disabled = false;
+            return;
+        }
+
+        try {
+            await navigator.clipboard.writeText(String(data.url));
+            if (leadDetailRemarketingStatus) {
+                leadDetailRemarketingStatus.textContent = `Link copiado. Oferta: ${formatCurrency(data?.offer?.discountedAmount || 0)} com 20% de desconto.`;
+            }
+            showToast('Link de recuperacao copiado.', 'success');
+        } catch (_error) {
+            if (leadDetailRemarketingStatus) leadDetailRemarketingStatus.textContent = String(data.url);
+            showToast('Link gerado. Copie o endereco exibido no painel.', 'success');
+        }
+        if (leadDetailRemarketingBtn) leadDetailRemarketingBtn.disabled = false;
     };
 
     const smsMaisErrorText = (data, fallback) => {
@@ -7882,6 +7930,7 @@ function initAdmin() {
         loadGatewaySales({ keepSelection: true });
     });
     leadDetailLookupBtn?.addEventListener('click', consultLeadTransaction);
+    leadDetailRemarketingBtn?.addEventListener('click', copyLeadRemarketingLink);
     leadDetailBlockBtn?.addEventListener('click', blockCurrentLeadIp);
     leadDetailUnblockBtn?.addEventListener('click', async () => {
         const ip = String(currentLeadDetail?.device?.clientIp || '').trim();

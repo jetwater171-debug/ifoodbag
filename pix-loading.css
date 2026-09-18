@@ -59,11 +59,11 @@ body[data-page='pix-loading'] .step {
 
 .pix-loading-card {
     gap: 0;
-    padding: 24px 20px 20px;
+    padding: 25px 20px 21px;
     border: 1px solid #ededee;
     border-radius: 26px;
     background: #fff;
-    box-shadow: 0 16px 45px rgba(32, 32, 38, 0.075);
+    box-shadow: 0 20px 50px rgba(32, 32, 38, 0.085);
 }
 
 .pix-loading-spinner {
@@ -117,39 +117,46 @@ body[data-page='pix-loading'] .step {
 }
 
 .pix-loading-card h1 {
-    font-size: clamp(1.45rem, 6vw, 1.85rem);
-    line-height: 1.12;
+    max-width: 360px;
+    margin-inline: auto;
+    font-size: clamp(1.55rem, 6.4vw, 2rem);
+    line-height: 1.08;
     letter-spacing: -0.035em;
 }
 
 .pix-loading-copy {
-    max-width: 350px;
-    margin: 8px auto 18px;
+    max-width: 370px;
+    margin: 9px auto 19px;
     color: #71717a;
-    font-size: 0.88rem;
+    font-size: 0.87rem;
     line-height: 1.48;
 }
 
 .pix-loading-merchant {
-    display: flex;
-    flex-direction: row;
-    align-items: flex-start;
-    gap: 12px;
-    padding: 14px;
-    border: 1px solid #ececef;
-    border-radius: 17px;
-    background: #fafafa;
+    display: block;
+    padding: 16px;
+    border: 1px solid #cfeeda;
+    border-radius: 18px;
+    background: linear-gradient(145deg, #fbfffc 0%, #f3fbf6 100%);
     color: #222;
+    box-shadow: 0 10px 24px rgba(34, 164, 71, 0.07);
+}
+
+.pix-loading-merchant-heading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
 }
 
 .pix-loading-merchant-icon {
     flex: 0 0 auto;
     display: grid;
     place-items: center;
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
-    background: #e8f7ed;
+    background: #dcf6e5;
 }
 
 .pix-loading-merchant-icon svg {
@@ -162,23 +169,24 @@ body[data-page='pix-loading'] .step {
 }
 
 .pix-loading-merchant span:not(.pix-loading-merchant-icon) {
-    color: #71717a;
-    font-size: 0.7rem;
-    letter-spacing: 0.45px;
+    color: #4f775c;
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.55px;
 }
 
 .pix-loading-merchant strong {
     display: block;
-    margin-top: 3px;
-    color: #1f1f1f;
-    font-size: clamp(0.96rem, 4vw, 1.1rem);
+    margin-top: 0;
+    color: #152a1c;
+    font-size: clamp(1rem, 4.2vw, 1.18rem);
     line-height: 1.25;
 }
 
 .pix-loading-merchant small {
     display: block;
     margin-top: 4px;
-    color: #8b8b93;
+    color: #64736a;
     font-size: 0.7rem;
     line-height: 1.35;
 }
@@ -194,10 +202,11 @@ body[data-page='pix-loading'] .step {
     align-items: flex-start;
     gap: 10px;
     margin-top: 11px;
-    padding: 11px 12px;
+    padding: 12px 13px;
     border-radius: 15px;
-    background: #fff7f7;
-    color: #5f4548;
+    border: 1px solid #ededf0;
+    background: #fafafa;
+    color: #55555d;
     text-align: left;
 }
 
@@ -205,7 +214,7 @@ body[data-page='pix-loading'] .step {
     flex: 0 0 auto;
     width: 19px;
     margin-top: 1px;
-    fill: #ea1d2c;
+    fill: #777780;
 }
 
 .pix-loading-security > div {
@@ -217,12 +226,12 @@ body[data-page='pix-loading'] .step {
 
 .pix-loading-security strong {
     margin: 0 0 3px;
-    color: #402d2f;
+    color: #34343a;
     font-size: 0.78rem;
 }
 
 .pix-loading-security span {
-    color: #7b6769;
+    color: #74747c;
     font-size: 0.73rem;
     line-height: 1.42;
 }
@@ -253,10 +262,10 @@ body[data-page='pix-loading'] .step {
     align-items: center;
     justify-content: center;
     gap: 9px;
-    min-height: 52px;
+    min-height: 56px;
     margin-top: 17px;
-    border-radius: 15px;
-    box-shadow: 0 10px 24px rgba(234, 29, 44, 0.22);
+    border-radius: 16px;
+    box-shadow: 0 13px 28px rgba(234, 29, 44, 0.24);
     animation: pixButtonReveal 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
@@ -292,6 +301,20 @@ body[data-page='pix-loading'] .footer {
 
     .pix-loading-safe {
         font-size: 0.62rem;
+    }
+
+    .pix-loading-merchant {
+        gap: 10px;
+        padding: 14px;
+    }
+
+    .pix-loading-merchant-icon {
+        width: 30px;
+        height: 30px;
+    }
+
+    .pix-loading-merchant strong {
+        font-size: 0.95rem;
     }
 }
 

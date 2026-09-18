@@ -12,6 +12,8 @@ const { sendUtmfy } = require('../../lib/utmfy');
 const { updateLeadByPixTxid, getLeadByPixTxid, updateLeadBySessionId, getLeadBySessionId } = require('../../lib/lead-store');
 const { sendPushcut } = require('../../lib/pushcut');
 const { sendSmsMaisSms, sendSmsMaisVoice, getSmsMaisBalance } = require('../../lib/smsmais');
+const { issueRecoveryToken } = require('../../lib/remarketing-token');
+const { resolveRecoveryOffer, resolveRecoveryGrantBasis } = require('../../lib/remarketing-recovery');
 const {
     requestCreateTransaction: requestGhostspayCreate,
     requestTransactionById: requestGhostspayStatus
@@ -4546,6 +4548,63 @@ async function pushcutTest(req, res) {
     });
 }
 
+async function createLeadRemarketingLink(req, res, sessionIdParam = '') {
+    if (req.method !== 'POST') {
+        res.status(405).json({ error: 'Method not allowed' });
+        return;
+    }
+    if (!requireAdmin(req, res)) return;
+
+    const sessionId = decodeURIComponent(String(sessionIdParam || '').trim());
+    const leadResult = await getLeadBySessionId(sessionId).catch(() => ({ ok: false, data: null }));
+    if (!leadResult?.ok || !leadResult?.data) {
+        res.status(404).json({ error: 'Lead nao encontrado.' });
+        return;
+    }
+
+    const offer = resolveRecoveryOffer(leadResult.data);
+    if (offer?.paid) {
+        res.status(409).json({ error: 'Este lead ja possui pagamento confirmado.' });
+        return;
+    }
+    if (!offer?.canRecover) {
+        res.status(409).json({ error: 'Este lead nao possui um pagamento pendente recuperavel.' });
+        return;
+    }
+    const recoveryBasis = resolveRecoveryGrantBasis(leadResult.data, offer);
+
+    let token = '';
+    try {
+        token = issueRecoveryToken({
+            sessionId: offer.sessionId,
+            txid: recoveryBasis.txid,
+            originalAmount: recoveryBasis.originalAmount,
+            discountPercent: recoveryBasis.discountPercent
+        });
+    } catch (_error) {
+        res.status(503).json({ error: 'Configure o segredo dos links de recuperacao antes de gerar o link.' });
+        return;
+    }
+    const configuredBaseUrl = String(process.env.APP_PUBLIC_URL || '').trim().replace(/\/+$/, '');
+    const forwardedProto = String(req.headers?.['x-forwarded-proto'] || '').split(',')[0].trim();
+    const protocol = configuredBaseUrl ? '' : (forwardedProto || (process.env.NODE_ENV === 'production' ? 'https' : 'http'));
+    const host = String(req.headers?.['x-forwarded-host'] || req.headers?.host || '').split(',')[0].trim();
+    const baseUrl = configuredBaseUrl || `${protocol}://${host}`;
+    const recoveryUrl = `${baseUrl}/remarketing?token=${encodeURIComponent(token)}`;
+
+    res.status(200).json({
+        ok: true,
+        url: recoveryUrl,
+        expiresInSeconds: Number(process.env.REMARKETING_LINK_TTL_SEC || 60 * 60 * 24 * 7),
+        offer: {
+            originalAmount: recoveryBasis.originalAmount,
+            discountedAmount: recoveryBasis.discountedAmount,
+            discountPercent: recoveryBasis.discountPercent,
+            offerName: offer.offerName
+        }
+    });
+}
+
 async function smsMaisTest(req, res, channel = 'sms') {
     if (req.method !== 'POST') {
         res.status(405).json({ error: 'Method not allowed' });
@@ -5902,6 +5961,11 @@ module.exports = async (req, res) => {
     route = String(route || '').replace(/^\/+|\/+$/g, '');
     if (!route && req.method === 'POST' && req.body && typeof req.body === 'object' && 'password' in req.body) {
         route = 'login';
+    }
+
+    const remarketingLinkMatch = route.match(/^leads\/(.+)\/remarketing-link$/);
+    if (remarketingLinkMatch) {
+        return createLeadRemarketingLink(req, res, remarketingLinkMatch[1]);
     }
 
     if (route.startsWith('leads/') && route !== 'leads/export') {
