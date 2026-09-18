@@ -19,7 +19,7 @@ module.exports = async (req, res) => {
     }
 
     const limit = Math.min(Math.max(Number(req.query?.limit) || 120, 1), 500);
-    const result = await processDispatchQueue(limit);
+    const result = await processDispatchQueue(limit, { reconcileRemarketing: true });
 
     if (!result?.ok) {
         res.status(502).json({ error: 'Falha ao processar fila.', detail: result });

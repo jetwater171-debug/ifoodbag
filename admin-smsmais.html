@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/style.css?v=3.5" />
+  <link rel="stylesheet" href="/style.css?v=3.6" />
   <script src="/backguard.js?v=1.5"></script>
 </head>
 <body data-page="admin" data-admin="smsmais">
@@ -45,8 +45,8 @@
     <main class="admin-main">
       <header class="admin-topbar">
         <div>
-          <h1>SMSMais</h1>
-          <p>Configure SMS e torpedo de voz sem expor o token no site.</p>
+          <h1>Central de SMS</h1>
+          <p>Recupere pagamentos pendentes e acompanhe cada envio em um só lugar.</p>
         </div>
         <div class="admin-topbar-actions">
           <button id="admin-smsmais-balance" class="btn-secondary" type="button">Consultar saldo</button>
@@ -68,6 +68,19 @@
 
       <div id="admin-panel" class="admin-panel smsmais-panel hidden">
         <div class="smsmais-pc-grid">
+        <section class="smsmais-command-center">
+          <div class="smsmais-command-copy">
+            <span class="smsmais-kicker">RECUPERAÇÃO DE PIX</span>
+            <h2>Converta quem parou antes de pagar</h2>
+            <p>O sistema espera 10 minutos, confirma o pagamento no gateway e envia somente para quem continua pendente.</p>
+          </div>
+          <div class="smsmais-command-metrics">
+            <div><span>Prontos para SMS</span><strong id="smsmais-ready-count">0</strong></div>
+            <div><span>Enviados</span><strong id="smsmais-sent-count">0</strong></div>
+            <div><span>Automação</span><strong id="smsmais-auto-state">Desativada</strong></div>
+          </div>
+        </section>
+
         <section class="admin-section admin-section--card smsmais-card smsmais-card--config">
           <div class="admin-section-header">
             <h2>Conexao da API</h2>
@@ -142,33 +155,38 @@
         <section class="admin-section admin-section--card smsmais-card smsmais-card--remarketing">
           <div class="admin-section-header">
             <div>
-              <h2>Recuperação automática de Pix</h2>
-              <p class="admin-hint">Se o pagamento continuar pendente, o SMS é enviado após o intervalo configurado.</p>
+              <span class="smsmais-section-kicker">AUTOMAÇÃO</span>
+              <h2>Remarketing automático</h2>
+              <p class="admin-hint">Ative uma vez. Todo Pix não pago entra na fila e é conferido novamente antes do envio.</p>
             </div>
-            <span class="admin-chip">Remarketing</span>
+            <span class="admin-chip">Seguro contra duplicidade</span>
           </div>
           <div class="smsmais-remarketing-controls">
             <label class="admin-switch smsmais-remarketing-switch">
               <input type="checkbox" id="smsmais-remarketing-enabled" />
-              <span>Enviar SMS automaticamente</span>
+              <span><b>Envio automático</b><small>Somente para pagamento pendente</small></span>
             </label>
             <div class="input-group smsmais-delay-field">
               <input type="number" id="smsmais-remarketing-delay" class="floating-input" min="1" max="1440" step="1" placeholder=" " />
-              <label for="smsmais-remarketing-delay" class="floating-label">Aguardar quantos minutos</label>
+              <label for="smsmais-remarketing-delay" class="floating-label">Minutos após gerar o Pix</label>
             </div>
           </div>
           <div class="input-group">
             <textarea id="smsmais-remarketing-message" class="floating-input floating-input--textarea smsmais-remarketing-message" placeholder=" " maxlength="320"></textarea>
             <label for="smsmais-remarketing-message" class="floating-label">Mensagem enviada ao lead</label>
           </div>
-          <div class="smsmais-template-help">
-            <span>Variáveis disponíveis:</span>
-            <code>{nome}</code>
-            <code>{link}</code>
-            <span>O link com o session ID é incluído automaticamente, mesmo se você não usar {link}.</span>
+          <div class="smsmais-template-help" id="smsmais-variable-list">
+            <span>Clique para inserir:</span>
+            <button type="button" data-sms-variable="{primeiro_nome}">{primeiro_nome}</button>
+            <button type="button" data-sms-variable="{preco}">{preco}</button>
+            <button type="button" data-sms-variable="{preco_com_desconto}">{preco_com_desconto}</button>
+            <button type="button" data-sms-variable="{desconto}">{desconto}</button>
+            <button type="button" data-sms-variable="{produto}">{produto}</button>
+            <button type="button" data-sms-variable="{link}">{link}</button>
+            <button type="button" id="smsmais-show-all-variables">Todas as variáveis</button>
           </div>
           <div class="smsmais-preview" aria-live="polite">
-            <span>Prévia do SMS</span>
+            <span>Prévia real</span>
             <p id="smsmais-remarketing-preview"></p>
             <small id="smsmais-remarketing-count">0/160</small>
           </div>
@@ -183,7 +201,59 @@
           </div>
         </section>
 
-        <section class="admin-section admin-section--card smsmais-card">
+        <section class="admin-section admin-section--card smsmais-card smsmais-card--leads">
+          <div class="admin-section-header smsmais-list-header">
+            <div>
+              <span class="smsmais-section-kicker">ENVIO MANUAL</span>
+              <h2>Leads com pagamento pendente</h2>
+              <p class="admin-hint">Selecione até 20 leads por vez. Pagamentos confirmados são bloqueados novamente no momento do envio.</p>
+            </div>
+            <button id="smsmais-refresh-leads" class="btn-secondary" type="button">Atualizar lista</button>
+          </div>
+          <div class="smsmais-list-toolbar">
+            <div class="input-group smsmais-search-field">
+              <input type="search" id="smsmais-lead-search" class="floating-input" placeholder=" " />
+              <label for="smsmais-lead-search" class="floating-label">Buscar por nome, telefone ou Pix</label>
+            </div>
+            <label class="smsmais-select-all"><input type="checkbox" id="smsmais-select-all" /> Selecionar até 20</label>
+            <span id="smsmais-selected-count" class="admin-chip">0 selecionados</span>
+            <button id="smsmais-send-selected" class="btn-primary" type="button" disabled>Enviar SMS selecionados</button>
+          </div>
+          <div class="smsmais-table-wrap">
+            <table class="smsmais-data-table">
+              <thead><tr><th></th><th>Lead</th><th>Pedido</th><th>Tempo</th><th>Status</th></tr></thead>
+              <tbody id="smsmais-leads-body"></tbody>
+            </table>
+            <div id="smsmais-leads-empty" class="smsmais-empty hidden">Nenhum pagamento pendente encontrado.</div>
+          </div>
+          <p id="smsmais-manual-status" class="admin-hint"></p>
+        </section>
+
+        <section class="admin-section admin-section--card smsmais-card smsmais-card--history">
+          <div class="admin-section-header smsmais-list-header">
+            <div>
+              <span class="smsmais-section-kicker">HISTÓRICO</span>
+              <h2>SMS de remarketing</h2>
+              <p class="admin-hint">Últimos 150 registros: envios automáticos, manuais, ignorados por pagamento e falhas. “Aceito pela SMSMais” não confirma entrega no aparelho.</p>
+            </div>
+            <button id="smsmais-refresh-history" class="btn-secondary" type="button">Atualizar histórico</button>
+          </div>
+          <div class="smsmais-history-summary">
+            <span><b id="smsmais-history-sent">0</b> aceitos pela SMSMais</span>
+            <span><b id="smsmais-history-pending">0</b> na fila</span>
+            <span><b id="smsmais-history-skipped">0</b> bloqueados</span>
+            <span><b id="smsmais-history-failed">0</b> falhas</span>
+          </div>
+          <div class="smsmais-table-wrap">
+            <table class="smsmais-data-table">
+              <thead><tr><th>Lead</th><th>Mensagem</th><th>Origem</th><th>Resultado</th><th>Data</th></tr></thead>
+              <tbody id="smsmais-history-body"></tbody>
+            </table>
+            <div id="smsmais-history-empty" class="smsmais-empty hidden">Os envios aparecerão aqui.</div>
+          </div>
+        </section>
+
+        <section class="admin-section admin-section--card smsmais-card smsmais-card--test">
           <div class="admin-section-header">
             <h2>Teste de SMS</h2>
             <span class="admin-chip">Teste real</span>
@@ -206,7 +276,7 @@
           </div>
         </section>
 
-        <section class="admin-section admin-section--card smsmais-card">
+        <section class="admin-section admin-section--card smsmais-card smsmais-card--voice">
           <div class="admin-section-header">
             <h2>Torpedo de voz</h2>
             <span class="admin-chip">MP3 ou WAV</span>
@@ -245,6 +315,6 @@
   </div>
 
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
-  <script src="/script.js?v=11.8" defer></script>
+  <script src="/script.js?v=11.9" defer></script>
 </body>
 </html>

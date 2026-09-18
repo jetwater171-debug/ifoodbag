@@ -119,4 +119,37 @@ test('worker checks the payment gateway again before sending', async () => {
     assert.equal(paid.paid, true);
     assert.equal(pending.ok, true);
     assert.equal(pending.paid, false);
+    assert.equal(pending.pending, true);
+});
+
+test('terminal or unknown gateway status never sends an SMS', async () => {
+    const lead = pendingLead();
+    lead.payload.gateway = 'ghostspay';
+    lead.payload.paymentHistory[0].gateway = 'ghostspay';
+    const payments = { gateways: { ghostspay: { enabled: true } } };
+    const refused = await checkLivePaymentPaid(lead, payments, {
+        ghostspay: async () => ({ response: { ok: true }, data: { status: 'refused' } })
+    });
+    const unknown = await checkLivePaymentPaid(lead, payments, {
+        ghostspay: async () => ({ response: { ok: true }, data: {} })
+    });
+    assert.equal(refused.ok, true);
+    assert.equal(refused.pending, false);
+    assert.equal(unknown.ok, false);
+});
+
+test('admin variables include original value, discounted value and lead identity', () => {
+    const result = prepareRemarketingSms({
+        lead: pendingLead(),
+        baseUrl: 'https://ifoodparceiros.vercel.app',
+        smsConfig: {
+            remarketingEnabled: true,
+            remarketingMessage: '{primeiro_nome}: {preco} / {preco_com_desconto} / {desconto} {link}'
+        }
+    });
+    assert.equal(result.variables.primeiro_nome, 'Lucas');
+    assert.equal(result.variables.preco, 'R$ 100,00');
+    assert.equal(result.variables.preco_com_desconto, 'R$ 80,00');
+    assert.equal(result.variables.desconto, '20%');
+    assert.match(result.payload.message, /Lucas: R\$ 100,00 \/ R\$ 80,00 \/ 20%/);
 });

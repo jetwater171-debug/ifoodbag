@@ -3834,6 +3834,308 @@ body[data-page='admin'][data-admin='smsmais'] .admin-main {
     padding: 0 4px;
 }
 
+body[data-page='admin'][data-admin='smsmais'] .admin-main {
+    background: #f7f7f8;
+}
+
+body[data-page='admin'][data-admin='smsmais'] .admin-topbar {
+    margin-bottom: 18px;
+}
+
+body[data-page='admin'][data-admin='smsmais'] .admin-section--card {
+    border: 1px solid #ececef;
+    border-radius: 22px;
+    box-shadow: 0 12px 34px rgba(24, 24, 27, 0.045);
+}
+
+.smsmais-command-center {
+    order: 0;
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 28px;
+    align-items: center;
+    padding: 25px 28px;
+    overflow: hidden;
+    border-radius: 24px;
+    color: #fff;
+    background:
+        radial-gradient(circle at 82% 0, rgba(255, 255, 255, 0.18), transparent 32%),
+        linear-gradient(135deg, #d90b1c 0%, #f52d3d 72%, #ff5965 100%);
+    box-shadow: 0 18px 42px rgba(217, 11, 28, 0.22);
+}
+
+.smsmais-command-copy h2 {
+    margin: 7px 0 6px;
+    font-size: clamp(1.35rem, 2.4vw, 2rem);
+    line-height: 1.05;
+}
+
+.smsmais-command-copy p {
+    max-width: 680px;
+    margin: 0;
+    color: rgba(255, 255, 255, 0.82);
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.smsmais-kicker,
+.smsmais-section-kicker {
+    font-size: 0.66rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+}
+
+.smsmais-kicker {
+    color: rgba(255, 255, 255, 0.72);
+}
+
+.smsmais-section-kicker {
+    display: block;
+    margin-bottom: 5px;
+    color: #dc1425;
+}
+
+.smsmais-command-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(112px, 1fr));
+    gap: 8px;
+}
+
+.smsmais-command-metrics > div {
+    min-width: 112px;
+    padding: 13px 15px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 16px;
+    background: rgba(111, 0, 10, 0.18);
+    backdrop-filter: blur(8px);
+}
+
+.smsmais-command-metrics span,
+.smsmais-command-metrics strong {
+    display: block;
+}
+
+.smsmais-command-metrics span {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.68rem;
+}
+
+.smsmais-command-metrics strong {
+    margin-top: 4px;
+    font-size: 1.15rem;
+}
+
+.smsmais-card--remarketing { order: 1; }
+.smsmais-card--leads { order: 2; }
+.smsmais-card--history { order: 3; }
+.smsmais-card--test { order: 4; }
+.smsmais-card--voice { order: 5; }
+.smsmais-card--health { order: 6; }
+.smsmais-card--config { order: 7; }
+.smsmais-card--webhook { order: 8; }
+.smsmais-card--queue { order: 9; }
+
+.smsmais-card--leads,
+.smsmais-card--history {
+    grid-column: 1 / -1;
+}
+
+.smsmais-card--remarketing {
+    padding: 24px;
+    border-color: #f2d9dc !important;
+    background: #fff !important;
+}
+
+.smsmais-remarketing-switch span {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.smsmais-remarketing-switch small {
+    color: #8b8e95;
+    font-size: 0.68rem;
+    font-weight: 500;
+}
+
+.smsmais-template-help button {
+    appearance: none;
+    padding: 5px 8px;
+    border: 1px solid #f0d3d6;
+    border-radius: 9px;
+    color: #c81424;
+    background: #fff5f6;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.smsmais-template-help button:hover {
+    border-color: #e89ba3;
+    background: #ffecee;
+}
+
+.smsmais-list-header {
+    align-items: flex-start;
+}
+
+.smsmais-list-header h2 {
+    margin: 0 0 5px;
+}
+
+.smsmais-list-header .admin-hint {
+    margin: 0;
+}
+
+.smsmais-list-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 16px 0 12px;
+}
+
+.smsmais-search-field {
+    flex: 1;
+    min-width: 240px;
+    margin: 0;
+}
+
+.smsmais-select-all {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    white-space: nowrap;
+    color: #52545a;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.smsmais-select-all input,
+.smsmais-lead-check {
+    width: 17px;
+    height: 17px;
+    accent-color: #ea1d2c;
+}
+
+.smsmais-table-wrap {
+    overflow: auto;
+    border: 1px solid #ececef;
+    border-radius: 16px;
+}
+
+.smsmais-data-table {
+    width: 100%;
+    min-width: 760px;
+    border-collapse: collapse;
+}
+
+.smsmais-data-table th {
+    padding: 11px 13px;
+    color: #8a8d94;
+    background: #fafafa;
+    font-size: 0.67rem;
+    letter-spacing: 0.06em;
+    text-align: left;
+    text-transform: uppercase;
+}
+
+.smsmais-data-table td {
+    padding: 12px 13px;
+    border-top: 1px solid #f0f0f2;
+    color: #45474d;
+    font-size: 0.78rem;
+    vertical-align: middle;
+}
+
+.smsmais-data-table tr:hover td {
+    background: #fffafa;
+}
+
+.smsmais-lead-main,
+.smsmais-history-main {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.smsmais-lead-main strong,
+.smsmais-history-main strong {
+    color: #202126;
+    font-size: 0.82rem;
+}
+
+.smsmais-lead-main small,
+.smsmais-history-main small {
+    color: #9699a1;
+    font-size: 0.68rem;
+}
+
+.smsmais-status-pill {
+    display: inline-flex;
+    padding: 5px 9px;
+    border-radius: 999px;
+    background: #f1f2f4;
+    color: #666a72;
+    font-size: 0.68rem;
+    font-weight: 800;
+}
+
+.smsmais-status-pill--ready,
+.smsmais-status-pill--sent {
+    color: #087843;
+    background: #eaf8f1;
+}
+
+.smsmais-status-pill--waiting,
+.smsmais-status-pill--pending {
+    color: #a25f00;
+    background: #fff5df;
+}
+
+.smsmais-status-pill--skipped {
+    color: #61646b;
+    background: #eff0f2;
+}
+
+.smsmais-status-pill--failed {
+    color: #be1827;
+    background: #ffecef;
+}
+
+.smsmais-history-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 15px 0 12px;
+}
+
+.smsmais-history-summary span {
+    padding: 8px 11px;
+    border: 1px solid #ececef;
+    border-radius: 12px;
+    color: #777a82;
+    background: #fafafa;
+    font-size: 0.72rem;
+}
+
+.smsmais-history-summary b {
+    color: #24262a;
+}
+
+.smsmais-history-message {
+    max-width: 380px;
+    color: #5d6067;
+    line-height: 1.4;
+}
+
+.smsmais-empty {
+    padding: 28px 16px;
+    color: #999ca3;
+    text-align: center;
+    font-size: 0.82rem;
+}
+
 .smsmais-metrics {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -6751,10 +7053,26 @@ body.modal-open {
     .smsmais-pc-grid {
         grid-template-columns: 1fr;
     }
+    .smsmais-command-center {
+        grid-column: auto;
+        grid-template-columns: 1fr;
+    }
+    .smsmais-command-metrics {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
     .smsmais-card--webhook,
     .smsmais-card--remarketing,
+    .smsmais-card--leads,
+    .smsmais-card--history,
     .smsmais-card--queue {
         grid-column: auto;
+    }
+    .smsmais-list-toolbar {
+        align-items: stretch;
+        flex-wrap: wrap;
+    }
+    .smsmais-search-field {
+        flex-basis: 100%;
     }
     .smsmais-remarketing-controls {
         grid-template-columns: 1fr;
@@ -6920,6 +7238,30 @@ body.modal-open {
     }
     body[data-page='admin'][data-admin='smsmais'] .admin-section {
         padding: 16px;
+    }
+    .smsmais-command-center {
+        padding: 20px;
+    }
+    .smsmais-command-metrics {
+        grid-template-columns: 1fr;
+    }
+    .smsmais-command-metrics > div {
+        min-width: 0;
+    }
+    .smsmais-list-header {
+        gap: 12px;
+        flex-direction: column;
+    }
+    .smsmais-list-header .btn-secondary,
+    .smsmais-list-toolbar .btn-primary {
+        width: 100%;
+    }
+    .smsmais-list-toolbar {
+        flex-direction: column;
+    }
+    .smsmais-search-field {
+        width: 100%;
+        min-width: 0;
     }
     .smsmais-card--config .admin-grid,
     .smsmais-metrics,
