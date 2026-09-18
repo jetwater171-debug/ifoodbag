@@ -2,8 +2,8 @@ const { ensurePublicAccess } = require('../../lib/public-access');
 const { getLeadBySessionId } = require('../../lib/lead-store');
 const { issueRecoveryToken, verifyRecoveryToken, issueRecoveryProof } = require('../../lib/remarketing-token');
 const {
-    resolveRecoveryOfferForGrant,
     resolveRecoverySessionGrant,
+    resolveRecoveryOfferForSessionGrant,
     buildRecoveryCreateBody,
     toPublicRecoveryOffer
 } = require('../../lib/remarketing-recovery');
@@ -26,6 +26,15 @@ function readSessionId(req) {
         req?.body?.session_id ||
         ''
     ).trim();
+}
+
+function readDiscountPercent(req, fallback = 20) {
+    const raw = Number(
+        firstQueryValue(req?.query?.discountPercent) ||
+        req?.body?.discountPercent ||
+        fallback
+    );
+    return raw >= 30 ? 30 : 20;
 }
 
 async function invokeHandler(handler, req, body) {
@@ -94,24 +103,28 @@ module.exports = async (req, res) => {
     const token = readToken(req);
     const requestedSessionId = readSessionId(req);
     const usesMountedLink = Boolean(token);
-    let grant = usesMountedLink
+    const accessGrant = usesMountedLink
         ? verifyRecoveryToken(token)
         : (requestedSessionId ? { sessionId: requestedSessionId } : null);
-    if (!grant) {
+    if (!accessGrant) {
         res.status(401).json({ error: 'Link de recuperacao invalido ou expirado.', code: 'invalid_recovery_link' });
         return;
     }
 
-    let lead = await loadRecoveryLead(grant);
+    const accessSessionId = accessGrant.sessionId;
+    const requestedDiscountPercent = readDiscountPercent(req, accessGrant.discountPercent || 20);
+    let lead = await loadRecoveryLead(accessGrant);
     if (!lead) {
         res.status(404).json({ error: 'Pedido nao encontrado.', code: 'recovery_not_found' });
         return;
     }
-
-    if (!usesMountedLink) {
-        grant = resolveRecoverySessionGrant(lead, requestedSessionId);
+    if (usesMountedLink && !resolveRecoveryOfferForSessionGrant(lead, accessGrant)) {
+        res.status(409).json({ error: 'Este link nao corresponde mais ao pagamento atual.', code: 'recovery_offer_changed' });
+        return;
     }
-    let offer = grant ? resolveRecoveryOfferForGrant(lead, grant) : null;
+
+    let grant = resolveRecoverySessionGrant(lead, accessSessionId, requestedDiscountPercent);
+    let offer = grant ? resolveRecoveryOfferForSessionGrant(lead, grant) : null;
     if (!offer) {
         res.status(409).json({ error: 'Este link nao corresponde mais ao pagamento atual.', code: 'recovery_offer_changed' });
         return;
@@ -149,10 +162,8 @@ module.exports = async (req, res) => {
     }
 
     lead = await loadRecoveryLead(grant);
-    if (!usesMountedLink) {
-        grant = resolveRecoverySessionGrant(lead || {}, requestedSessionId);
-    }
-    offer = resolveRecoveryOfferForGrant(lead || {}, grant);
+    grant = resolveRecoverySessionGrant(lead || {}, accessSessionId, requestedDiscountPercent);
+    offer = resolveRecoveryOfferForSessionGrant(lead || {}, grant);
     if (!offer) {
         res.status(409).json({
             error: 'Este link nao corresponde mais ao pagamento atual.',
@@ -169,17 +180,15 @@ module.exports = async (req, res) => {
         return;
     }
 
-    let recoveryToken = token;
-    if (!recoveryToken) {
-        try {
-            recoveryToken = issueRecoveryToken(grant);
-        } catch (_error) {
-            res.status(503).json({
-                error: 'Nao foi possivel preparar a recuperacao deste pedido.',
-                code: 'recovery_authorization_unavailable'
-            });
-            return;
-        }
+    let recoveryToken = '';
+    try {
+        recoveryToken = issueRecoveryToken(grant);
+    } catch (_error) {
+        res.status(503).json({
+            error: 'Nao foi possivel preparar a recuperacao deste pedido.',
+            code: 'recovery_authorization_unavailable'
+        });
+        return;
     }
     const createBody = buildRecoveryCreateBody(
         lead,

@@ -23,6 +23,7 @@ const {
     resolveRecoveryGrantBasis,
     resolveRecoveryOfferForGrant,
     resolveRecoverySessionGrant,
+    resolveRecoveryOfferForSessionGrant,
     buildRecoveryCreateBody,
     toPublicRecoveryOffer
 } = require('../lib/remarketing-recovery');
@@ -114,6 +115,32 @@ test('browser session resolves the same recovery grant without a mounted token',
         discountPercent: 20
     });
     assert.equal(resolveRecoveryOfferForGrant(pendingLead(), grant)?.discountedAmount, 98.24);
+});
+
+test('back redirect grants a real 30 percent recovery price', () => {
+    const lead = pendingLead();
+    const grant = resolveRecoverySessionGrant(lead, 'lead-session-1', 30);
+    const offer = resolveRecoveryOfferForSessionGrant(lead, grant);
+
+    assert.equal(grant.discountPercent, 30);
+    assert.equal(offer.discountPercent, 30);
+    assert.equal(offer.originalAmount, 122.8);
+    assert.equal(offer.discountedAmount, 85.96);
+});
+
+test('session grant rejects a stale payment while allowing the 30 percent upgrade', () => {
+    const lead = pendingLead();
+
+    assert.equal(resolveRecoveryOfferForSessionGrant(lead, {
+        txid: 'another-payment',
+        originalAmount: 122.8,
+        discountPercent: 30
+    }), null);
+    assert.equal(resolveRecoveryOfferForSessionGrant(lead, {
+        txid: 'pix-old-1',
+        originalAmount: 122.8,
+        discountPercent: 30
+    })?.discountedAmount, 85.96);
 });
 
 test('existing guard secret alias can sign mounted recovery links', () => {

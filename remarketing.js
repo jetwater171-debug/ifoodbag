@@ -1,4 +1,6 @@
 (() => {
+  window.__ifoodBackRedirectInit = true;
+
   const params = new URLSearchParams(window.location.search);
   const token = params.get('token') || '';
   const readStoredSessionId = () => {
@@ -29,8 +31,21 @@
   const description = document.getElementById('recovery-description');
   const originalPrice = document.getElementById('recovery-original-price');
   const discountedPrice = document.getElementById('recovery-discounted-price');
+  const discountLabel = document.getElementById('recovery-discount-label');
+  const savingTitle = document.getElementById('recovery-saving-title');
   const savingText = document.getElementById('recovery-saving-text');
+  const generateLabel = document.getElementById('recovery-generate-label');
+  const exitOffer = document.getElementById('recovery-exit-offer');
+  const exitClose = document.getElementById('recovery-exit-close');
+  const exitAccept = document.getElementById('recovery-exit-accept');
+  const exitDecline = document.getElementById('recovery-exit-decline');
+  const exitPrice = document.getElementById('recovery-exit-price');
+  const exitError = document.getElementById('recovery-exit-error');
   let currentOffer = null;
+  let currentDiscountPercent = 20;
+  let backRedirectArmed = false;
+  let backRedirectShown = false;
+  let allowBackNavigation = false;
 
   const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', {
     style: 'currency',
@@ -56,13 +71,14 @@
     if (!response.ok) throw new Error('Não foi possível iniciar uma sessão segura.');
   };
 
-  const recoveryRequest = async (method = 'GET') => {
+  const recoveryRequest = async (method = 'GET', discountPercent = currentDiscountPercent) => {
     const url = new URL('/api/remarketing/recovery', window.location.origin);
     if (method === 'GET') {
       if (token) url.searchParams.set('token', token);
       else if (sessionId) url.searchParams.set('sessionId', sessionId);
+      url.searchParams.set('discountPercent', String(discountPercent));
     }
-    const requestBody = token ? { token } : { sessionId };
+    const requestBody = token ? { token, discountPercent } : { sessionId, discountPercent };
     const response = await fetch(url.toString(), {
       method,
       credentials: 'same-origin',
@@ -75,6 +91,7 @@
 
   const renderOffer = (offer) => {
     currentOffer = offer || null;
+    currentDiscountPercent = Number(offer?.discountPercent) >= 30 ? 30 : 20;
     if (offerName) offerName.textContent = offer?.offerName || 'Pedido selecionado';
     if (description) {
       description.textContent = offer?.customerFirstName
@@ -83,10 +100,94 @@
     }
     if (originalPrice) originalPrice.textContent = formatCurrency(offer?.originalAmount);
     if (discountedPrice) discountedPrice.textContent = formatCurrency(offer?.discountedAmount);
+    if (discountLabel) discountLabel.textContent = `Agora, com ${currentDiscountPercent}% OFF`;
+    if (savingTitle) savingTitle.textContent = `${currentDiscountPercent}% de desconto liberado`;
+    if (generateLabel) generateLabel.textContent = `Regularizar com ${currentDiscountPercent}% OFF`;
     if (savingText) {
       const saving = Math.max(0, Number(offer?.originalAmount || 0) - Number(offer?.discountedAmount || 0));
       savingText.textContent = `Você economiza ${formatCurrency(saving)} e conclui o pedido pelo valor reduzido.`;
     }
+    if (exitPrice) {
+      exitPrice.textContent = formatCurrency(Number(offer?.originalAmount || 0) * 0.7);
+    }
+  };
+
+  const setGenerateButtonIdle = () => {
+    if (generateLabel) generateLabel.textContent = `Regularizar com ${currentDiscountPercent}% OFF`;
+  };
+
+  const closeExitOffer = () => {
+    exitOffer?.classList.add('hidden');
+    exitOffer?.setAttribute('aria-hidden', 'true');
+    document.documentElement.style.overflow = '';
+  };
+
+  const openExitOffer = () => {
+    if (!currentOffer || currentDiscountPercent >= 30 || !exitOffer) return false;
+    if (exitError) {
+      exitError.textContent = '';
+      exitError.classList.add('hidden');
+    }
+    if (exitPrice) exitPrice.textContent = formatCurrency(Number(currentOffer.originalAmount || 0) * 0.7);
+    exitOffer.classList.remove('hidden');
+    exitOffer.setAttribute('aria-hidden', 'false');
+    document.documentElement.style.overflow = 'hidden';
+    window.setTimeout(() => exitAccept?.focus(), 60);
+    return true;
+  };
+
+  const leaveRemarketing = () => {
+    closeExitOffer();
+    allowBackNavigation = true;
+    window.__ifbAllowUnload = true;
+    const guardedSteps = Number(history.state?.step);
+    if (history.state?.ifbEarly === true && Number.isFinite(guardedSteps)) {
+      history.go(-(guardedSteps + 1));
+      return;
+    }
+    history.back();
+  };
+
+  const handleBackAttempt = () => {
+    if (allowBackNavigation) return;
+    if (!backRedirectShown && currentOffer && currentDiscountPercent < 30) {
+      backRedirectShown = true;
+      openExitOffer();
+      return;
+    }
+    leaveRemarketing();
+  };
+
+  const armBackRedirect = () => {
+    if (backRedirectArmed) return;
+    backRedirectArmed = true;
+    history.pushState({ recoveryOfferGuard: true }, '', window.location.href);
+    window.addEventListener('popstate', handleBackAttempt);
+  };
+
+  const acceptExitOffer = async () => {
+    if (!exitAccept) return;
+    exitAccept.disabled = true;
+    const label = exitAccept.querySelector('span');
+    if (label) label.textContent = 'Aplicando 30% OFF...';
+    if (exitError) exitError.classList.add('hidden');
+
+    const { response, data } = await recoveryRequest('GET', 30).catch(() => ({ response: null, data: {} }));
+    if (!response?.ok || !data?.offer?.canRecover) {
+      exitAccept.disabled = false;
+      if (label) label.textContent = 'Aplicar 30% OFF';
+      if (exitError) {
+        exitError.textContent = data?.error || 'Não foi possível aplicar o desconto agora. Tente novamente.';
+        exitError.classList.remove('hidden');
+      }
+      return;
+    }
+
+    renderOffer(data.offer);
+    closeExitOffer();
+    history.pushState({ recoveryOfferGuard: true }, '', window.location.href);
+    exitAccept.disabled = false;
+    if (label) label.textContent = '30% OFF aplicado';
   };
 
   const resolveReward = (pix, offer) => {
@@ -127,7 +228,7 @@
         <span class="recovery-to-pix__check" aria-hidden="true">
           <svg viewBox="0 0 24 24"><path d="m9.2 16.6-4.3-4.3 1.8-1.8 2.5 2.5 7.9-7.9 1.8 1.8-9.7 9.7Z"/></svg>
         </span>
-        <strong>Pix com 20% OFF gerado</strong>
+        <strong>Pix com ${currentDiscountPercent}% OFF gerado</strong>
         <span>Valor final: ${formatCurrency(amount)}</span>
         <small>Abrindo a confirmação do recebedor...</small>
         <i class="recovery-to-pix__progress"><b></b></i>
@@ -202,14 +303,14 @@
     if (!generateButton) return;
     generateButton.disabled = true;
     generateButton.querySelector('span').textContent = 'Conferindo e gerando Pix...';
-    const { response, data } = await recoveryRequest('POST').catch(() => ({ response: null, data: {} }));
+    const { response, data } = await recoveryRequest('POST', currentDiscountPercent).catch(() => ({ response: null, data: {} }));
     if (!response?.ok || !data?.pix) {
       if (data?.code === 'already_paid') {
         showOnly(paidBox);
         return;
       }
       generateButton.disabled = false;
-      generateButton.querySelector('span').textContent = 'Gerar novo Pix com 20% OFF';
+      setGenerateButtonIdle();
       showError(data?.error || 'Não foi possível gerar o novo Pix. Tente novamente em instantes.');
       return;
     }
@@ -219,7 +320,7 @@
       await openNormalPixPage(data.pix, data.offer || currentOffer);
     } catch (error) {
       generateButton.disabled = false;
-      generateButton.querySelector('span').textContent = 'Gerar novo Pix com 20% OFF';
+      setGenerateButtonIdle();
       showError(error?.message || 'Não foi possível abrir a tela do Pix.');
     }
   };
@@ -246,11 +347,18 @@
       }
       renderOffer(data.offer);
       showOnly(content);
+      armBackRedirect();
     } catch (error) {
       showError(error?.message || 'Não foi possível carregar esta condição agora.');
     }
   };
 
   generateButton?.addEventListener('click', generatePix);
+  exitAccept?.addEventListener('click', acceptExitOffer);
+  exitDecline?.addEventListener('click', leaveRemarketing);
+  exitClose?.addEventListener('click', leaveRemarketing);
+  window.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && exitOffer && !exitOffer.classList.contains('hidden')) leaveRemarketing();
+  });
   init();
 })();

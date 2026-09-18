@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/remarketing.css?v=4" />
+  <link rel="stylesheet" href="/remarketing.css?v=5" />
   <script src="/backguard.js?v=1.6"></script>
 </head>
 <body>
@@ -33,35 +33,37 @@
 
     <section id="recovery-content" class="recovery-content hidden" aria-labelledby="recovery-title">
       <div class="recovery-intro">
-        <span class="recovery-eyebrow">Aviso de pagamento pendente</span>
-        <h1 id="recovery-title">Seu pedido ainda não está confirmado</h1>
+        <span class="recovery-eyebrow"><i aria-hidden="true"></i>Ação necessária</span>
+        <h1 id="recovery-title">Regularize seu pedido agora</h1>
         <p id="recovery-description">Encontramos o pedido que você iniciou, mas o pagamento continua pendente.</p>
       </div>
 
-      <aside id="recovery-notice" class="recovery-notice" aria-label="Condição especial para concluir o pagamento">
-        <span class="recovery-notice-icon" aria-hidden="true">!</span>
+      <aside id="recovery-notice" class="recovery-notice" aria-label="Aviso importante sobre a pendência">
+        <span class="recovery-notice-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M12 2 1 21h22L12 2Zm1 16h-2v-2h2v2Zm0-4h-2v-4h2v4Z"/></svg>
+        </span>
         <div>
-          <strong id="recovery-notice-title">Resolva sua pendência com uma condição especial</strong>
-          <p id="recovery-notice-text">Para ajudar você a concluir o pagamento, liberamos <b>20% de desconto</b> neste pedido. Gere um novo Pix abaixo e confirme sua compra pelo valor reduzido.</p>
+          <strong id="recovery-notice-title">Evite deixar essa pendência em aberto</strong>
+          <p id="recovery-notice-text">Dependendo das condições aplicáveis ao pedido, o atraso pode gerar multa ou outros encargos. Consulte os termos e regularize o pagamento.</p>
         </div>
       </aside>
 
       <article class="recovery-offer-card">
         <div class="recovery-offer-top">
           <div>
-            <span>Pedido localizado</span>
+            <span>Seu pedido</span>
             <strong id="recovery-offer-name">Pedido selecionado</strong>
           </div>
-          <span class="recovery-status"><i aria-hidden="true"></i>Pendente</span>
+          <span class="recovery-status"><i aria-hidden="true"></i>Pagamento pendente</span>
         </div>
 
         <div class="recovery-price-grid">
           <div class="recovery-price-old">
-            <span>Valor anterior</span>
+            <span>De</span>
             <del id="recovery-original-price">R$ 0,00</del>
           </div>
           <div class="recovery-price-new">
-            <span>Valor com 20% OFF</span>
+            <span id="recovery-discount-label">Agora, com 20% OFF</span>
             <strong id="recovery-discounted-price">R$ 0,00</strong>
           </div>
         </div>
@@ -69,16 +71,19 @@
         <div class="recovery-saving">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21.4 11.6 12.4 2.6A2 2 0 0 0 11 2H4a2 2 0 0 0-2 2v7a2 2 0 0 0 .6 1.4l9 9a2 2 0 0 0 2.8 0l7-7a2 2 0 0 0 0-2.8ZM7.5 9A1.5 1.5 0 1 1 9 7.5 1.5 1.5 0 0 1 7.5 9Z"/></svg>
           <div>
-            <strong>20% de desconto já aplicado</strong>
+            <strong id="recovery-saving-title">20% de desconto liberado</strong>
             <span id="recovery-saving-text">Conclua o pagamento com 20% de economia.</span>
           </div>
         </div>
 
         <button id="recovery-generate" class="recovery-primary" type="button">
-          <span>Gerar novo Pix com 20% OFF</span>
+          <span id="recovery-generate-label">Regularizar com 20% OFF</span>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m13 5-1.4 1.4 4.6 4.6H5v2h11.2l-4.6 4.6L13 19l7-7-7-7Z"/></svg>
         </button>
-
+        <p class="recovery-secure-note">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 4 5v6c0 5.1 3.4 9.8 8 11 4.6-1.2 8-5.9 8-11V5l-8-3Zm-1 14-3.5-3.5 1.4-1.4 2.1 2.1 4.6-4.6 1.4 1.4-6 6Z"/></svg>
+          Novo Pix gerado com os dados do pedido localizado
+        </p>
       </article>
 
     </section>
@@ -98,7 +103,29 @@
     </section>
   </main>
 
+  <div id="recovery-exit-offer" class="recovery-exit hidden" aria-hidden="true">
+    <div class="recovery-exit-card" role="dialog" aria-modal="true" aria-labelledby="recovery-exit-title">
+      <button id="recovery-exit-close" class="recovery-exit-close" type="button" aria-label="Continuar saindo">×</button>
+      <span class="recovery-exit-kicker">Condição adicional</span>
+      <span class="recovery-exit-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M21.4 11.6 12.4 2.6A2 2 0 0 0 11 2H4a2 2 0 0 0-2 2v7a2 2 0 0 0 .6 1.4l9 9a2 2 0 0 0 2.8 0l7-7a2 2 0 0 0 0-2.8ZM7.5 9A1.5 1.5 0 1 1 9 7.5 1.5 1.5 0 0 1 7.5 9Z"/></svg>
+      </span>
+      <h2 id="recovery-exit-title">Antes de sair: mais 10% de desconto</h2>
+      <p>Podemos aumentar sua condição de <b>20% para 30% OFF</b> para você concluir agora.</p>
+      <div class="recovery-exit-price">
+        <span>Nova condição</span>
+        <strong id="recovery-exit-price">R$ 0,00</strong>
+      </div>
+      <button id="recovery-exit-accept" class="recovery-primary recovery-primary--modal" type="button">
+        <span>Aplicar 30% OFF</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m13 5-1.4 1.4 4.6 4.6H5v2h11.2l-4.6 4.6L13 19l7-7-7-7Z"/></svg>
+      </button>
+      <button id="recovery-exit-decline" class="recovery-exit-decline" type="button">Continuar saindo</button>
+      <p id="recovery-exit-error" class="recovery-exit-error hidden" aria-live="polite"></p>
+    </div>
+  </div>
+
   <footer id="recovery-footer" class="recovery-footer">Ambiente protegido para você retomar seu pedido com segurança.</footer>
-  <script src="/remarketing.js?v=7" defer></script>
+  <script src="/remarketing.js?v=8" defer></script>
 </body>
 </html>
