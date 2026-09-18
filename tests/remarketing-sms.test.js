@@ -6,6 +6,7 @@ const {
     renderRemarketingMessage,
     leadHasAnyPaidPayment,
     buildRemarketingSmsJob,
+    shouldBackfillRemarketingSms,
     prepareRemarketingSms,
     checkLivePaymentPaid
 } = require('../lib/remarketing-sms');
@@ -63,6 +64,20 @@ test('Pix schedules one deduplicated SMS ten minutes later', () => {
     assert.equal(job.dedupeKey, 'smsmais:remarketing:session-remarketing-1:pix-pending-1');
     assert.equal(job.scheduledAt, '2026-09-18T15:10:00.000Z');
     assert.equal(job.payload.sessionId, 'session-remarketing-1');
+});
+
+test('backfill includes only Pix created after automatic activation and already due', () => {
+    const offer = {
+        canRecover: true,
+        status: 'pending',
+        sessionId: 'session-1',
+        txid: 'pix-1',
+        createdAt: '2026-09-18T15:05:00.000Z'
+    };
+    const now = Date.parse('2026-09-18T15:20:00.000Z');
+    assert.equal(shouldBackfillRemarketingSms(offer, '2026-09-18T15:00:00.000Z', 10, now), true);
+    assert.equal(shouldBackfillRemarketingSms(offer, '2026-09-18T15:06:00.000Z', 10, now), false);
+    assert.equal(shouldBackfillRemarketingSms(offer, '2026-09-18T15:00:00.000Z', 10, Date.parse('2026-09-18T15:10:00.000Z')), false);
 });
 
 test('pending lead receives the admin message and a mounted recovery link', () => {

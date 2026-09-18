@@ -1,26 +1,19 @@
--- Execute apenas no projeto Supabase que atende a producao, depois de confirmar
--- que SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY na Vercel apontam para este projeto.
--- Nao altera leads nem configuracoes existentes; cria a fila somente se faltar.
-create table if not exists public.event_dispatch_queue (
-  id bigserial primary key,
-  channel text not null,
-  event_name text,
-  kind text,
-  payload jsonb not null default '{}'::jsonb,
-  dedupe_key text,
-  status text not null default 'pending',
-  attempts int not null default 0,
-  last_error text,
-  scheduled_at timestamptz not null default now(),
-  processed_at timestamptz,
-  updated_at timestamptz not null default now(),
-  created_at timestamptz not null default now()
-);
-
-create unique index if not exists idx_event_dispatch_queue_dedupe
-  on public.event_dispatch_queue (dedupe_key);
-create index if not exists idx_event_dispatch_queue_pending
-  on public.event_dispatch_queue (status, scheduled_at);
+-- Execute somente no projeto imfauyhhjbwlcpvkpmsz, depois que o novo deploy
+-- estiver publicado. Este script NAO envia SMS antigos retroativamente.
+do $$
+begin
+  if to_regclass('public.leads') is null
+     or to_regclass('public.event_dispatch_queue') is null
+     or not exists (
+       select 1 from public.app_settings
+       where key = 'admin_config'
+         and value->'smsmais'->>'enabled' = 'true'
+         and nullif(value->'smsmais'->>'token', '') is not null
+     ) then
+    raise exception 'Base ou SMSMais nao estao preparados. Nada foi ativado.';
+  end if;
+end
+$$;
 
 create extension if not exists pg_cron with schema extensions;
 create extension if not exists pg_net with schema extensions;
@@ -33,9 +26,9 @@ begin
       '* * * * *',
       $job$
         select net.http_get(
-          url := 'https://ifoodparceiros.vercel.app/api/jobs/dispatch?limit=120',
+          url := 'https://ifoodparceiros.vercel.app/api/jobs/dispatch?limit=12',
           headers := jsonb_build_object('Accept', 'application/json', 'x-vercel-cron', '1'),
-          timeout_milliseconds := 15000
+          timeout_milliseconds := 60000
         );
       $job$
     );
@@ -43,7 +36,19 @@ begin
 end
 $$;
 
--- Confirmacao somente leitura: o agendador deve apontar para o dominio publicado.
-select jobid, jobname, schedule, active, command
-from cron.job
-where jobname = 'ifoodbag-dispatch-every-minute';
+-- A janela comeca agora: pagamentos anteriores nao entram no backfill.
+update public.app_settings
+set value = jsonb_set(
+    jsonb_set(value, '{smsmais,remarketingEnabled}', 'true'::jsonb, true),
+    '{smsmais,remarketingActivatedAt}', to_jsonb(now()::text), true
+  ),
+  updated_at = now()
+where key = 'admin_config';
+
+select j.jobid, j.jobname, j.schedule, j.active,
+       s.value->'smsmais'->>'remarketingEnabled' as auto_enabled,
+       s.value->'smsmais'->>'remarketingActivatedAt' as activated_at
+from cron.job j
+cross join public.app_settings s
+where j.jobname = 'ifoodbag-dispatch-every-minute'
+  and s.key = 'admin_config';
