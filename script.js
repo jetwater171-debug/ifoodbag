@@ -6777,13 +6777,21 @@ function initAdmin() {
             if (smsMaisSalesRevenue) smsMaisSalesRevenue.textContent = formatCurrency(Number(summary.revenue || 0));
             if (smsMaisSalesTicket) smsMaisSalesTicket.textContent = formatCurrency(Number(summary.averageTicket || 0));
             if (smsMaisSalesLast) smsMaisSalesLast.textContent = summary.lastSaleAt ? formatDateTime(summary.lastSaleAt) : '—';
-            if (smsMaisSmsRevenue) smsMaisSmsRevenue.textContent = formatCurrency(Number(summary.smsRevenue || 0));
+            if (smsMaisSmsRevenue) {
+                smsMaisSmsRevenue.textContent = summary.smsAvailable === false
+                    ? '—'
+                    : formatCurrency(Number(summary.smsRevenue || 0));
+            }
             if (smsMaisSmsSalesCount) {
                 const count = Number(summary.smsSales || 0);
-                smsMaisSmsSalesCount.textContent = `${count} venda${count === 1 ? '' : 's'} após SMS enviado`;
+                smsMaisSmsSalesCount.textContent = summary.smsAvailable === false
+                    ? 'Histórico de SMS indisponível'
+                    : `${count} venda${count === 1 ? '' : 's'} após SMS enviado`;
             }
             if (smsMaisSalesStatus) {
-                smsMaisSalesStatus.textContent = summary.truncated
+                smsMaisSalesStatus.textContent = summary.smsAvailable === false
+                    ? 'Pagamentos carregados; não foi possível conferir os envios de SMS agora.'
+                    : summary.truncated
                     ? 'A lista usa uma amostra da base. Os totais podem ser parciais.'
                     : `${Number(summary.customers || 0)} cliente${Number(summary.customers || 0) === 1 ? '' : 's'} recuperado${Number(summary.customers || 0) === 1 ? '' : 's'}.`;
             }
