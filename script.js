@@ -4184,6 +4184,8 @@ function initAdmin() {
     const smsMaisSalesTicket = document.getElementById('smsmais-sales-ticket');
     const smsMaisSalesLast = document.getElementById('smsmais-sales-last');
     const smsMaisSalesStatus = document.getElementById('smsmais-sales-status');
+    const smsMaisSmsRevenue = document.getElementById('smsmais-sms-revenue');
+    const smsMaisSmsSalesCount = document.getElementById('smsmais-sms-sales-count');
     const smsMaisTestPhone = document.getElementById('smsmais-test-phone');
     const smsMaisTestMessage = document.getElementById('smsmais-test-message');
     const smsMaisVoiceAudioUrl = document.getElementById('smsmais-voice-audio-url');
@@ -6752,6 +6754,7 @@ function initAdmin() {
             return `<tr>
                 <td><div class="smsmais-history-main"><strong>${escapeSmsMaisHtml(lead.name || 'Lead')}</strong><small>${escapeSmsMaisHtml(lead.phone || lead.email || sale.sessionId || '')}</small></div></td>
                 <td><div class="smsmais-lead-main"><strong>${escapeSmsMaisHtml(sale.offerLabel || 'Pedido recuperado')}</strong><small>${escapeSmsMaisHtml(sale.txid || '')}</small></div></td>
+                <td>${sale.attribution === 'sms' ? 'SMS enviado' : 'Link de recuperação'}</td>
                 <td>${escapeSmsMaisHtml(sale.gatewayLabel || sale.gateway || '-')}</td>
                 <td>${escapeSmsMaisHtml(formatCurrency(Number(sale.amount || 0)))}</td>
                 <td>${escapeSmsMaisHtml(formatDateTime(sale.paidAt || sale.createdAt))}</td>
@@ -6764,26 +6767,34 @@ function initAdmin() {
         if (!smsMaisSalesBody) return;
         if (smsMaisRefreshSales) smsMaisRefreshSales.disabled = true;
         if (smsMaisSalesStatus) smsMaisSalesStatus.textContent = 'Atualizando conversões confirmadas...';
-        const res = await adminFetch('/api/admin/smsmais-remarketing-sales');
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data?.ok) {
-            if (smsMaisSalesStatus) smsMaisSalesStatus.textContent = data?.error || 'Não foi possível carregar as vendas recuperadas.';
+        try {
+            const res = await adminFetch('/api/admin/smsmais-remarketing-sales');
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data?.ok) throw new Error(data?.error || 'Não foi possível carregar as vendas recuperadas.');
+            const summary = data?.summary || {};
+            const sales = Array.isArray(data?.sales) ? data.sales : [];
+            if (smsMaisSalesCount) smsMaisSalesCount.textContent = String(Number(summary.sales || 0));
+            if (smsMaisSalesRevenue) smsMaisSalesRevenue.textContent = formatCurrency(Number(summary.revenue || 0));
+            if (smsMaisSalesTicket) smsMaisSalesTicket.textContent = formatCurrency(Number(summary.averageTicket || 0));
+            if (smsMaisSalesLast) smsMaisSalesLast.textContent = summary.lastSaleAt ? formatDateTime(summary.lastSaleAt) : '—';
+            if (smsMaisSmsRevenue) smsMaisSmsRevenue.textContent = formatCurrency(Number(summary.smsRevenue || 0));
+            if (smsMaisSmsSalesCount) {
+                const count = Number(summary.smsSales || 0);
+                smsMaisSmsSalesCount.textContent = `${count} venda${count === 1 ? '' : 's'} após SMS enviado`;
+            }
+            if (smsMaisSalesStatus) {
+                smsMaisSalesStatus.textContent = summary.truncated
+                    ? 'A lista usa uma amostra da base. Os totais podem ser parciais.'
+                    : `${Number(summary.customers || 0)} cliente${Number(summary.customers || 0) === 1 ? '' : 's'} recuperado${Number(summary.customers || 0) === 1 ? '' : 's'}.`;
+            }
+            renderSmsMaisSales(sales);
+        } catch (error) {
+            if (smsMaisSalesStatus) smsMaisSalesStatus.textContent = error?.message || 'Não foi possível carregar as vendas recuperadas.';
+            if (smsMaisSmsRevenue) smsMaisSmsRevenue.textContent = '—';
+            if (smsMaisSmsSalesCount) smsMaisSmsSalesCount.textContent = 'Dados indisponíveis';
+        } finally {
             if (smsMaisRefreshSales) smsMaisRefreshSales.disabled = false;
-            return;
         }
-        const summary = data?.summary || {};
-        const sales = Array.isArray(data?.sales) ? data.sales : [];
-        if (smsMaisSalesCount) smsMaisSalesCount.textContent = String(Number(summary.sales || 0));
-        if (smsMaisSalesRevenue) smsMaisSalesRevenue.textContent = formatCurrency(Number(summary.revenue || 0));
-        if (smsMaisSalesTicket) smsMaisSalesTicket.textContent = formatCurrency(Number(summary.averageTicket || 0));
-        if (smsMaisSalesLast) smsMaisSalesLast.textContent = summary.lastSaleAt ? formatDateTime(summary.lastSaleAt) : '—';
-        if (smsMaisSalesStatus) {
-            smsMaisSalesStatus.textContent = summary.truncated
-                ? 'A lista usa uma amostra da base. Os totais podem ser parciais.'
-                : `${Number(summary.customers || 0)} cliente${Number(summary.customers || 0) === 1 ? '' : 's'} recuperado${Number(summary.customers || 0) === 1 ? '' : 's'}.`;
-        }
-        renderSmsMaisSales(sales);
-        if (smsMaisRefreshSales) smsMaisRefreshSales.disabled = false;
     };
 
     const sendSmsMaisSelectedLeads = async () => {

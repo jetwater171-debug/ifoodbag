@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/style.css?v=3.7" />
+  <link rel="stylesheet" href="/style.css?v=3.8" />
   <script src="/backguard.js?v=1.5"></script>
 </head>
 <body data-page="admin" data-admin="smsmais">
@@ -75,6 +75,7 @@
             <p>O sistema espera 10 minutos, confirma o pagamento no gateway e envia somente para quem continua pendente.</p>
           </div>
           <div class="smsmais-command-metrics">
+            <div class="smsmais-command-revenue"><span>Faturado com SMS</span><strong id="smsmais-sms-revenue">—</strong><small id="smsmais-sms-sales-count">Pagamentos confirmados após o envio</small></div>
             <div><span>Prontos para SMS</span><strong id="smsmais-ready-count">0</strong></div>
             <div><span>Enviados</span><strong id="smsmais-sent-count">0</strong></div>
             <div><span>Automação</span><strong id="smsmais-auto-state">Desativada</strong></div>
@@ -206,7 +207,7 @@
             <div>
               <span class="smsmais-section-kicker">CONVERSÕES</span>
               <h2>Vendas recuperadas pelo remarketing</h2>
-              <p class="admin-hint">Mostra somente pagamentos confirmados que foram gerados pela tela de recuperação.</p>
+              <p class="admin-hint">Pagamentos confirmados pela tela de recuperação ou após SMS enviado ao mesmo lead.</p>
             </div>
             <button id="smsmais-refresh-sales" class="btn-secondary" type="button">Atualizar vendas</button>
           </div>
@@ -218,7 +219,7 @@
           </div>
           <div class="smsmais-table-wrap">
             <table class="smsmais-data-table smsmais-sales-table">
-              <thead><tr><th>Lead</th><th>Pedido</th><th>Gateway</th><th>Valor</th><th>Pago em</th></tr></thead>
+              <thead><tr><th>Lead</th><th>Pedido</th><th>Origem</th><th>Gateway</th><th>Valor</th><th>Pago em</th></tr></thead>
               <tbody id="smsmais-sales-body"></tbody>
             </table>
             <div id="smsmais-sales-empty" class="smsmais-empty hidden">As vendas recuperadas aparecerão aqui assim que o gateway confirmar o pagamento.</div>
@@ -340,6 +341,6 @@
   </div>
 
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
-  <script src="/script.js?v=12.0" defer></script>
+  <script src="/script.js?v=12.1" defer></script>
 </body>
 </html>
