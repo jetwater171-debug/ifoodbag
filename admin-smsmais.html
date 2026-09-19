@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/style.css?v=3.8" />
+  <link rel="stylesheet" href="/style.css?v=3.9" />
   <script src="/backguard.js?v=1.5"></script>
 </head>
 <body data-page="admin" data-admin="smsmais">
@@ -232,7 +232,7 @@
             <div>
               <span class="smsmais-section-kicker">ENVIO MANUAL</span>
               <h2>Leads com pagamento pendente</h2>
-              <p class="admin-hint">Selecione até 20 leads por vez. Pagamentos confirmados são bloqueados novamente no momento do envio.</p>
+              <p class="admin-hint">Selecione os últimos 200 leads que geraram o Kit Entregador ou escolha outros pendentes. Cada pagamento é conferido novamente antes do SMS.</p>
             </div>
             <button id="smsmais-refresh-leads" class="btn-secondary" type="button">Atualizar lista</button>
           </div>
@@ -241,7 +241,8 @@
               <input type="search" id="smsmais-lead-search" class="floating-input" placeholder=" " />
               <label for="smsmais-lead-search" class="floating-label">Buscar por nome, telefone ou Pix</label>
             </div>
-            <label class="smsmais-select-all"><input type="checkbox" id="smsmais-select-all" /> Selecionar até 20</label>
+            <button id="smsmais-select-latest-kit" class="btn-secondary" type="button">Selecionar últimos 200 kits</button>
+            <label class="smsmais-select-all"><input type="checkbox" id="smsmais-select-all" /> Selecionar lista (até 200)</label>
             <span id="smsmais-selected-count" class="admin-chip">0 selecionados</span>
             <button id="smsmais-send-selected" class="btn-primary" type="button" disabled>Enviar SMS selecionados</button>
           </div>
@@ -341,6 +342,6 @@
   </div>
 
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
-  <script src="/script.js?v=12.2" defer></script>
+  <script src="/script.js?v=12.3" defer></script>
 </body>
 </html>

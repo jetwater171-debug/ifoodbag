@@ -4163,6 +4163,7 @@ function initAdmin() {
     const smsMaisVariableList = document.getElementById('smsmais-variable-list');
     const smsMaisLeadSearch = document.getElementById('smsmais-lead-search');
     const smsMaisRefreshLeads = document.getElementById('smsmais-refresh-leads');
+    const smsMaisSelectLatestKit = document.getElementById('smsmais-select-latest-kit');
     const smsMaisSelectAll = document.getElementById('smsmais-select-all');
     const smsMaisSelectedCount = document.getElementById('smsmais-selected-count');
     const smsMaisSendSelected = document.getElementById('smsmais-send-selected');
@@ -4463,6 +4464,10 @@ function initAdmin() {
     let currentSettingsRevision = '';
     let smsMaisRemarketingLeads = [];
     let smsMaisSelectedSessions = new Set();
+    let smsMaisKitMode = false;
+    let smsMaisKitLoading = false;
+    let smsMaisBulkSending = false;
+    let smsMaisLeadRequestId = 0;
     let smsMaisVariables = [];
     let currentLeadDetail = null;
     let currentIpBlacklist = [];
@@ -6654,12 +6659,22 @@ function initAdmin() {
     const syncSmsMaisSelection = () => {
         const count = smsMaisSelectedSessions.size;
         if (smsMaisSelectedCount) smsMaisSelectedCount.textContent = `${count} selecionado${count === 1 ? '' : 's'}`;
-        if (smsMaisSendSelected) smsMaisSendSelected.disabled = count === 0;
+        if (smsMaisSendSelected) smsMaisSendSelected.disabled = count === 0 || smsMaisBulkSending;
+        if (smsMaisSelectLatestKit) {
+            smsMaisSelectLatestKit.textContent = smsMaisKitMode ? 'Ver todos os pendentes' : 'Selecionar últimos 200 kits';
+            smsMaisSelectLatestKit.disabled = smsMaisBulkSending || smsMaisKitLoading;
+        }
         if (smsMaisSelectAll) {
-            const visibleIds = smsMaisRemarketingLeads.slice(0, 20).map((lead) => lead.sessionId);
+            const visibleIds = smsMaisRemarketingLeads.slice(0, 200).map((lead) => lead.sessionId);
             smsMaisSelectAll.checked = visibleIds.length > 0 && visibleIds.every((id) => smsMaisSelectedSessions.has(id));
             smsMaisSelectAll.indeterminate = count > 0 && !smsMaisSelectAll.checked;
+            smsMaisSelectAll.disabled = smsMaisBulkSending;
         }
+        if (smsMaisLeadSearch) smsMaisLeadSearch.disabled = smsMaisBulkSending || smsMaisKitLoading;
+        if (smsMaisRefreshLeads) smsMaisRefreshLeads.disabled = smsMaisBulkSending || smsMaisKitLoading;
+        smsMaisLeadsBody?.querySelectorAll('.smsmais-lead-check').forEach((checkbox) => {
+            checkbox.disabled = smsMaisBulkSending;
+        });
     };
 
     const renderSmsMaisLeads = () => {
@@ -6681,29 +6696,46 @@ function initAdmin() {
         syncSmsMaisSelection();
     };
 
-    const loadSmsMaisRemarketingLeads = async () => {
-        if (!smsMaisLeadsBody) return;
+    const loadSmsMaisRemarketingLeads = async ({ force = false } = {}) => {
+        if (!smsMaisLeadsBody) return false;
+        if (smsMaisKitLoading && !force) return false;
+        const requestId = ++smsMaisLeadRequestId;
         if (smsMaisRefreshLeads) smsMaisRefreshLeads.disabled = true;
         const url = new URL('/api/admin/smsmais-remarketing-leads', window.location.origin);
         const query = String(smsMaisLeadSearch?.value || '').trim();
         if (query) url.searchParams.set('q', query);
-        url.searchParams.set('limit', '1000');
-        const res = await adminFetch(url.toString());
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data?.ok) {
-            if (smsMaisManualStatus) smsMaisManualStatus.textContent = data?.error || 'Nao foi possivel carregar os leads pendentes.';
-            if (smsMaisRefreshLeads) smsMaisRefreshLeads.disabled = false;
-            return;
+        url.searchParams.set('limit', smsMaisKitMode ? '200' : '1000');
+        if (smsMaisKitMode) url.searchParams.set('kit', '1');
+        try {
+            const res = await adminFetch(url.toString());
+            const data = await res.json().catch(() => ({}));
+            if (requestId !== smsMaisLeadRequestId) return false;
+            if (!res.ok || !data?.ok) throw new Error(data?.error || 'Nao foi possivel carregar os leads pendentes.');
+            smsMaisRemarketingLeads = Array.isArray(data.leads) ? data.leads : [];
+            smsMaisVariables = Array.isArray(data.variables) ? data.variables : smsMaisVariables;
+            const available = new Set(smsMaisRemarketingLeads.map((lead) => lead.sessionId));
+            if (!query) {
+                smsMaisSelectedSessions = new Set([...smsMaisSelectedSessions].filter((id) => available.has(id)));
+            }
+            if (smsMaisReadyCount) smsMaisReadyCount.textContent = String(data?.summary?.ready || 0);
+            if (smsMaisManualStatus) {
+                smsMaisManualStatus.textContent = smsMaisKitMode
+                    ? `${smsMaisRemarketingLeads.length} PIX pendentes do Kit Entregador${data?.summary?.truncated ? ' (busca parcial)' : ''}.`
+                    : `${data?.summary?.pending || 0} pagamentos pendentes encontrados.`;
+            }
+            renderSmsMaisVariables(false);
+            renderSmsMaisLeads();
+            return true;
+        } catch (error) {
+            if (requestId === smsMaisLeadRequestId && smsMaisManualStatus) {
+                smsMaisManualStatus.textContent = error?.message || 'Nao foi possivel carregar os leads pendentes.';
+            }
+            return false;
+        } finally {
+            if (requestId === smsMaisLeadRequestId && smsMaisRefreshLeads) {
+                smsMaisRefreshLeads.disabled = smsMaisBulkSending || smsMaisKitLoading;
+            }
         }
-        smsMaisRemarketingLeads = Array.isArray(data.leads) ? data.leads : [];
-        smsMaisVariables = Array.isArray(data.variables) ? data.variables : smsMaisVariables;
-        const available = new Set(smsMaisRemarketingLeads.map((lead) => lead.sessionId));
-        smsMaisSelectedSessions = new Set([...smsMaisSelectedSessions].filter((id) => available.has(id)));
-        if (smsMaisReadyCount) smsMaisReadyCount.textContent = String(data?.summary?.ready || 0);
-        if (smsMaisManualStatus) smsMaisManualStatus.textContent = `${data?.summary?.pending || 0} pagamentos pendentes encontrados.`;
-        renderSmsMaisVariables(false);
-        renderSmsMaisLeads();
-        if (smsMaisRefreshLeads) smsMaisRefreshLeads.disabled = false;
     };
 
     const smsMaisOutcomeLabel = (item) => {
@@ -6807,34 +6839,58 @@ function initAdmin() {
 
     const sendSmsMaisSelectedLeads = async () => {
         const sessionIds = [...smsMaisSelectedSessions];
-        if (!sessionIds.length) return;
-        if (sessionIds.length > 20) {
-            showToast('Selecione ate 20 leads por envio.', 'error');
+        if (!sessionIds.length || smsMaisBulkSending) return;
+        if (sessionIds.length > 200) {
+            showToast('Selecione ate 200 leads por envio.', 'error');
             return;
         }
-        if (smsMaisSendSelected) smsMaisSendSelected.disabled = true;
-        if (smsMaisManualStatus) smsMaisManualStatus.textContent = `Conferindo ${sessionIds.length} pagamentos e enviando...`;
-        const requestId = window.crypto?.randomUUID?.() || `manual-${Date.now()}`;
-        const res = await adminFetch('/api/admin/smsmais-remarketing-send', {
-            method: 'POST',
-            body: JSON.stringify({
-                sessionIds,
-                message: String(smsMaisRemarketingMessage?.value || '').trim(),
-                requestId
-            })
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data?.ok) {
-            const message = data?.error || 'Nao foi possivel enviar os SMS selecionados.';
-            if (smsMaisManualStatus) smsMaisManualStatus.textContent = message;
-            showToast(message, 'error');
+        const messageTemplate = String(smsMaisRemarketingMessage?.value || '').trim();
+        if (!messageTemplate) {
+            showToast('Escreva a mensagem de SMS antes de enviar.', 'error');
+            return;
+        }
+        if (sessionIds.length > 20 && !window.confirm(`Enviar a mensagem escolhida para até ${sessionIds.length} leads pendentes? O envio será feito em lotes e pode consumir saldo da SMSMais.`)) return;
+
+        smsMaisBulkSending = true;
+        syncSmsMaisSelection();
+        const totals = { accepted: 0, alreadyQueued: 0, ignored: 0, failedToQueue: 0 };
+        let completed = 0;
+        let failedMessage = '';
+        try {
+            for (let index = 0; index < sessionIds.length; index += 20) {
+                const batch = sessionIds.slice(index, index + 20);
+                if (smsMaisManualStatus) smsMaisManualStatus.textContent = `Conferindo pagamentos e processando ${Math.min(index + batch.length, sessionIds.length)} de ${sessionIds.length} leads...`;
+                const requestId = window.crypto?.randomUUID?.() || `manual-${Date.now()}-${index}`;
+                const res = await adminFetch('/api/admin/smsmais-remarketing-send', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        sessionIds: batch,
+                        message: messageTemplate,
+                        kitOnly: smsMaisKitMode,
+                        requestId
+                    })
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok || !data?.ok) throw new Error(data?.error || 'Nao foi possivel processar um dos lotes de SMS.');
+                totals.accepted += Number(data.accepted || 0);
+                totals.alreadyQueued += Number(data.alreadyQueued || 0);
+                totals.ignored += Number(data.ignored || 0);
+                totals.failedToQueue += Number(data.failedToQueue || 0);
+                completed += batch.length;
+                if (!data.failedToQueue) batch.forEach((id) => smsMaisSelectedSessions.delete(id));
+                syncSmsMaisSelection();
+            }
+        } catch (error) {
+            failedMessage = error?.message || 'O envio foi interrompido; os leads restantes continuam selecionados.';
+        } finally {
+            smsMaisBulkSending = false;
             syncSmsMaisSelection();
-            return;
         }
-        const message = `${data.accepted || 0} SMS na fila; ${data.alreadyQueued || 0} ja enviados/em processamento; ${data.ignored || 0} pagos ou inelegiveis bloqueados; ${data.failedToQueue || 0} falhas ao agendar.`;
-        if (smsMaisManualStatus) smsMaisManualStatus.textContent = message;
-        showToast(data.failedToQueue ? 'Parte dos envios falhou ao agendar.' : 'Fila de SMS processada.', data.failedToQueue ? 'error' : 'success');
-        smsMaisSelectedSessions.clear();
+        const summary = `${totals.accepted} SMS agendados; ${totals.alreadyQueued} ja na fila; ${totals.ignored} pagos/inelegiveis bloqueados; ${totals.failedToQueue} falhas ao agendar.`;
+        if (smsMaisManualStatus) smsMaisManualStatus.textContent = failedMessage
+            ? `${summary} ${failedMessage} ${completed} de ${sessionIds.length} leads processados; os demais continuam selecionados.`
+            : summary;
+        showToast(failedMessage || totals.failedToQueue ? 'Revise os envios que ficaram selecionados.' : 'Lotes de SMS processados.', failedMessage || totals.failedToQueue ? 'error' : 'success');
         await Promise.all([loadSmsMaisRemarketingLeads(), loadSmsMaisHistory(), loadSmsMaisRemarketingSales()]);
     };
 
@@ -8387,10 +8443,29 @@ function initAdmin() {
         window.clearTimeout(smsMaisSearchDebounce);
         smsMaisSearchDebounce = window.setTimeout(loadSmsMaisRemarketingLeads, 250);
     });
+    smsMaisSelectLatestKit?.addEventListener('click', async () => {
+        if (smsMaisBulkSending) return;
+        const previousMode = smsMaisKitMode;
+        smsMaisKitMode = !smsMaisKitMode;
+        smsMaisKitLoading = true;
+        if (smsMaisLeadSearch) smsMaisLeadSearch.value = '';
+        syncSmsMaisSelection();
+        const loaded = await loadSmsMaisRemarketingLeads({ force: true });
+        smsMaisKitLoading = false;
+        if (!loaded) {
+            smsMaisKitMode = previousMode;
+            syncSmsMaisSelection();
+            return;
+        }
+        smsMaisSelectedSessions = smsMaisKitMode
+            ? new Set(smsMaisRemarketingLeads.slice(0, 200).map((lead) => lead.sessionId))
+            : new Set();
+        renderSmsMaisLeads();
+    });
     smsMaisSelectAll?.addEventListener('change', () => {
         if (smsMaisSelectAll.checked) {
             smsMaisRemarketingLeads.forEach((lead) => {
-                if (smsMaisSelectedSessions.size < 20) smsMaisSelectedSessions.add(lead.sessionId);
+                if (smsMaisSelectedSessions.size < 200) smsMaisSelectedSessions.add(lead.sessionId);
             });
         } else {
             smsMaisRemarketingLeads.forEach((lead) => smsMaisSelectedSessions.delete(lead.sessionId));
@@ -8401,9 +8476,9 @@ function initAdmin() {
         const checkbox = event.target?.closest?.('[data-session-id]');
         if (!checkbox) return;
         const sessionId = checkbox.getAttribute('data-session-id') || '';
-        if (checkbox.checked && smsMaisSelectedSessions.size >= 20) {
+        if (checkbox.checked && smsMaisSelectedSessions.size >= 200) {
             checkbox.checked = false;
-            showToast('Selecione ate 20 leads por envio.', 'info');
+            showToast('Selecione ate 200 leads por envio.', 'info');
         } else if (checkbox.checked) smsMaisSelectedSessions.add(sessionId);
         else smsMaisSelectedSessions.delete(sessionId);
         syncSmsMaisSelection();

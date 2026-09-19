@@ -4044,8 +4044,13 @@ body[data-page='admin'][data-admin='smsmais'] .admin-section--card {
 .smsmais-list-toolbar {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 10px;
     margin: 16px 0 12px;
+}
+
+#smsmais-select-latest-kit {
+    white-space: nowrap;
 }
 
 .smsmais-search-field {
@@ -7311,7 +7316,8 @@ body.modal-open {
         flex-direction: column;
     }
     .smsmais-list-header .btn-secondary,
-    .smsmais-list-toolbar .btn-primary {
+    .smsmais-list-toolbar .btn-primary,
+    .smsmais-list-toolbar .btn-secondary {
         width: 100%;
     }
     .smsmais-list-toolbar {
