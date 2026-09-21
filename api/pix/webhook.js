@@ -943,7 +943,7 @@ const pixWebhookHandler = async (req, res) => {
 
     if (gateway === 'clownpay') {
         try {
-            body = await require('../../lib/clownpay-provider').verifyWebhook(gatewayConfig, body);
+            body = await require('../../lib/clownpay-provider').verifyWebhook({ ...gatewayConfig, account: req.query?.account === 'subaccount' ? 'subaccount' : 'main' }, body);
             const stored = await getLeadByPixTxid(body.transaction_id);
             if (!stored?.ok || !stored.data) throw new Error('transaction_not_saved');
             const saved = asObject(stored.data.payload);

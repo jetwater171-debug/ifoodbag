@@ -319,6 +319,11 @@
               <input type="password" id="gateway-clownpay-api-key" class="floating-input" placeholder=" " />
               <label for="gateway-clownpay-api-key" class="floating-label">ClownPay X-API-Key</label>
             </div>
+                  <div class="input-group">
+                    <input type="password" id="gateway-clownpay-subaccount-api-key" class="floating-input" placeholder=" " autocomplete="new-password" />
+                    <label for="gateway-clownpay-subaccount-api-key" class="floating-label">Secret Key da subconta (upsells)</label>
+                  </div>
+                  <p class="admin-hint">Com a ClownPay como gateway principal, o front usa a chave principal e os upsells usam esta subconta. Sem esta chave, todos usam a conta principal.</p>
             <div class="input-group">
               <input type="password" id="gateway-clownpay-product-hash" class="floating-input" placeholder=" " />
               <label for="gateway-clownpay-product-hash" class="floating-label">ClownPay Product Hash (opcional)</label>

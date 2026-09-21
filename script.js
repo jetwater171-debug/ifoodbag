@@ -4208,6 +4208,7 @@ function initAdmin() {
     const gatewayParadiseBaseUrl = document.getElementById('gateway-paradise-base-url');
     const gatewayClownPayBaseUrl = document.getElementById('gateway-clownpay-base-url');
     const gatewayParadiseApiKey = document.getElementById('gateway-paradise-api-key');
+    const gatewayClownPaySubaccountApiKey = document.getElementById('gateway-clownpay-subaccount-api-key');
     const gatewayClownPayApiKey = document.getElementById('gateway-clownpay-api-key');
     const gatewayParadiseProductHash = document.getElementById('gateway-paradise-product-hash');
     const gatewayClownPayProductHash = document.getElementById('gateway-clownpay-product-hash');
@@ -5222,6 +5223,7 @@ function initAdmin() {
             if (gatewayClownPayBaseUrl) gatewayClownPayBaseUrl.value = clownpay.baseUrl || '';
             if (gatewayParadiseApiKey) gatewayParadiseApiKey.value = paradise.apiKey || '';
             if (gatewayClownPayApiKey) gatewayClownPayApiKey.value = clownpay.apiKey || '';
+            if (gatewayClownPaySubaccountApiKey) gatewayClownPaySubaccountApiKey.value = clownpay.subaccountApiKey || '';
             if (gatewayParadiseProductHash) gatewayParadiseProductHash.value = paradise.productHash || '';
             if (gatewayClownPayProductHash) gatewayClownPayProductHash.value = clownpay.productHash || '';
             if (gatewayParadiseOrderbumpHash) gatewayParadiseOrderbumpHash.value = paradise.orderbumpHash || '';
@@ -6333,6 +6335,7 @@ function initAdmin() {
                         enabled: readCheckboxSetting(gatewayClownPayEnabled, currentClownPay.enabled),
                         baseUrl: readInputSetting(gatewayClownPayBaseUrl, currentClownPay.baseUrl),
                         apiKey: readInputSetting(gatewayClownPayApiKey, currentClownPay.apiKey),
+                        subaccountApiKey: readInputSetting(gatewayClownPaySubaccountApiKey, currentClownPay.subaccountApiKey),
                         productHash: readInputSetting(gatewayClownPayProductHash, currentClownPay.productHash),
                         orderbumpHash: readInputSetting(gatewayClownPayOrderbumpHash, currentClownPay.orderbumpHash),
                         source: readInputSetting(gatewayClownPaySource, currentClownPay.source),

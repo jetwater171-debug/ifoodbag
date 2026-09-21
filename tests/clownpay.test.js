@@ -16,7 +16,7 @@ function internals(file, names) {
     return mod.exports.test;
 }
 
-const admin = internals('lib/admin-api-handler.js', 'sanitizeSettingsForAdmin, normalizeGatewayTestSelection, inspectPixTransaction');
+const admin = internals('lib/admin-api-handler.js', 'sanitizeSettingsForAdmin, normalizeGatewayTestSelection, inspectPixTransaction, pickSecretInput');
 const create = internals('api/pix/create.js', 'resolveGatewayCandidates, resolveParadiseResponse, normalizeParadiseCreateStatus');
 const status = internals('api/pix/status.js', 'mapGatewayStatusToFrontend, resolveStatusGateway');
 const webhook = internals('api/pix/webhook.js', 'extractGatewayEvent');
@@ -111,4 +111,51 @@ test('status and reconciliation keep ClownPay identity and confirmed amount', as
     assert.equal(result.gateway, 'clownpay');
     assert.equal(result.isPaid, true);
     assert.equal(result.amount, 10);
+});
+
+test('subaccount routing applies only to upsells with ClownPay as primary', () => {
+    const cfg = config.buildClownPayConfig({ apiKey: 'main', subaccountApiKey: 'sub' });
+    assert.equal(provider.resolveCreateConfig(cfg, { activeGateway: 'clownpay' }, true).account, 'subaccount');
+    assert.equal(provider.resolveCreateConfig(cfg, { activeGateway: 'clownpay' }, false).account, 'main');
+    assert.equal(provider.resolveCreateConfig(cfg, { activeGateway: 'paradise' }, true).account, 'main');
+    assert.equal(provider.resolveCreateConfig(clown, { activeGateway: 'clownpay' }, true).account, 'main');
+    const sanitized = admin.sanitizeSettingsForAdmin({ payments: { gateways: { clownpay: cfg } } });
+    const masked = sanitized.payments.gateways.clownpay.subaccountApiKey;
+    assert.notEqual(masked, 'sub');
+    assert.equal(admin.pickSecretInput(masked, 'sub'), 'sub');
+});
+
+test('subaccount creation uses its key, scopes the local ID and avoids main-account product hashes', async () => {
+    const cfg = provider.resolveCreateConfig({ ...clown, subaccountApiKey: 'sub-key' }, { activeGateway: 'clownpay' }, true);
+    const calls = mock({ status: 'success', transaction_id: 238, id: 'UPSELL', qr_code: '000201' });
+    const result = await shared.requestCreateTransaction(cfg, { amount: 1000, reference: 'UPSELL', productHash: 'main-product', orderbump: 'main-bump' });
+    assert.equal(calls[0].options.headers['X-API-Key'], 'sub-key');
+    assert.equal(result.data.transaction_id, 'clownsub:238');
+    const sent = JSON.parse(calls[0].options.body);
+    assert.equal(sent.source, 'api_externa');
+    assert.equal(sent.productHash, undefined);
+    assert.equal(sent.orderbump, undefined);
+    assert.equal(new URL(shared.resolvePostbackUrl({ headers: { host: 'shop.example' } }, cfg)).searchParams.get('account'), 'subaccount');
+});
+
+test('old main IDs and subaccount IDs always query their original account', async () => {
+    const cfg = { ...clown, subaccountApiKey: 'sub-key', account: 'subaccount' };
+    const calls = mock({ id: 238, external_id: 'UPSELL', amount: 1000, status: 'approved' });
+    await shared.requestTransactionById(cfg, '238');
+    await shared.requestTransactionById({ ...cfg, account: 'main' }, 'clownsub:238');
+    assert.equal(calls[0].options.headers['X-API-Key'], clown.apiKey);
+    assert.equal(calls[1].options.headers['X-API-Key'], 'sub-key');
+    assert.match(calls[1].url, /&id=238$/);
+    const result = await admin.inspectPixTransaction({ txid: 'clownsub:238', rowGateway: 'clownpay', payments: { gateways: { clownpay: cfg } } });
+    assert.equal(result.txid, 'clownsub:238');
+    assert.equal(result.isPaid, true);
+    await assert.rejects(shared.requestTransactionById(clown, 'clownsub:238'), /subaccount_key_missing/);
+});
+
+test('subaccount webhook verifies with its own key and preserves scoped identity', async () => {
+    const calls = mock([{ id: 238, external_id: 'UPSELL', amount: 1000, status: 'approved' }]);
+    const verified = await provider.verifyWebhook({ ...clown, subaccountApiKey: 'sub-key', account: 'subaccount' }, { external_id: 'UPSELL' });
+    assert.equal(calls[0].options.headers['X-API-Key'], 'sub-key');
+    assert.equal(verified.transaction_id, 'clownsub:238');
+    assert.equal(webhook.extractGatewayEvent('clownpay', verified).isPaid, true);
 });

@@ -959,6 +959,10 @@ async function findReusablePixBySession({
 
     const storedUpsell = Boolean(payload?.upsell?.enabled || payload?.isUpsell);
     if (storedUpsell !== Boolean(upsellEnabled)) return null;
+    if (gateway === 'clownpay') {
+        const provider = require('../../lib/clownpay-provider');
+        if (provider.isSubaccountTransaction(txid) !== (gatewayConfig.account === 'subaccount')) return null;
+    }
 
     const normalizedReward = resolveReward(storedRewardId || rewardId || 'bag');
     const rewardExtraPrice = Boolean(upsellEnabled) ? 0 : toBrlAmount(normalizedReward.extraPrice);
@@ -1167,7 +1171,8 @@ module.exports = async (req, res) => {
         let reusable = null;
         let reusableGateway = gateway;
         for (const candidateGateway of gatewayCandidates.length ? gatewayCandidates : [gateway]) {
-            const candidateConfig = payments?.gateways?.[candidateGateway] || {};
+            let candidateConfig = payments?.gateways?.[candidateGateway] || {};
+            if (candidateGateway === 'clownpay') candidateConfig = require('../../lib/clownpay-provider').resolveCreateConfig(candidateConfig, payments, upsellEnabled);
             const candidateReusable = await findReusablePixBySession({
                 sessionId,
                 gateway: candidateGateway,
@@ -1481,6 +1486,7 @@ module.exports = async (req, res) => {
                 statusRaw = sunizeData.status;
                 externalId = sunizeData.externalId || externalId;
             } else if (gateway === 'paradise' || gateway === 'clownpay') {
+                if (gateway === 'clownpay') gatewayConfig = require('../../lib/clownpay-provider').resolveCreateConfig(gatewayConfig, payments, upsellEnabled);
                 if (!hasParadiseCredentials(gatewayConfig)) {
                     console.warn('[pix] paradise missing credentials', {
                         hasApiKey: Boolean(String(gatewayConfig.apiKey || '').trim()),

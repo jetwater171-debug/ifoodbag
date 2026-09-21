@@ -773,6 +773,7 @@ module.exports = async (req, res) => {
     const gatewayConfig = payments?.gateways?.[gateway] || {};
     const statusGatewayConfig = {
         ...gatewayConfig,
+        ...(gateway === 'clownpay' ? { account: require('../../lib/clownpay-provider').isSubaccountTransaction(txid) ? 'subaccount' : 'main' } : {}),
         timeoutMs: Math.max(
             2500,
             Math.min(
