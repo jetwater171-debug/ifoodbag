@@ -406,6 +406,18 @@ function resolveReward(rawReward = null) {
         : { id: rawReward };
     const id = pickText(source?.id, source).toLowerCase();
     const reward = REWARD_CATALOG[id] || REWARD_CATALOG.bag;
+    if (reward.id === 'kit_entregador') {
+        const kitChoice = pickText(source?.kitChoice, 'bag').toLowerCase() === 'bau' ? 'bau' : 'bag';
+        const kitChoiceExtraPrice = kitChoice === 'bau' ? 39.9 : 0;
+        const kitChoiceName = kitChoice === 'bau' ? 'Baú' : 'Bag';
+        return {
+            ...reward,
+            name: `${reward.name} + ${kitChoiceName}`,
+            extraPrice: toBrlAmount(reward.extraPrice + kitChoiceExtraPrice),
+            kitChoice,
+            kitChoiceExtraPrice
+        };
+    }
     return {
         ...reward,
         extraPrice: toBrlAmount(reward.extraPrice)
@@ -964,7 +976,10 @@ async function findReusablePixBySession({
         if (provider.isSubaccountTransaction(txid) !== (gatewayConfig.account === 'subaccount')) return null;
     }
 
-    const normalizedReward = resolveReward(storedRewardId || rewardId || 'bag');
+    const storedReward = payload?.reward && typeof payload.reward === 'object'
+        ? payload.reward
+        : { id: storedRewardId || rewardId || 'bag' };
+    const normalizedReward = resolveReward(storedReward);
     const rewardExtraPrice = Boolean(upsellEnabled) ? 0 : toBrlAmount(normalizedReward.extraPrice);
 
     let paymentCode = pickText(payload?.pix?.paymentCode, payload.paymentCode);

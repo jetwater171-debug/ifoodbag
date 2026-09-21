@@ -14,7 +14,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css?v=3.2">
-    <link rel="stylesheet" href="sucesso.css?v=9">
+    <link rel="stylesheet" href="sucesso.css?v=10">
     <script src="/backguard.js?v=1.5"></script>
 </head>
 
@@ -77,26 +77,52 @@
                         <span class="success-reward-radio" aria-hidden="true"></span>
                     </button>
 
-                    <button class="success-reward-card" type="button" data-reward-id="kit_entregador" aria-pressed="false">
-                        <span class="success-reward-flame">
-                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                                <path class="success-flame-shape" d="M12.14 2.28c.33 2.2-.45 3.67-1.64 5.13-.62.75-1.24 1.54-1.7 2.55-.58-.9-.82-1.96-.72-3.05C5.4 9.03 4 11.86 4 14.8 4 19.25 7.35 22 12 22s8-2.75 8-7.2c0-3.36-1.7-6.06-4.8-8.26.16 1.9-.34 3.36-1.35 4.42.16-3.38-.35-6.35-1.71-8.68Z" />
-                                <path class="success-flame-core" d="M12 20c1.65 0 2.77-1.11 2.77-2.65 0-1.25-.57-2.19-1.69-3.1.02 1.12-.37 1.8-1.04 2.25-.28-1.33-.85-2.47-1.68-3.3-.33 1.15-.96 2.01-1.64 2.98-.26.38-.49.8-.49 1.31C8.23 19 9.75 20 12 20Z" />
-                            </svg>
-                            <span class="success-reward-flame-text">1 disponível</span>
-                        </span>
-                        <span class="success-reward-media">
-                            <img src="assets/__task____fix_ifood_logo_on_jacket_,_202603260102 (1).webp" alt="Kit Entregador iFood" class="success-reward-image" loading="lazy" decoding="async">
-                        </span>
-                        <span class="success-reward-copy">
-                            <span class="success-reward-title">Kit Entregador iFood</span>
-                            <span class="price-row">
-                                <span class="old-price">De <s>R$ 449,90</s></span>
-                                <span class="new-price">R$ 97,90</span>
+                    <div class="success-reward-card success-reward-card--kit" data-reward-id="kit_entregador">
+                        <button class="success-kit-main" type="button" aria-pressed="false" aria-expanded="false" aria-controls="kit-choice-panel">
+                            <span class="success-reward-flame">
+                                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                    <path class="success-flame-shape" d="M12.14 2.28c.33 2.2-.45 3.67-1.64 5.13-.62.75-1.24 1.54-1.7 2.55-.58-.9-.82-1.96-.72-3.05C5.4 9.03 4 11.86 4 14.8 4 19.25 7.35 22 12 22s8-2.75 8-7.2c0-3.36-1.7-6.06-4.8-8.26.16 1.9-.34 3.36-1.35 4.42.16-3.38-.35-6.35-1.71-8.68Z" />
+                                    <path class="success-flame-core" d="M12 20c1.65 0 2.77-1.11 2.77-2.65 0-1.25-.57-2.19-1.69-3.1.02 1.12-.37 1.8-1.04 2.25-.28-1.33-.85-2.47-1.68-3.3-.33 1.15-.96 2.01-1.64 2.98-.26.38-.49.8-.49 1.31C8.23 19 9.75 20 12 20Z" />
+                                </svg>
+                                <span class="success-reward-flame-text">1 disponível</span>
                             </span>
-                        </span>
-                        <span class="success-reward-radio" aria-hidden="true"></span>
-                    </button>
+                            <span class="success-reward-media">
+                                <img src="assets/__task____fix_ifood_logo_on_jacket_,_202603260102 (1).webp" alt="Kit Entregador iFood" class="success-reward-image" loading="lazy" decoding="async">
+                            </span>
+                            <span class="success-reward-copy">
+                                <span class="success-reward-title">Kit Entregador iFood</span>
+                                <span class="price-row">
+                                    <span class="old-price">De <s>R$ 449,90</s></span>
+                                    <span class="new-price">R$ 97,90</span>
+                                </span>
+                            </span>
+                            <span class="success-reward-radio" aria-hidden="true"></span>
+                        </button>
+
+                        <div class="success-kit-picker" id="kit-choice-panel" aria-hidden="true">
+                            <h2 class="success-kit-question" aria-live="polite">
+                                <span class="success-kit-question-text" data-text="Qual você quer no seu kit?"></span><span class="success-kit-caret" aria-hidden="true"></span>
+                            </h2>
+                            <div class="success-kit-options" aria-label="Escolha o item do kit">
+                                <button class="success-kit-option" type="button" data-kit-choice="bag" aria-pressed="false">
+                                    <span class="success-kit-option-media">
+                                        <img src="assets/bagfoto.webp" alt="Bag do iFood" loading="lazy" decoding="async">
+                                    </span>
+                                    <span class="success-kit-option-name">Bag</span>
+                                    <span class="success-kit-option-price">+ R$ 0,00</span>
+                                    <span class="success-kit-option-check" aria-hidden="true">&#10003;</span>
+                                </button>
+                                <button class="success-kit-option" type="button" data-kit-choice="bau" aria-pressed="false">
+                                    <span class="success-kit-option-media">
+                                        <img src="assets/__task____isolate_ifood_delivery_box_white_background_,_202603260112 (1).webp" alt="Baú do iFood" loading="lazy" decoding="async">
+                                    </span>
+                                    <span class="success-kit-option-name">Baú</span>
+                                    <span class="success-kit-option-price">+ R$ 39,90</span>
+                                    <span class="success-kit-option-check" aria-hidden="true">&#10003;</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -113,7 +139,7 @@
         <p>&copy; 2026 iFood. Todos os direitos reservados.</p>
     </footer>
 
-    <script src="script.js?v=10.9" defer></script>
+    <script src="script.js?v=11.0" defer></script>
 </body>
 
 </html>

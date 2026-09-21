@@ -1569,6 +1569,14 @@ function initSuccess() {
     const rewardCards = Array.from(document.querySelectorAll('.success-reward-card'));
     const leadName = document.getElementById('lead-name');
     const btnCheckout = document.getElementById('btn-checkout');
+    const kitCard = document.querySelector('[data-reward-id="kit_entregador"]');
+    const kitMain = kitCard?.querySelector('.success-kit-main');
+    const kitPicker = kitCard?.querySelector('.success-kit-picker');
+    const kitQuestionText = kitCard?.querySelector('.success-kit-question-text');
+    const kitChoiceButtons = Array.from(kitCard?.querySelectorAll('[data-kit-choice]') || []);
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+    let kitTypingDelay = null;
+    let kitTypingTimer = null;
     let selectedReward = loadRewardSelection();
 
     if (leadName && personal?.name) {
@@ -1580,18 +1588,75 @@ function initSuccess() {
         rewardCards.forEach((card) => {
             const isSelected = reward?.id === card.dataset.rewardId;
             card.classList.toggle('is-selected', isSelected);
-            card.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+            const pressTarget = card.matches('button') ? card : card.querySelector('.success-kit-main');
+            pressTarget?.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+        });
+        kitChoiceButtons.forEach((button) => {
+            const isSelected = reward?.id === 'kit_entregador' && reward?.kitChoice === button.dataset.kitChoice;
+            button.classList.toggle('is-selected', isSelected);
+            button.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
         });
         if (btnCheckout) btnCheckout.disabled = !reward;
+    };
+
+    const stopKitTyping = () => {
+        if (kitTypingDelay) window.clearTimeout(kitTypingDelay);
+        if (kitTypingTimer) window.clearInterval(kitTypingTimer);
+        kitTypingDelay = null;
+        kitTypingTimer = null;
+    };
+
+    const openKitPicker = ({ animate = true } = {}) => {
+        if (!kitCard || !kitMain || !kitPicker || !kitQuestionText) return;
+        stopKitTyping();
+        kitCard.classList.add('is-kit-picking');
+        kitMain.setAttribute('aria-expanded', 'true');
+        kitPicker.setAttribute('aria-hidden', 'false');
+        kitPicker.classList.remove('is-ready');
+        const question = kitQuestionText.dataset.text || 'Qual você quer no seu kit?';
+
+        if (!animate || reduceMotion) {
+            kitQuestionText.textContent = question;
+            kitPicker.classList.add('is-ready');
+            return;
+        }
+
+        kitQuestionText.textContent = '';
+        kitTypingDelay = window.setTimeout(() => {
+            let index = 0;
+            kitTypingTimer = window.setInterval(() => {
+                index += 1;
+                kitQuestionText.textContent = question.slice(0, index);
+                if (index >= question.length) {
+                    window.clearInterval(kitTypingTimer);
+                    kitTypingTimer = null;
+                    window.setTimeout(() => kitPicker.classList.add('is-ready'), 90);
+                }
+            }, 38);
+        }, 190);
+    };
+
+    const closeKitPicker = () => {
+        if (!kitCard || !kitMain || !kitPicker) return;
+        stopKitTyping();
+        kitCard.classList.remove('is-kit-picking');
+        kitMain.setAttribute('aria-expanded', 'false');
+        kitPicker.setAttribute('aria-hidden', 'true');
+        kitPicker.classList.remove('is-ready');
     };
 
     if (!selectedReward) {
         clearRewardSelection();
     }
     applyRewardState(selectedReward);
+    if (selectedReward?.id === 'kit_entregador') {
+        openKitPicker({ animate: false });
+    }
 
     rewardCards.forEach((card) => {
+        if (card.dataset.rewardId === 'kit_entregador') return;
         card.addEventListener('click', () => {
+            closeKitPicker();
             const previousRewardId = String(selectedReward?.id || '').trim();
             const reward = resolveRewardSelection({
                 id: card.dataset.rewardId,
@@ -1601,6 +1666,38 @@ function initSuccess() {
             if (previousRewardId && previousRewardId !== reward.id) {
                 localStorage.removeItem(STORAGE_KEYS.pix);
             }
+            saveRewardSelection(reward);
+            selectedReward = loadRewardSelection();
+            applyRewardState(selectedReward);
+            trackLead('reward_selected', {
+                stage: 'success',
+                reward: selectedReward,
+                amount: getRewardExtraPrice(selectedReward)
+            });
+        });
+    });
+
+    kitMain?.addEventListener('click', () => {
+        if (!kitCard?.classList.contains('is-kit-picking')) {
+            if (selectedReward) {
+                localStorage.removeItem(STORAGE_KEYS.pix);
+                clearRewardSelection();
+                selectedReward = null;
+                applyRewardState(null);
+            }
+            openKitPicker({ animate: true });
+        }
+    });
+
+    kitChoiceButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+            const reward = resolveRewardSelection({
+                id: 'kit_entregador',
+                kitChoice: button.dataset.kitChoice,
+                selectedAt: Date.now()
+            });
+            if (!reward) return;
+            localStorage.removeItem(STORAGE_KEYS.pix);
             saveRewardSelection(reward);
             selectedReward = loadRewardSelection();
             applyRewardState(selectedReward);
@@ -8899,6 +8996,20 @@ function resolveRewardSelection(value = null) {
     const reward = resolveRewardById(source?.id || source);
     if (!reward) return null;
     const selectedAt = Number(source?.selectedAt || 0);
+    if (reward.id === 'kit_entregador') {
+        const kitChoice = String(source?.kitChoice || 'bag').trim().toLowerCase() === 'bau' ? 'bau' : 'bag';
+        const kitChoiceExtraPrice = kitChoice === 'bau' ? 39.9 : 0;
+        const kitChoiceName = kitChoice === 'bau' ? 'Baú' : 'Bag';
+        return {
+            ...reward,
+            name: `${reward.name} + ${kitChoiceName}`,
+            pixTitle: `${reward.pixTitle} + ${kitChoiceName}`,
+            checkoutExtraPrice: Number((reward.checkoutExtraPrice + kitChoiceExtraPrice).toFixed(2)),
+            kitChoice,
+            kitChoiceExtraPrice,
+            selectedAt: selectedAt > 0 ? selectedAt : 0
+        };
+    }
     return {
         ...reward,
         selectedAt: selectedAt > 0 ? selectedAt : 0
@@ -8943,6 +9054,9 @@ function saveRewardSelection(data) {
         id: reward.id,
         selectedAt: reward.selectedAt > 0 ? reward.selectedAt : Date.now()
     };
+    if (reward.id === 'kit_entregador') {
+        payload.kitChoice = reward.kitChoice;
+    }
     localStorage.setItem(STORAGE_KEYS.reward, JSON.stringify(payload));
 }
 
@@ -9317,7 +9431,10 @@ async function createPixCharge(shipping, bumpPrice, options = {}) {
             sourceUrl: window.location.href,
             utm: getUtmData(),
             shipping: shippingForPix,
-            reward: reward ? { id: reward.id } : null,
+            reward: reward ? {
+                id: reward.id,
+                ...(reward.id === 'kit_entregador' ? { kitChoice: reward.kitChoice } : {})
+            } : null,
             bump: extraCharge > 0 ? { title: 'Seguro Bag', price: extraCharge } : null,
             personal: getPixPersonalPayload(),
             address: getPixAddressPayload(),
@@ -9368,7 +9485,11 @@ async function createPixCharge(shipping, bumpPrice, options = {}) {
                 checkoutExtraPrice: Number(data?.rewardExtraPrice ?? rewardExtraPrice ?? 0),
                 asset: reward.asset,
                 pixTitle: reward.pixTitle,
-                pixAlt: reward.pixAlt
+                pixAlt: reward.pixAlt,
+                ...(reward.id === 'kit_entregador' ? {
+                    kitChoice: reward.kitChoice,
+                    kitChoiceExtraPrice: reward.kitChoiceExtraPrice
+                } : {})
             } : null
         };
         savePix(pixPayload);
