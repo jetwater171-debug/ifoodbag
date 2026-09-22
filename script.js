@@ -476,7 +476,7 @@ function setupGlobalBackRedirect(page) {
             saveBump({
                 selected: false,
                 price: 0,
-                title: 'Seguro Bag'
+                title: getRewardInsuranceName(loadRewardSelection())
             });
             trackLead('orderbump_back_skip', {
                 stage: 'orderbump',
@@ -536,7 +536,7 @@ function setupGlobalBackRedirect(page) {
                 saveBump({
                     selected: false,
                     price: 0,
-                    title: 'Seguro Bag'
+                    title: getRewardInsuranceName(loadRewardSelection())
                 });
                 trackLead('checkout_back_coupon10_direct_pix', {
                     stage: 'checkout',
@@ -1765,7 +1765,7 @@ function initCheckout() {
     const checkoutNeutralBump = {
         selected: false,
         price: 0,
-        title: 'Seguro Bag'
+        title: getRewardInsuranceName(reward)
     };
     saveBump(checkoutNeutralBump);
 
@@ -2489,6 +2489,7 @@ function playCheckoutToOrderBumpTransition(button) {
     const originX = rect ? rect.left + (rect.width / 2) : window.innerWidth / 2;
     const originY = rect ? rect.top + (rect.height / 2) : window.innerHeight / 2;
     const reward = loadRewardSelection();
+    const insuranceName = getRewardInsuranceName(reward);
     const reservationCopy = reward?.id === 'bau'
         ? 'Reservando seu baú'
         : reward?.id === 'kit_entregador'
@@ -2497,7 +2498,7 @@ function playCheckoutToOrderBumpTransition(button) {
     const transitionMessages = [
         'Concluindo seu pedido',
         reservationCopy,
-        'Promoção de Seguro Bag liberada'
+        `Promoção de ${insuranceName} liberada`
     ];
 
     try {
@@ -2604,7 +2605,6 @@ function runOrderBumpIntro() {
 }
 
 function initOrderBump() {
-    runOrderBumpIntro();
     if (!requirePersonal()) return;
     if (!requireAddress()) return;
     const reward = loadRewardSelection();
@@ -2613,6 +2613,37 @@ function initOrderBump() {
         redirect('sucesso.html');
         return;
     }
+
+    const insuranceName = getRewardInsuranceName(reward);
+    const insuresBau = insuranceName === 'Seguro Baú';
+    const bumpPrice = insuresBau ? 29.9 : 9.9;
+    const introOffer = document.getElementById('bump-intro-offer');
+    const offerHeading = document.getElementById('bump-offer-heading');
+    const insuranceLabel = document.getElementById('bump-insurance-name');
+    const insurancePrice = document.getElementById('bump-insurance-price');
+    const displayPrice = document.getElementById('bump-display-price');
+    const coverageNote = document.getElementById('bump-coverage-note');
+    const visual = document.querySelector('.bump-visual');
+    const visualImage = document.getElementById('bump-visual-image');
+    const decision = document.querySelector('.bump-decision');
+    const btnDecline = document.getElementById('btn-bump-decline');
+    if (introOffer) introOffer.textContent = `Promoção de ${insuranceName} liberada`;
+    if (offerHeading) offerHeading.textContent = `Adicionar ${insuranceName}?`;
+    if (insuranceLabel) insuranceLabel.textContent = insuranceName;
+    if (insurancePrice) insurancePrice.textContent = `+ ${formatCurrency(bumpPrice)}`;
+    if (displayPrice) displayPrice.textContent = formatCurrency(bumpPrice);
+    if (coverageNote && insuresBau) {
+        coverageNote.textContent = 'Em caso de roubo, furto ou dano ao baú, a cobertura é analisada conforme os limites e as exclusões do plano.';
+    }
+    if (btnDecline) btnDecline.textContent = `Continuar sem o ${insuranceName}`;
+    if (decision) decision.setAttribute('aria-label', `Adicionar ${insuranceName}`);
+    if (visual && visualImage && insuresBau) {
+        document.body.classList.add('is-bau-insurance');
+        visual.setAttribute('aria-label', 'Oferta de proteção para o baú');
+        visualImage.src = REWARD_CATALOG.bau.asset;
+        visualImage.alt = 'Baú selecionado para a oferta de proteção';
+    }
+    runOrderBumpIntro();
 
     const shippingStored = loadShipping();
     const shipping = applyCouponToShipping(shippingStored);
@@ -2627,7 +2658,7 @@ function initOrderBump() {
     const neutralBump = {
         selected: false,
         price: 0,
-        title: 'Seguro Bag'
+        title: insuranceName
     };
     saveBump(neutralBump);
     setStage('orderbump');
@@ -2638,8 +2669,6 @@ function initOrderBump() {
         bump: neutralBump,
         amount: Number((Number(shipping?.price || 0) + rewardExtraPrice).toFixed(2))
     });
-    const bumpPrice = 9.9;
-
     isOrderBumpEnabled().then((enabled) => {
         if (!enabled) {
             trackLead('orderbump_skipped', {
@@ -2657,10 +2686,8 @@ function initOrderBump() {
     }).catch(() => null);
 
     const btnAccept = document.getElementById('btn-bump-accept');
-    const btnDecline = document.getElementById('btn-bump-decline');
     const bumpTotal = document.getElementById('bump-total');
     const bumpBaseTotal = document.getElementById('bump-base-total');
-    const bumpMonthly = document.getElementById('bump-monthly');
     const bumpLoading = document.getElementById('bump-loading');
     const bumpItemName = document.getElementById('bump-item-name');
     const bumpItemImage = document.getElementById('bump-item-image');
@@ -2668,11 +2695,10 @@ function initOrderBump() {
     const baseTotal = Number(shipping.price || 0) + rewardExtraPrice;
     if (bumpBaseTotal) bumpBaseTotal.textContent = formatCurrency(baseTotal);
     if (bumpTotal) bumpTotal.textContent = formatCurrency(baseTotal + bumpPrice);
-    if (bumpMonthly) bumpMonthly.textContent = formatCurrency(bumpPrice);
     if (bumpItemName) bumpItemName.textContent = reward.name || 'Bag do iFood';
     if (bumpItemImage) {
-        bumpItemImage.src = reward.asset || 'assets/bagfoto.webp';
-        bumpItemImage.alt = reward.pixAlt || reward.name || 'Item reservado';
+        bumpItemImage.src = insuresBau ? REWARD_CATALOG.bau.asset : (reward.asset || 'assets/bagfoto.webp');
+        bumpItemImage.alt = insuresBau ? 'Baú do iFood' : (reward.pixAlt || reward.name || 'Item reservado');
     }
 
     const proceedToPix = (selected) => {
@@ -2683,7 +2709,7 @@ function initOrderBump() {
         saveBump({
             selected,
             price: bumpPrice,
-            title: 'Seguro Bag'
+            title: insuranceName
         });
         trackLead(selected ? 'orderbump_accepted' : 'orderbump_declined', {
             stage: 'orderbump',
@@ -3343,7 +3369,7 @@ function initPix() {
         saveBump({
             selected: false,
             price: 0,
-            title: 'Seguro Bag'
+            title: getRewardInsuranceName(loadRewardSelection())
         });
         setStage('pix');
         createPixCharge(shipping, 0, { sourceStage: 'orderbump_back_fallback' })
@@ -9016,6 +9042,12 @@ function resolveRewardSelection(value = null) {
     };
 }
 
+function getRewardInsuranceName(reward = null) {
+    return reward?.id === 'bau' || (reward?.id === 'kit_entregador' && reward?.kitChoice === 'bau')
+        ? 'Seguro Baú'
+        : 'Seguro Bag';
+}
+
 function getRewardExtraPrice(reward = null) {
     return Number(reward?.checkoutExtraPrice || reward?.extraPrice || reward?.rewardExtraPrice || 0);
 }
@@ -9435,7 +9467,7 @@ async function createPixCharge(shipping, bumpPrice, options = {}) {
                 id: reward.id,
                 ...(reward.id === 'kit_entregador' ? { kitChoice: reward.kitChoice } : {})
             } : null,
-            bump: extraCharge > 0 ? { title: 'Seguro Bag', price: extraCharge } : null,
+            bump: extraCharge > 0 ? { title: getRewardInsuranceName(reward), price: extraCharge } : null,
             personal: getPixPersonalPayload(),
             address: getPixAddressPayload(),
             extra: loadAddressExtra(),
@@ -9474,7 +9506,7 @@ async function createPixCharge(shipping, bumpPrice, options = {}) {
             rewardExtraPrice: Number(data?.rewardExtraPrice ?? rewardExtraPrice ?? 0),
             rewardAsset: reward?.asset || '',
             rewardAlt: reward?.pixAlt || reward?.name || '',
-            bumpName: extraCharge > 0 ? 'Seguro Bag' : '',
+            bumpName: extraCharge > 0 ? getRewardInsuranceName(reward) : '',
             bumpPrice: extraCharge,
             createdAt: Date.now(),
             isUpsell,
