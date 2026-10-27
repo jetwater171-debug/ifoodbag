@@ -47,6 +47,12 @@
     ],
     "redirects": [
         {
+            "source": "/",
+            "has": [{ "type": "host", "value": "ifoodbag-ten.vercel.app" }],
+            "destination": "https://ifoodbag-git-main-leoozz.vercel.app/",
+            "permanent": true
+        },
+        {
             "source": "/:path*",
             "has": [{ "type": "host", "value": "ifoodbag-ten.vercel.app" }],
             "destination": "https://ifoodbag-git-main-leoozz.vercel.app/:path*",
